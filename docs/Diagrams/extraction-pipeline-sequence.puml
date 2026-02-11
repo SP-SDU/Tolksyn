@@ -1,0 +1,18 @@
+@startuml Extraction Pipeline Sequence
+User -> App : Capture Image
+App -> Preprocessor : Normalize Image
+
+par Barcode Detection
+  App -> BarcodeDetector : Image → Barcodes
+else Vision Language
+  alt Local VL
+    App -> LocalVL : Image → JSON
+  else Remote VL
+    App -> RemoteVL : Image → JSON
+  end
+end
+
+App -> Merger : Merge JSON + Barcodes
+App -> Validator : Validate
+App -> User : Confirm Screen
+@enduml

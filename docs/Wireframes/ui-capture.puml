@@ -1,0 +1,10 @@
+@startuml UI Capture Screen
+salt
+{
+  Capture Screen
+  [ Settings ]     [ Gallery ]
+  [ Live Camera Preview / Upload Area ]
+  [ Capture Button ]
+  [ History Thumbnail ]
+}
+@enduml

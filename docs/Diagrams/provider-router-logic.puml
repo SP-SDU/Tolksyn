@@ -1,0 +1,11 @@
+@startuml Provider Router Logic
+App -> Router : Image
+
+alt local_vl
+  Router -> LocalVL : Image → JSON
+else remote_vl
+  Router -> RemoteVL : Image → JSON
+end
+
+Router -> App : Structured Result
+@enduml

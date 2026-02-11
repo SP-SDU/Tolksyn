@@ -1,0 +1,17 @@
+@startuml App State Machine
+hide empty description
+[*] --> Capture
+Capture --> Preprocess
+Preprocess --> Extracting
+Extracting --> Confirm : Success
+Extracting --> ExtractError : Failure
+ExtractError --> Extracting : Retry
+ExtractError --> Capture : Cancel
+Confirm --> Sending : Accept
+Confirm --> Extracting : Retry
+Confirm --> Capture : Deny
+Sending --> Capture : Success
+Sending --> SendError : Failure
+SendError --> Sending : Retry
+SendError --> Confirm : Back
+@enduml

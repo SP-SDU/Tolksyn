@@ -1,0 +1,10 @@
+@startuml UI Confirm & Edit Screen
+salt
+{
+  Confirm & Edit
+  [ Image Preview ]
+  [ Editable Extracted Fields ]
+  [ Editable Barcode Fields ]
+  [ Deny ] [ Try Again ] [ Accept ]
+}
+@enduml

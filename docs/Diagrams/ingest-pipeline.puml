@@ -1,0 +1,10 @@
+@startuml Ingest Pipeline Sequence
+User -> App : Accept JSON
+App -> IngestEndpoint : POST JSON
+
+alt Success
+  App -> Capture
+else Failure
+  App -> ErrorPopup : Retry
+end
+@enduml

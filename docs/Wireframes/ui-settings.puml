@@ -1,0 +1,30 @@
+@startuml UI Settings Screen
+salt
+{
+  Settings
+  == Provider ==
+  [ Provider Dropdown ]
+  [ Base URL ]
+  [ API Key ]
+  [ Model ]
+  [ Mode: local_vl | remote_vl ]
+
+  == Ingest ==
+  [ Ingest URL ]
+  [ Auth Mode ]
+  [ Auth Secret ]
+
+  == Local ==
+  [ Local Runtime: llama.rn ]
+  [ Local Model ID / Path ]
+  [ Max Tokens ]
+  [ Temperature ]
+
+  == Barcode ==
+  [ Enable Barcode Scan ]
+  [ Allowed Symbologies ]
+
+  == Diagnostics ==
+  [ Export Diagnostics Bundle ]
+}
+@enduml
