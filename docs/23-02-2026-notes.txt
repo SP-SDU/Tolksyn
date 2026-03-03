@@ -10,6 +10,11 @@
 - Their system has a label printing part which I assume we are going to omit since we don't have server access
 - We are going to simulate a server we POST to
 
+Images that are used for testing OCR are from:
+AB
+Schneider Electric
+Siemens
+
 Fields used in their system with examples:
 Basic information
 SKU - 
