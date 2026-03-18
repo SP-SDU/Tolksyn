@@ -1,0 +1,90 @@
+@startuml App Pipeline Activity
+skinparam conditionStyle diamond
+skinparam defaultFontName sans-serif
+
+start
+
+:Initialize Capture Session;
+
+partition "1. Acquisition" {
+  if (Source?) then (Camera)
+    :Take Photo;
+  else (Gallery)
+    :Import Image;
+  endif
+  :Store Image Locally;
+}
+
+partition "2. Preprocessing" {
+  :Normalize Image\n(resize, orientation);
+}
+
+partition "3. Parallel Extraction" {
+  fork
+    :Barcode Detection;
+    :Decode Symbologies;
+  fork again
+    :Vision-Language Router;
+    if (Mode?) then (local_vl)
+      :Local Inference\n(llama.rn);
+    else (remote_vl)
+      :Remote VL API Call;
+      if (Response?) then (Success)
+      else (Timeout/Error)
+        if (Fallback?) then (Configured)
+          :Local Inference\n(Fallback);
+        else (None)
+          :Extraction Error;
+        endif
+      endif
+    endif
+  end merge
+}
+
+partition "4. Merge & Validate" {
+  :Deterministic Merge\n(Barcodes override VL);
+  :Normalize Values\n(Dates, Currencies);
+  if (Schema Valid?) then (Yes)
+  else (No)
+    :Flag Invalid Fields;
+  endif
+}
+
+partition "5. Confirmation" {
+  repeat :Review Extracted Data;
+    if (User Action?) then (Edit)
+      :Manually Correct Fields;
+    elseif (User Action?) then (Try Again)
+      :Increment Retry Count;
+      detach
+      note right: Return to Extraction Phase
+    elseif (User Action?) then (Cancel)
+      stop
+    else (Accept)
+      :Finalize JSON Payload;
+      break
+    endif
+  repeat while (Need More Edits?)
+}
+
+partition "6. Ingest Routing" {
+  if (Network Status?) then (Online)
+    :HTTP POST to API;
+    if (Status Code?) then (2xx)
+      :Mark Attempt Sent;
+    else (4xx/5xx)
+      :Show Delivery Error;
+      detach
+      note right: Return to Confirmation
+    endif
+  else (Offline)
+    :Save to Offline Queue;
+    :Background Worker Listens;
+  endif
+}
+
+:Update History (Keep Last 20);
+:Return to Capture Mode;
+
+stop
+@enduml
