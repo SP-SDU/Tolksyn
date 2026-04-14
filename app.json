@@ -38,10 +38,28 @@
             "backgroundColor": "#000000"
           }
         }
-      ]
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow Tolksyn to capture product label images.",
+          "barcodeScannerEnabled": true,
+          "recordAudioAndroid": false
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Allow Tolksyn to capture product label images.",
+          "photosPermission": "Allow Tolksyn to import product label images from your library.",
+          "microphonePermission": false
+        }
+      ],
+      "expo-sqlite",
+      "expo-secure-store"
     ],
     "experiments": {
-      "typedRoutes": true,
+      "typedRoutes": false,
       "reactCompiler": true
     }
   }
