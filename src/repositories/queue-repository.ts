@@ -1,4 +1,4 @@
-import { and, asc, eq, lte, max } from 'drizzle-orm';
+import { asc, eq, max } from 'drizzle-orm';
 import type { ExpoSQLiteDatabase } from 'drizzle-orm/expo-sqlite';
 
 import { queueItemsTable } from '@/db/schema';
@@ -43,12 +43,17 @@ export function createQueueRepository(db: DbLike): QueueRepository & {
       const rows = await db
         .select()
         .from(queueItemsTable)
-        .where(and(eq(queueItemsTable.status, 'queued'), lte(queueItemsTable.nextAttemptAt, now)))
+        .where(eq(queueItemsTable.status, 'queued'))
         .orderBy(asc(queueItemsTable.sequence))
         .limit(1);
       const row = rows[0];
 
-      return row ? deserializeQueueItem(row) : null;
+      if (!row) {
+        return null;
+      }
+
+      const item = deserializeQueueItem(row);
+      return item.nextAttemptAt <= now ? item : null;
     },
 
     async markSent(id) {
