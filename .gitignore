@@ -45,3 +45,6 @@ src-example
 
 # opensrc - source code for packages
 opensrc/
+
+# agent-browser
+dogfood-output/

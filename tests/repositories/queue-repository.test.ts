@@ -57,6 +57,32 @@ describe('queue repository', () => {
       }),
     );
   });
+
+  test('blocks later ready item when queue head is not ready yet', async () => {
+    const db = createTestDb();
+    const repository = createQueueRepository(db as any);
+
+    await repository.enqueue({
+      id: 'queue-1',
+      attemptId: 'attempt-1',
+      acceptedRevision: 1,
+      idempotencyKey: 'key-1',
+      payload: { hello: 'one' },
+      enqueuedAt: 10,
+    });
+    await repository.enqueue({
+      id: 'queue-2',
+      attemptId: 'attempt-2',
+      acceptedRevision: 1,
+      idempotencyKey: 'key-2',
+      payload: { hello: 'two' },
+      enqueuedAt: 11,
+    });
+
+    await repository.reschedule('queue-1', 100, 1, 'network_unavailable');
+
+    expect(await repository.peekReady(50)).toBeNull();
+  });
 });
 
 function createTestDb() {
