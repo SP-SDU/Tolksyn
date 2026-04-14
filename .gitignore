@@ -42,3 +42,6 @@ src-example
 # generated native folders
 /ios
 /android
+
+# opensrc - source code for packages
+opensrc/
