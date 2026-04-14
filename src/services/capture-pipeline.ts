@@ -36,6 +36,7 @@ export async function processImage({
       createdAt: number;
     }): Promise<unknown>;
     saveExtractionResult(attemptId: string, result: ReturnType<typeof mergeExtractionResult>): Promise<unknown>;
+    markFailed?(attemptId: string, errorCode: string): Promise<unknown>;
   };
   barcodeDetector: {
     detect(input: { imageUri: string }): Promise<BarcodeHit[]>;
@@ -51,6 +52,18 @@ export async function processImage({
       structuredJson: Record<string, unknown>;
       barcodes: BarcodeHit[];
       auxiliaryText?: string;
+      responseText?: string;
+      extractionDiagnostics?: {
+        failed: boolean;
+        finalError?: string;
+        fallbackStructuredJson?: boolean;
+        attempts: {
+          attempt: number;
+          prompt: string;
+          responseText?: string;
+          error?: string;
+        }[];
+      };
       metadata: {
         provider: string;
         durationMs: number;
@@ -99,10 +112,16 @@ export async function processImage({
     structuredJson: extracted.structuredJson as ReturnType<typeof mergeExtractionResult>['structuredJson'],
     barcodes: [...(liveBarcodes ?? []), ...detectedBarcodes, ...extracted.barcodes],
     auxiliaryText: extracted.auxiliaryText,
+    responseText: extracted.responseText,
+    extractionDiagnostics: extracted.extractionDiagnostics,
     metadata: extracted.metadata,
   });
 
   await attempts.saveExtractionResult(attemptId, merged);
+
+  if (merged.extractionDiagnostics?.failed && attempts.markFailed) {
+    await attempts.markFailed(attemptId, merged.extractionDiagnostics.finalError || 'extract_failed');
+  }
 
   return { attemptId };
 }

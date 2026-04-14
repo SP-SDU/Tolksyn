@@ -1,5 +1,6 @@
 import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
+import { eq } from 'drizzle-orm';
 
 import * as schema from '@/db/schema';
 import { createAttemptRepository } from '@/repositories/attempt-repository';
@@ -57,6 +58,15 @@ describe('attempt repository', () => {
         imageHeight: 900,
       },
       auxiliaryText: 'Detected text',
+      extractionDiagnostics: {
+        failed: false,
+        attempts: [
+          {
+            attempt: 1,
+            prompt: 'Extract product label data',
+          },
+        ],
+      },
     });
     await repository.markQueued('attempt-1', 1);
 
@@ -70,6 +80,100 @@ describe('attempt repository', () => {
         extractionResult: expect.objectContaining({
           structuredJson: expect.objectContaining({ manufacturer: 'Siemens' }),
         }),
+        extractionDiagnostics: expect.objectContaining({
+          failed: false,
+          attempts: [expect.objectContaining({ attempt: 1 })],
+        }),
+      }),
+    );
+  });
+
+  test('lists recent attempts without parsing malformed JSON columns', async () => {
+    const db = createTestDb();
+    const repository = createAttemptRepository(db as any);
+
+    await repository.create({
+      id: 'attempt-bad-json',
+      source: 'camera',
+      imageUri: 'file://image.jpg',
+      thumbnailUri: 'file://thumb.jpg',
+      createdAt: 200,
+    });
+
+    await db
+      .update(schema.attemptsTable)
+      .set({
+        draftStructuredJson: '"unterminated',
+        extractionResult: '{"structuredJson":',
+      })
+      .where(eq(schema.attemptsTable.id, 'attempt-bad-json'));
+
+    const recent = await repository.listRecent(1);
+
+    expect(recent).toHaveLength(1);
+    expect(recent[0].id).toBe('attempt-bad-json');
+  });
+
+  test('returns empty list when history query fails due to malformed sqlite row', async () => {
+    const db = {
+      select() {
+        throw new SyntaxError('Unterminated string in JSON at position 36');
+      },
+      delete: jest.fn(() => Promise.resolve()),
+    };
+
+    const repository = createAttemptRepository(db as any);
+
+    const recent = await repository.listRecent(20);
+
+    expect(recent).toEqual([]);
+    expect(db.delete).not.toHaveBeenCalled();
+  });
+
+  test('returns base attempt fallback when getById select fails', async () => {
+    const db = {
+      select() {
+        throw new SyntaxError('Unterminated string in JSON at position 36');
+      },
+      query: {
+        attemptsTable: {
+          findFirst: jest.fn().mockResolvedValue({
+            id: 'attempt-fallback',
+            source: 'gallery',
+            imageUri: 'file://image.jpg',
+            thumbnailUri: 'file://thumb.jpg',
+            createdAt: 123,
+            updatedAt: 124,
+            status: 'ready_for_review',
+            acceptedRevision: 0,
+            draftStructuredJson: null,
+            extractionResult: null,
+            errorCode: null,
+          }),
+        },
+      },
+    };
+
+    const repository = createAttemptRepository(db as any);
+    const attempt = await repository.getById('attempt-fallback');
+
+    expect(db.query.attemptsTable.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        columns: expect.objectContaining({
+          id: true,
+          source: true,
+          imageUri: true,
+          thumbnailUri: true,
+        }),
+      }),
+    );
+
+    expect(attempt).toEqual(
+      expect.objectContaining({
+        id: 'attempt-fallback',
+        source: 'gallery',
+        imageUri: 'file://image.jpg',
+        status: 'ready_for_review',
       }),
     );
   });

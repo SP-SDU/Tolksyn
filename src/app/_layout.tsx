@@ -11,6 +11,7 @@ import 'react-native-reanimated';
 
 import { createDb, DATABASE_NAME } from '@/db/client';
 import { AppRuntimeProvider } from '@/providers/app-provider';
+import { ToastProvider } from '@/providers/toast-provider';
 import migrations from '@/drizzle/migrations';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
@@ -53,13 +54,15 @@ function RootLayoutWithDatabase() {
 
   return (
     <AppRuntimeProvider>
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <Stack>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="confirm/[attemptId]" options={{ title: 'Confirm & Edit' }} />
-        </Stack>
-        <StatusBar style="auto" />
-      </ThemeProvider>
+      <ToastProvider>
+        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+          <Stack>
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="confirm/[attemptId]" options={{ title: 'Confirm & Edit' }} />
+          </Stack>
+          <StatusBar style="auto" />
+        </ThemeProvider>
+      </ToastProvider>
     </AppRuntimeProvider>
   );
 }

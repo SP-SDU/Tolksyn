@@ -1,4 +1,5 @@
 import type { StructuredItem } from '@/types/item-schema';
+import type { ExtractionPromptAttempt } from '@/api/providers/remote-extraction-types';
 
 export type BarcodeHit = {
   type: string;
@@ -16,6 +17,12 @@ export type MergeExtractionInput = {
   structuredJson: StructuredItem;
   barcodes: BarcodeHit[];
   auxiliaryText?: string;
+  responseText?: string;
+  extractionDiagnostics?: {
+    failed: boolean;
+    finalError?: string;
+    attempts: ExtractionPromptAttempt[];
+  };
   metadata: ExtractionMetadata;
 };
 

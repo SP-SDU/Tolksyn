@@ -1,12 +1,31 @@
-export type ProviderKind = 'openai_compatible' | 'gemini';
+import type { ProviderAuthMode } from '@/services/provider-catalog';
+
+export type ProviderAuth =
+  | {
+      type: 'api';
+      key: string;
+    }
+  | {
+      type: 'oauth';
+      refresh: string;
+      access: string;
+      expires: number;
+      accountId?: string;
+      enterpriseUrl?: string;
+    };
+
+export type ProviderAuthMap = Record<string, ProviderAuth | undefined>;
 
 export type AppSettings = {
   provider: {
-    kind: ProviderKind;
+    id: string;
     endpointUrl: string;
     model: string;
+    modelVariant: string | null;
     timeoutMs: number;
-    apiKey: string;
+    showExperimentalProviders: boolean;
+    authModeByProvider: Record<string, ProviderAuthMode>;
+    auth: ProviderAuthMap;
   };
   ingest: {
     endpointUrl: string;
@@ -21,11 +40,16 @@ export type AppSettings = {
 export function defaultSettings(): AppSettings {
   return {
     provider: {
-      kind: 'openai_compatible',
-      endpointUrl: 'https://api.openai.com/v1/chat/completions',
-      model: 'gpt-4.1-mini',
+      id: 'openai',
+      endpointUrl: 'https://chatgpt.com/backend-api/codex/responses',
+      model: 'gpt-5.3-codex',
+      modelVariant: null,
       timeoutMs: 6000,
-      apiKey: '',
+      showExperimentalProviders: false,
+      authModeByProvider: {
+        openai: 'oauth',
+      },
+      auth: {},
     },
     ingest: {
       endpointUrl: 'http://10.0.2.2:8787/ingest',

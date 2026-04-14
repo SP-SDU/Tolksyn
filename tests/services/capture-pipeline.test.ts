@@ -63,4 +63,54 @@ describe('processImage', () => {
       }),
     );
   });
+
+  test('marks attempt as extract_failed when extraction diagnostics report fallback', async () => {
+    const create = jest.fn().mockResolvedValue(undefined);
+    const saveExtractionResult = jest.fn().mockResolvedValue(undefined);
+    const markFailed = jest.fn().mockResolvedValue(undefined);
+
+    await processImage({
+      source: 'gallery',
+      inputUri: 'file://input.jpg',
+      now: () => 123,
+      createAttemptId: () => 'attempt-xyz',
+      imageStore: {
+        persistImage: jest.fn().mockResolvedValue({
+          imageUri: 'file://stored.jpg',
+          thumbnailUri: 'file://thumb.jpg',
+          imageBase64: 'abc',
+          mimeType: 'image/jpeg',
+          width: 1200,
+          height: 900,
+        }),
+      },
+      attempts: {
+        create,
+        saveExtractionResult,
+        markFailed,
+      },
+      barcodeDetector: {
+        detect: jest.fn().mockResolvedValue([]),
+      },
+      extractor: {
+        extract: jest.fn().mockResolvedValue({
+          structuredJson: emptyStructuredItem(),
+          barcodes: [],
+          extractionDiagnostics: {
+            failed: true,
+            finalError: 'Provider JSON failed schema validation.',
+            attempts: [],
+          },
+          metadata: {
+            provider: 'remote_openai_codex',
+            durationMs: 1000,
+            imageWidth: 1200,
+            imageHeight: 900,
+          },
+        }),
+      },
+    });
+
+    expect(markFailed).toHaveBeenCalledWith('attempt-xyz', 'Provider JSON failed schema validation.');
+  });
 });

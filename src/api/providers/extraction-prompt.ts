@@ -34,12 +34,15 @@ const structuredFields = [
 export function buildExtractionPrompt() {
   return [
     'Extract product label data to a strict JSON object.',
-    'Return only valid JSON. Do not add markdown, code fences, comments, or prose.',
+    'Return one single complete valid JSON object only. Do not stream partial fragments.',
+    'Do not add markdown, code fences, comments, notes, or prose.',
     'Use top-level keys: structured_json and auxiliary_text_optional.',
     'structured_json must be an object with exactly these keys:',
     structuredFields.join(', '),
     'If a value is unknown, use null.',
     'Use number for numeric fields and string for text fields.',
     'Preserve literal barcode-like strings in text fields like eanOrUpc without formatting changes.',
+    'All keys must be present exactly once. Never omit keys.',
+    'JSON must be parseable by JSON.parse without edits.',
   ].join(' ');
 }
