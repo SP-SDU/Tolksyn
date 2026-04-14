@@ -7,17 +7,19 @@ import { Button } from '@/components/ui/button';
 import { Card, CardTitle } from '@/components/ui/card';
 import { ScreenView } from '@/components/ui/screen';
 import { useAppRuntime } from '@/providers/app-provider';
-import { getUserFacingErrorMessage } from '@/types/user-feedback';
+import { useToast } from '@/providers/toast-provider';
+import { getErrorMessage } from '@/types/app-error';
 import type { BarcodeHit } from '@/utils/merge-extraction-result';
 
 export function CaptureScreen() {
   const runtime = useAppRuntime();
+  const toast = useToast();
   const router = useRouter();
   const cameraRef = useRef<CameraView | null>(null);
   const [permission, requestPermission] = useCameraPermissions();
   const [isProcessing, setIsProcessing] = useState(false);
-  const [barcodeState, setBarcodeState] = useState<'idle' | 'running' | 'done'>('idle');
-  const [extractionState, setExtractionState] = useState<'idle' | 'running' | 'done'>('idle');
+  const [barcodeState, setBarcodeState] = useState<'idle' | 'running' | 'done' | 'failed'>('idle');
+  const [extractionState, setExtractionState] = useState<'idle' | 'running' | 'done' | 'failed'>('idle');
   const [liveBarcodes, setLiveBarcodes] = useState<BarcodeHit[]>([]);
 
   async function handleGalleryImport() {
@@ -29,7 +31,8 @@ export function CaptureScreen() {
 
       await runProcessing({ source: 'gallery', inputUri: uri });
     } catch (error) {
-      Alert.alert('Import failed', getUserFacingErrorMessage(error, 'Unable to import image.'));
+      toast.show({ text: getErrorMessage(error, 'Unable to import image.'), tone: 'error', durationMs: 3200 });
+      Alert.alert('Import failed', getErrorMessage(error, 'Unable to import image.'));
     }
   }
 
@@ -37,6 +40,7 @@ export function CaptureScreen() {
     if (!permission?.granted) {
       const result = await requestPermission();
       if (!result.granted) {
+        toast.show({ text: 'Camera permission is required.', tone: 'warning', durationMs: 2800 });
         Alert.alert('Permission required', 'Camera access is required to capture images.');
         return;
       }
@@ -50,7 +54,8 @@ export function CaptureScreen() {
 
       await runProcessing({ source: 'camera', inputUri: picture.uri, liveBarcodes });
     } catch (error) {
-      Alert.alert('Capture failed', getUserFacingErrorMessage(error, 'Unable to capture image.'));
+      toast.show({ text: getErrorMessage(error, 'Unable to capture image.'), tone: 'error', durationMs: 3200 });
+      Alert.alert('Capture failed', getErrorMessage(error, 'Unable to capture image.'));
     }
   }
 
@@ -63,9 +68,36 @@ export function CaptureScreen() {
     inputUri: string;
     liveBarcodes?: BarcodeHit[];
   }) {
+    const progressId = 'capture-pipeline';
     setIsProcessing(true);
     setBarcodeState('idle');
     setExtractionState('idle');
+
+    let barcode: 'idle' | 'running' | 'done' | 'failed' = 'idle';
+    let extraction: 'idle' | 'running' | 'done' | 'failed' = 'idle';
+    const startedAt = Date.now();
+
+    const formatProgressText = () => {
+      const elapsedSec = Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
+      const elapsed = extraction === 'running' ? ` (${elapsedSec}s)` : '';
+      return `Barcode: ${formatStage(barcode)}\nVision-language: ${formatStage(extraction)}${elapsed}`;
+    };
+
+    toast.progress({
+      id: progressId,
+      text: formatProgressText(),
+      tone: 'info',
+    });
+
+    const timer = setInterval(() => {
+      if (extraction === 'running') {
+        toast.progress({
+          id: progressId,
+          text: formatProgressText(),
+          tone: 'info',
+        });
+      }
+    }, 1000);
 
     try {
       const { attemptId } = await runtime.processImage({
@@ -74,28 +106,58 @@ export function CaptureScreen() {
         liveBarcodes,
         onProgress(stage) {
           if (stage === 'barcode_started') {
+            barcode = 'running';
             setBarcodeState('running');
+            toast.progress({
+              id: progressId,
+              text: formatProgressText(),
+              tone: 'info',
+            });
           }
 
           if (stage === 'barcode_done') {
+            barcode = 'done';
             setBarcodeState('done');
+            toast.progress({
+              id: progressId,
+              text: formatProgressText(),
+              tone: 'info',
+            });
           }
 
           if (stage === 'extraction_started') {
+            extraction = 'running';
             setExtractionState('running');
+            toast.progress({
+              id: progressId,
+              text: formatProgressText(),
+              tone: 'info',
+            });
           }
 
           if (stage === 'extraction_done') {
+            extraction = 'done';
             setExtractionState('done');
+            toast.progress({
+              id: progressId,
+              text: formatProgressText(),
+              tone: 'info',
+            });
           }
         },
       });
 
       setLiveBarcodes([]);
+      toast.progressDone({ id: progressId, text: 'Extraction complete. Opening review.' });
       router.push({ pathname: '/confirm/[attemptId]', params: { attemptId } });
     } catch (error) {
-      Alert.alert('Extraction failed', getUserFacingErrorMessage(error, 'Unable to extract data from image.'));
+      extraction = 'failed';
+      setExtractionState('failed');
+      const message = getErrorMessage(error, 'Unable to extract data from image.');
+      toast.progressFail({ id: progressId, text: `Extraction failed: ${message}` });
+      Alert.alert('Extraction failed', getErrorMessage(error, 'Unable to extract data from image.'));
     } finally {
+      clearInterval(timer);
       setIsProcessing(false);
     }
   }
@@ -177,13 +239,17 @@ export function CaptureScreen() {
   );
 }
 
-function formatStage(stage: 'idle' | 'running' | 'done') {
+function formatStage(stage: 'idle' | 'running' | 'done' | 'failed') {
   if (stage === 'running') {
     return 'running';
   }
 
   if (stage === 'done') {
     return 'done';
+  }
+
+  if (stage === 'failed') {
+    return 'failed';
   }
 
   return 'waiting';

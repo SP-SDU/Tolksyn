@@ -7,7 +7,8 @@ import { createContext, startTransition, useContext, useEffect, useMemo } from '
 import { createIngestTransport } from '@/api/ingest-transport';
 import { createRemoteExtractor } from '@/api/remote-extractor';
 import { createDb } from '@/db/client';
-import { secureSecretStore } from '@/db/secure-store';
+import { attemptsTable, queueItemsTable, settingsTable } from '@/db/schema';
+import { clearWebKeys, secureSecretStore } from '@/db/secure-store';
 import { createAttemptRepository } from '@/repositories/attempt-repository';
 import { createQueueRepository } from '@/repositories/queue-repository';
 import { createSettingsRepository } from '@/repositories/settings-repository';
@@ -15,6 +16,8 @@ import { createBarcodeDetector } from '@/services/barcode-detector';
 import { processImage } from '@/services/capture-pipeline';
 import { importFromGallery } from '@/services/gallery-import';
 import { createImageStore } from '@/services/image-store';
+import { createProviderCatalog } from '@/services/provider-catalog';
+import { createProviderOAuth } from '@/services/provider-oauth';
 import { drainQueue } from '@/services/queue-worker';
 import { createSubmissionService } from '@/services/submission-service';
 import { buildIdempotencyKey } from '@/utils/idempotency';
@@ -60,15 +63,21 @@ export function useAppRuntime() {
 
 function createRuntime(sqlite: Parameters<typeof createDb>[0]) {
   const db = createDb(sqlite);
-  const attempts = createAttemptRepository(db);
+  const attempts = createAttemptRepository(db, sqlite);
   const queue = createQueueRepository(db);
+  const catalog = createProviderCatalog({
+    secrets: secureSecretStore,
+    fetch,
+  });
   const settings = createSettingsRepository({
     db,
     secrets: secureSecretStore,
+    catalog,
   });
   const barcodeDetector = createBarcodeDetector();
   const imageStore = createImageStore();
   const extractor = createRemoteExtractor(settings);
+  const oauth = createProviderOAuth({ fetch });
   const transport = createIngestTransport(settings);
   const submissionService = createSubmissionService({
     attempts,
@@ -94,6 +103,8 @@ function createRuntime(sqlite: Parameters<typeof createDb>[0]) {
     attempts,
     queue,
     settings,
+    providerCatalog: catalog,
+    oauth,
 
     async importFromGallery() {
       return importFromGallery({
@@ -140,6 +151,41 @@ function createRuntime(sqlite: Parameters<typeof createDb>[0]) {
         computeDelayMs: (retryCount) =>
           computeRetryDelayMs({ retryCount, random: Math.random }),
       });
+    },
+
+    async clearLocalData() {
+      try {
+        await db.delete(queueItemsTable);
+      } catch {
+      }
+      try {
+        await db.delete(attemptsTable);
+      } catch {
+      }
+      try {
+        await db.delete(settingsTable);
+      } catch {
+      }
+
+      const secretKeys = [
+        'tolksyn.settings.web',
+        'tolksyn.secret.provider_api_key',
+        'tolksyn.secret.provider_auth',
+        'tolksyn.secret.ingest_api_key',
+        'tolksyn.settings.provider_catalog',
+        'tolksyn.settings.provider_catalog.web',
+      ];
+
+      if (secureSecretStore.deleteItem) {
+        for (const key of secretKeys) {
+          try {
+            await secureSecretStore.deleteItem(key);
+          } catch {
+          }
+        }
+      }
+
+      await clearWebKeys('tolksyn.');
     },
   };
 }

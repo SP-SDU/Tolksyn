@@ -1,6 +1,7 @@
-import { AppError } from '@/types/app-error';
+import { providerHttpStatusToError } from '@/types/app-error';
 import {
   ensureHttps,
+  extractionTimeoutMs,
   normalizeRemoteError,
   parseProviderJsonEnvelope,
 } from '@/api/providers/remote-extraction-shared';
@@ -14,11 +15,15 @@ import type {
 export function createOpenAICompatibleExtractor({ fetch }: { fetch: FetchLike }) {
   return {
     async extract(input: RemoteExtractionInput): Promise<RemoteExtractionResult> {
+      const controller = new AbortController();
+      const timeoutHandle = setTimeout(() => controller.abort(), extractionTimeoutMs(input.timeoutMs));
+
       try {
         const url = ensureHttps(input.endpointUrl);
         const startedAt = Date.now();
         const response = await fetch(url.toString(), {
           method: 'POST',
+          signal: controller.signal,
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${input.apiKey}`,
@@ -32,7 +37,7 @@ export function createOpenAICompatibleExtractor({ fetch }: { fetch: FetchLike })
                 content: [
                   {
                     type: 'text',
-                    text: buildExtractionPrompt(),
+                    text: input.prompt ?? buildExtractionPrompt(),
                   },
                   {
                     type: 'image_url',
@@ -47,7 +52,7 @@ export function createOpenAICompatibleExtractor({ fetch }: { fetch: FetchLike })
         });
 
         if (!response.ok) {
-          throw httpStatusToError(response.status);
+          throw await providerHttpStatusToError(response);
         }
 
         const payload = (await response.json()) as {
@@ -55,11 +60,13 @@ export function createOpenAICompatibleExtractor({ fetch }: { fetch: FetchLike })
         };
         const content = payload.choices?.[0]?.message?.content;
         const parsed = parseProviderJsonEnvelope(content);
+        const responseText = typeof content === 'string' ? content : JSON.stringify(content ?? null);
 
         return {
           structuredJson: parsed.structuredJson,
           barcodes: [],
           auxiliaryText: parsed.auxiliaryText,
+          responseText,
           metadata: {
             provider: 'remote_openai_compatible',
             durationMs: Math.max(1, Date.now() - startedAt),
@@ -69,23 +76,9 @@ export function createOpenAICompatibleExtractor({ fetch }: { fetch: FetchLike })
         };
       } catch (error) {
         throw normalizeRemoteError(error);
+      } finally {
+        clearTimeout(timeoutHandle);
       }
     },
   };
-}
-
-function httpStatusToError(status: number): AppError {
-  if (status === 401 || status === 403) {
-    return new AppError('auth_failed', 'Provider authentication failed.');
-  }
-
-  if (status === 429) {
-    return new AppError('rate_limited', 'Provider rate limited the request.');
-  }
-
-  if (status >= 500) {
-    return new AppError('network_unavailable', 'Provider is temporarily unavailable.');
-  }
-
-  return new AppError('invalid_response', 'Provider returned an unexpected response.');
 }

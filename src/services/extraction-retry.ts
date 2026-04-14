@@ -1,0 +1,127 @@
+import { buildExtractionPrompt } from '@/api/providers/extraction-prompt';
+import { providerErrorMessage } from '@/api/providers/remote-extraction-shared';
+import type {
+  ExtractionPromptAttempt,
+  RemoteExtractionInput,
+  RemoteExtractionResult,
+} from '@/api/providers/remote-extraction-types';
+import { AppError } from '@/types/app-error';
+import { emptyStructuredItem } from '@/types/item-schema';
+
+const MAX_EXTRACTION_ATTEMPTS = 3;
+
+export async function extractWithRetries({
+  input,
+  extract,
+}: {
+  input: RemoteExtractionInput;
+  extract: (input: RemoteExtractionInput) => Promise<RemoteExtractionResult>;
+}): Promise<RemoteExtractionResult> {
+  const attempts: ExtractionPromptAttempt[] = [];
+  let prompt = buildExtractionPrompt();
+  let lastError = '';
+  let lastResponseText = '';
+
+  for (let index = 1; index <= MAX_EXTRACTION_ATTEMPTS; index += 1) {
+    try {
+      const result = await extract({
+        ...input,
+        prompt,
+      });
+      attempts.push({
+        attempt: index,
+        prompt,
+        responseText: result.responseText,
+      });
+
+      return {
+        ...result,
+        extractionDiagnostics: {
+          failed: false,
+          attempts,
+        },
+      };
+    } catch (error) {
+      const code = error instanceof AppError ? error.code : 'internal';
+      const message = providerErrorMessage(error);
+      attempts.push({
+        attempt: index,
+        prompt,
+        responseText: lastResponseText,
+        error: message,
+      });
+
+      if (!isRetryable(code) || index >= MAX_EXTRACTION_ATTEMPTS) {
+        return {
+          structuredJson: emptyStructuredItem(),
+          barcodes: [],
+          metadata: {
+            provider: 'remote_openai_compatible',
+            durationMs: 1,
+            imageWidth: input.imageWidth ?? 0,
+            imageHeight: input.imageHeight ?? 0,
+          },
+          extractionDiagnostics: {
+            failed: true,
+            finalError: message,
+            fallbackStructuredJson: true,
+            attempts,
+          },
+        };
+      }
+
+      lastError = message;
+      lastResponseText = '';
+      prompt = buildRepairPrompt({
+        basePrompt: buildExtractionPrompt(),
+        attempt: index + 1,
+        error: lastError,
+        previousResponse: lastResponseText,
+      });
+    }
+  }
+
+  return {
+    structuredJson: emptyStructuredItem(),
+    barcodes: [],
+    metadata: {
+      provider: 'remote_openai_compatible',
+      durationMs: 1,
+      imageWidth: input.imageWidth ?? 0,
+      imageHeight: input.imageHeight ?? 0,
+    },
+    extractionDiagnostics: {
+      failed: true,
+      finalError: lastError || 'Extraction failed.',
+      fallbackStructuredJson: true,
+      attempts,
+    },
+  };
+}
+
+function isRetryable(code: AppError['code']) {
+  return ['schema_violation', 'invalid_response', 'internal', 'extraction_fallback'].includes(code);
+}
+
+function buildRepairPrompt({
+  basePrompt,
+  attempt,
+  error,
+  previousResponse,
+}: {
+  basePrompt: string;
+  attempt: number;
+  error: string;
+  previousResponse: string;
+}) {
+  return [
+    basePrompt,
+    `RETRY ATTEMPT ${attempt}.`,
+    `Previous error: ${error}`,
+    'Fix your previous output and return one single valid JSON object only.',
+    'No markdown, no prose, no code fences, no partial fragments.',
+    previousResponse ? `Previous invalid output: ${previousResponse.slice(0, 1500)}` : null,
+  ]
+    .filter(Boolean)
+    .join(' ');
+}

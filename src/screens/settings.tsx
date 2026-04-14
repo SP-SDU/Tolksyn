@@ -1,175 +1,800 @@
 import { useFocusEffect } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
-import { Alert, Switch, Text, View } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
+import { Copy } from 'lucide-react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Alert, Platform, ScrollView, Switch, Text, View } from 'react-native';
 
 import { Button } from '@/components/ui/button';
 import { Input, LabeledInput } from '@/components/ui/input';
 import { Screen, ScreenTitle } from '@/components/ui/screen';
 import { Section } from '@/components/ui/section';
 import { useAppRuntime } from '@/providers/app-provider';
-import { defaultSettings, type AppSettings } from '@/types/settings';
-import { getUserFacingErrorMessage } from '@/types/user-feedback';
+import { useToast } from '@/providers/toast-provider';
+import { isExperimentalProvider } from '@/services/provider-catalog';
+import type { ProviderAuthMode, ProviderItem, ProviderModel } from '@/services/provider-catalog';
+import type { OAuthFlow } from '@/services/provider-oauth';
+import { getErrorMessage } from '@/types/app-error';
+import { defaultSettings, type AppSettings, type ProviderAuth } from '@/types/settings';
+
+type OAuthState = {
+  busy: boolean;
+  flow?: OAuthFlow;
+  status?: string;
+};
 
 export function SettingsScreen() {
   const runtime = useAppRuntime();
-  const [settings, setSettings] = useState<AppSettings>(defaultSettings());
-  const [isSaving, setIsSaving] = useState(false);
+  const toast = useToast();
+  const [saved, setSaved] = useState<AppSettings>(defaultSettings());
+  const [draft, setDraft] = useState<AppSettings>(defaultSettings());
+  const [providers, setProviders] = useState<ProviderItem[]>([]);
+  const [models, setModels] = useState<ProviderModel[]>([]);
+  const [thinkingLevels, setThinkingLevels] = useState<string[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [clearing, setClearing] = useState(false);
+  const [oauth, setOauth] = useState<OAuthState>({ busy: false });
+  const [providerOpen, setProviderOpen] = useState(false);
+  const [modelOpen, setModelOpen] = useState(false);
+  const [thinkingOpen, setThinkingOpen] = useState(false);
+  const [query, setQuery] = useState('');
 
-  const loadSettings = useCallback(() => {
+  const load = useCallback(() => {
     let active = true;
 
-    void runtime.settings.getSettings().then((next) => {
-      if (active) {
-        setSettings(next);
+    void (async () => {
+      try {
+        const [nextSettings, nextProviders] = await Promise.all([
+          runtime.settings.getSettings(),
+          runtime.providerCatalog.all(),
+        ]);
+
+        if (!active) {
+          return;
+        }
+
+        setSaved(cloneSettings(nextSettings));
+        setDraft(cloneSettings(nextSettings));
+        setProviders(nextProviders);
+        setOauth({ busy: false });
+        setProviderOpen(false);
+        setModelOpen(false);
+        setThinkingOpen(false);
+        setQuery('');
+      } catch (error) {
+        if (active) {
+          Alert.alert('Settings failed', getErrorMessage(error, 'Unable to load settings.'));
+        }
       }
-    });
+    })();
 
     return () => {
       active = false;
     };
   }, [runtime]);
 
-  useFocusEffect(loadSettings);
-  useEffect(loadSettings, [loadSettings]);
+  useFocusEffect(load);
+  useEffect(load, [load]);
 
-  async function save() {
-    setIsSaving(true);
+  const id = draft.provider.id;
+
+  useEffect(() => {
+    let active = true;
+
+    void runtime.providerCatalog.modelOptions(id, draft.provider.authModeByProvider[id]).then((nextModels) => {
+      if (!active) {
+        return;
+      }
+
+      setModels(nextModels);
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [draft.provider.authModeByProvider, id, runtime]);
+
+  useEffect(() => {
+    let active = true;
+
+    void runtime.providerCatalog.thinkingLevels(id, draft.provider.model, draft.provider.authModeByProvider[id]).then((nextLevels) => {
+      if (!active) {
+        return;
+      }
+
+      setThinkingLevels(nextLevels);
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [draft.provider.authModeByProvider, draft.provider.model, id, runtime]);
+
+  const methods = runtime.providerCatalog.authMethods(id);
+  const mode = draft.provider.authModeByProvider[id] ?? methods[0];
+  const auth = draft.provider.auth[id];
+  const key = auth?.type === 'api' ? auth.key : '';
+  const connected = auth?.type === 'oauth';
+  const supported = runtime.providerCatalog.isSupportedProvider(id);
+  const providerName = providers.find((item) => item.id === id)?.name ?? id;
+  const modelName = models.find((item) => item.id === draft.provider.model)?.name ?? draft.provider.model;
+  const visibleProviders = useMemo(() => {
+    if (draft.provider.showExperimentalProviders) {
+      return providers;
+    }
+
+    return providers.filter((item) => !isExperimentalProvider(item.id));
+  }, [providers, draft.provider.showExperimentalProviders]);
+  const list = useMemo(() => {
+    const value = query.trim().toLowerCase();
+    if (!value) {
+      return visibleProviders;
+    }
+
+    return visibleProviders.filter((item) => `${item.name} ${item.id}`.toLowerCase().includes(value));
+  }, [visibleProviders, query]);
+  const dirty = useMemo(() => JSON.stringify(saved) !== JSON.stringify(draft), [saved, draft]);
+
+  const valid = useMemo(() => {
+    if (!draft.provider.endpointUrl.trim() || !draft.provider.model.trim() || draft.provider.timeoutMs <= 0) {
+      return false;
+    }
+
+    if (mode === 'api' && !key.trim()) {
+      return false;
+    }
+
+    if (mode === 'oauth' && !connected) {
+      return false;
+    }
+
+    // || !draft.ingest.apiKey.trim() is not used as it blocks oauth providers
+    if (!draft.ingest.endpointUrl.trim()) {
+      return false;
+    }
+
+    return true;
+  }, [draft, mode, key, connected]);
+
+  const applyHint = useMemo(() => {
+    if (!dirty) {
+      return null;
+    }
+
+    if (!draft.provider.endpointUrl.trim()) {
+      return 'Provider endpoint is required.';
+    }
+    if (!draft.provider.model.trim()) {
+      return 'Model is required.';
+    }
+    if (draft.provider.timeoutMs <= 0) {
+      return 'Timeout must be greater than 0.';
+    }
+    if (mode === 'api' && !key.trim()) {
+      return 'API key is required for API mode.';
+    }
+    if (mode === 'oauth' && !connected) {
+      return 'OAuth must be connected before applying.';
+    }
+    if (!draft.ingest.endpointUrl.trim()) {
+      return 'Ingest endpoint is required.';
+    }
+    if (!draft.ingest.apiKey.trim()) {
+      return 'Ingest x-api-key is required.';
+    }
+
+    return null;
+  }, [connected, dirty, draft.ingest.apiKey, draft.ingest.endpointUrl, draft.provider.endpointUrl, draft.provider.model, draft.provider.timeoutMs, key, mode]);
+
+  async function apply(next?: AppSettings) {
+    const payload = next ?? draft;
+
+    setSaving(true);
+
     try {
-      await runtime.settings.saveSettings({
-        ...settings,
-        barcode: {
-          ...settings.barcode,
-          allowedTypes: settings.barcode.allowedTypes.filter(Boolean),
-        },
-      });
-      Alert.alert('Saved', 'Settings updated.');
+      const normalized = normalizeForSave(payload);
+      await runtime.settings.saveSettings(normalized);
+      const fresh = await runtime.settings.getSettings();
+      setSaved(cloneSettings(fresh));
+      setDraft(cloneSettings(fresh));
+      setOauth({ busy: false, status: 'Settings applied.' });
+      toast.show({ text: 'Settings applied.', tone: 'success' });
+      setProviderOpen(false);
+      setModelOpen(false);
+      setThinkingOpen(false);
+      setQuery('');
     } catch (error) {
-      Alert.alert('Save failed', getUserFacingErrorMessage(error, 'Unable to save settings.'));
+      Alert.alert('Apply failed', getErrorMessage(error, 'Unable to apply settings.'));
     } finally {
-      setIsSaving(false);
+      setSaving(false);
+    }
+  }
+
+  function cancel() {
+    setDraft(cloneSettings(saved));
+    setOauth({ busy: false, status: 'Changes discarded.' });
+    toast.show({ text: 'Changes discarded.', tone: 'info' });
+    setProviderOpen(false);
+    setModelOpen(false);
+    setThinkingOpen(false);
+    setQuery('');
+  }
+
+  async function startOAuth() {
+    try {
+      setOauth({ busy: true, status: undefined });
+      const flow = await runtime.oauth.start(id);
+      setOauth({ busy: false, flow, status: flow.instructions });
+      await WebBrowser.openBrowserAsync(flow.url);
+    } catch (error) {
+      setOauth({ busy: false });
+      toast.show({
+        text: getErrorMessage(error, 'Unable to start OAuth flow.'),
+        tone: 'error',
+        durationMs: 3200,
+      });
+      Alert.alert('OAuth failed', getErrorMessage(error, 'Unable to start OAuth flow.'));
+    }
+  }
+
+  async function completeOAuth() {
+    if (!oauth.flow) {
+      return;
+    }
+
+    try {
+      setOauth((current) => ({ ...current, busy: true, status: 'Waiting for provider confirmation...' }));
+      const token = await oauth.flow.complete();
+      const next = cloneSettings(draft);
+      next.provider.auth[id] = token;
+      next.provider.authModeByProvider[id] = 'oauth';
+      setDraft(next);
+      setOauth({ busy: false, status: 'OAuth connected. Applied.' });
+      await apply(next);
+    } catch (error) {
+      setOauth({ busy: false });
+      toast.show({
+        text: getErrorMessage(error, 'Unable to complete OAuth flow.'),
+        tone: 'error',
+        durationMs: 3200,
+      });
+      Alert.alert('OAuth failed', getErrorMessage(error, 'Unable to complete OAuth flow.'));
+    }
+  }
+
+  async function selectProvider(nextId: string) {
+    try {
+      const nextMethods = runtime.providerCatalog.authMethods(nextId);
+      const nextMode = draft.provider.authModeByProvider[nextId] ?? nextMethods[0];
+      const defaults = await runtime.providerCatalog.defaultsFor(nextId, nextMode);
+      const nextDraft = cloneSettings(draft);
+      nextDraft.provider.id = nextId;
+      nextDraft.provider.endpointUrl = defaults.endpointUrl;
+      nextDraft.provider.model = defaults.model;
+      nextDraft.provider.modelVariant = null;
+      nextDraft.provider.authModeByProvider[nextId] = nextMode;
+      setDraft(nextDraft);
+      setOauth({ busy: false });
+      setProviderOpen(false);
+      setModelOpen(false);
+      setThinkingOpen(false);
+      setQuery('');
+    } catch (error) {
+      Alert.alert('Provider failed', getErrorMessage(error, 'Unable to select provider.'));
+    }
+  }
+
+  async function setMode(next: ProviderAuthMode) {
+    const nextDraft = cloneSettings(draft);
+    nextDraft.provider.authModeByProvider[id] = next;
+
+    try {
+      const defaults = await runtime.providerCatalog.defaultsFor(id, next);
+      nextDraft.provider.endpointUrl = defaults.endpointUrl;
+      const options = await runtime.providerCatalog.modelOptions(id, next);
+      if (!options.some((item) => item.id === nextDraft.provider.model)) {
+        nextDraft.provider.model = defaults.model;
+        nextDraft.provider.modelVariant = null;
+      }
+      setModels(options);
+      setThinkingLevels(await runtime.providerCatalog.thinkingLevels(id, nextDraft.provider.model, next));
+      setDraft(nextDraft);
+    } catch {
+      setDraft(nextDraft);
+    }
+  }
+
+  function setApiKey(value: string) {
+    const nextDraft = cloneSettings(draft);
+    nextDraft.provider.auth[id] = {
+      type: 'api',
+      key: value,
+    };
+    setDraft(nextDraft);
+  }
+
+  async function selectModel(modelId: string) {
+    try {
+      const nextLevels = await runtime.providerCatalog.thinkingLevels(id, modelId, draft.provider.authModeByProvider[id]);
+      const nextDraft = cloneSettings(draft);
+      nextDraft.provider.model = modelId;
+      if (nextDraft.provider.modelVariant && !nextLevels.includes(nextDraft.provider.modelVariant)) {
+        nextDraft.provider.modelVariant = null;
+      }
+      setDraft(nextDraft);
+      setThinkingLevels(nextLevels);
+      setModelOpen(false);
+      setThinkingOpen(false);
+    } catch (error) {
+      Alert.alert('Model failed', getErrorMessage(error, 'Unable to select model.'));
+    }
+  }
+
+  function selectThinkingLevel(value: string | null) {
+    const nextDraft = cloneSettings(draft);
+    nextDraft.provider.modelVariant = value;
+    setDraft(nextDraft);
+    setThinkingOpen(false);
+  }
+
+  async function copy(text: string) {
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard) {
+        await navigator.clipboard.writeText(text);
+      }
+
+      setOauth((state) => ({ ...state, status: 'Copied.' }));
+      toast.show({ text: 'Copied.', tone: 'success' });
+    } catch {
+      setOauth((state) => ({ ...state, status: 'Copy failed. Copy manually.' }));
+      toast.show({ text: 'Copy failed. Copy manually.', tone: 'warning', durationMs: 2800 });
+    }
+  }
+
+  function clearLocalData() {
+    const title = 'Clear local data?';
+    const message =
+      'This will remove local attempts, queue, settings, auth tokens, and cached provider catalog on this device.';
+
+    if (Platform.OS === 'web') {
+      const ok = typeof window !== 'undefined' ? window.confirm(`${title}\n\n${message}`) : true;
+      if (ok) {
+        void performClearLocalData();
+      }
+      return;
+    }
+
+    Alert.alert(
+      title,
+      message,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Clear',
+          style: 'destructive',
+          onPress: () => {
+            void performClearLocalData();
+          },
+        },
+      ],
+    );
+  }
+
+  async function performClearLocalData() {
+    setClearing(true);
+    try {
+      await runtime.clearLocalData();
+      const defaults = cloneSettings(defaultSettings());
+      const nextProviders = await runtime.providerCatalog.all(true);
+      setSaved(defaults);
+      setDraft(defaults);
+      setProviders(nextProviders);
+      setModels(await runtime.providerCatalog.modelOptions(defaults.provider.id, defaults.provider.authModeByProvider[defaults.provider.id]));
+      setThinkingLevels(
+        await runtime.providerCatalog.thinkingLevels(
+          defaults.provider.id,
+          defaults.provider.model,
+          defaults.provider.authModeByProvider[defaults.provider.id],
+        ),
+      );
+      setOauth({ busy: false, status: 'Local data cleared.' });
+      toast.show({ text: 'All local app data cleared.', tone: 'success', durationMs: 2800 });
+      setProviderOpen(false);
+      setModelOpen(false);
+      setThinkingOpen(false);
+      setQuery('');
+    } catch (error) {
+      Alert.alert('Clear failed', getErrorMessage(error, 'Unable to clear local data.'));
+    } finally {
+      setClearing(false);
     }
   }
 
   return (
-    <Screen className="gap-4">
-      <ScreenTitle title="Settings" />
+    <View className="flex-1 bg-background">
+      <Screen className="gap-4 pb-28">
+        <ScreenTitle title="Settings" subtitle="Review changes and apply when ready." />
 
-      <Section title="Provider">
-        <View className="flex-row gap-2">
+        <Section title="Provider">
+          <View className="flex-row items-center justify-between">
+            <Text className="text-sm font-semibold text-slate-700">Show experimental providers</Text>
+            <Switch
+              value={draft.provider.showExperimentalProviders}
+              onValueChange={(value) => {
+                const next = cloneSettings(draft);
+                next.provider.showExperimentalProviders = value;
+                setDraft(next);
+              }}
+            />
+          </View>
+
+          <View className="gap-1.5">
+            <Text className="text-sm font-semibold text-slate-700">Provider</Text>
+            <Button
+              variant="secondary"
+              className="items-start rounded-xl"
+              label={`${providerName} (${id})`}
+              onPress={() => {
+                setProviderOpen((current) => !current);
+                setModelOpen(false);
+                setThinkingOpen(false);
+              }}
+            />
+            {providerOpen ? (
+              <View className="max-h-56 gap-2 rounded-xl border border-border bg-background p-2">
+                <Input value={query} placeholder="Search providers" onChangeText={setQuery} />
+                <ScrollView>
+                  <View className="gap-2">
+                    {list.map((item) => (
+                      <Button
+                        key={item.id}
+                        variant={item.id === id ? 'primary' : 'secondary'}
+                        size="sm"
+                        className="justify-start rounded-lg px-3"
+                        textClassName="text-left text-sm"
+                        label={`${item.name} (${item.id})`}
+                        onPress={() => selectProvider(item.id)}
+                      />
+                    ))}
+                    {!list.length ? <Text className="px-1 text-xs text-slate-600">No providers match.</Text> : null}
+                  </View>
+                </ScrollView>
+              </View>
+            ) : null}
+          </View>
+
+          <Text className="text-xs text-slate-600">
+            {supported
+              ? 'Supported for extraction in this app.'
+              : 'Configured providers are saved, but this provider is not yet supported for extraction.'}
+          </Text>
+
+          <View className="gap-1.5">
+            <Text className="text-sm font-semibold text-slate-700">Model</Text>
+            <Button
+              variant="secondary"
+              className="items-start rounded-xl"
+              label={modelName || 'Select model'}
+              onPress={() => {
+                setModelOpen((current) => !current);
+                setProviderOpen(false);
+                setThinkingOpen(false);
+              }}
+            />
+            {modelOpen ? (
+              <View className="max-h-56 gap-2 rounded-xl border border-border bg-background p-2">
+                <ScrollView>
+                  <View className="gap-2">
+                    {models.map((item) => (
+                      <Button
+                        key={item.id}
+                        variant={item.id === draft.provider.model ? 'primary' : 'secondary'}
+                        size="sm"
+                        className="justify-start rounded-lg px-3"
+                        textClassName="text-left text-sm"
+                        label={`${item.name} (${item.id})`}
+                        onPress={() => selectModel(item.id)}
+                      />
+                    ))}
+                    {!models.length ? <Text className="px-1 text-xs text-slate-600">No models available.</Text> : null}
+                  </View>
+                </ScrollView>
+              </View>
+            ) : null}
+          </View>
+
+          {thinkingLevels.length ? (
+            <View className="gap-1.5">
+              <Text className="text-sm font-semibold text-slate-700">Thinking</Text>
+              <Button
+                variant="secondary"
+                className="items-start rounded-xl"
+                label={draft.provider.modelVariant ? formatThinkingLevel(draft.provider.modelVariant) : 'Auto'}
+                onPress={() => {
+                  setThinkingOpen((current) => !current);
+                  setProviderOpen(false);
+                  setModelOpen(false);
+                }}
+              />
+              {thinkingOpen ? (
+                <View className="max-h-56 gap-2 rounded-xl border border-border bg-background p-2">
+                  <ScrollView>
+                    <View className="gap-2">
+                      <Button
+                        variant={draft.provider.modelVariant == null ? 'primary' : 'secondary'}
+                        size="sm"
+                        className="justify-start rounded-lg px-3"
+                        textClassName="text-left text-sm"
+                        label="Auto"
+                        onPress={() => selectThinkingLevel(null)}
+                      />
+                      {thinkingLevels.map((item) => (
+                        <Button
+                          key={item}
+                          variant={draft.provider.modelVariant === item ? 'primary' : 'secondary'}
+                          size="sm"
+                          className="justify-start rounded-lg px-3"
+                          textClassName="text-left text-sm"
+                          label={formatThinkingLevel(item)}
+                          onPress={() => selectThinkingLevel(item)}
+                        />
+                      ))}
+                    </View>
+                  </ScrollView>
+                </View>
+              ) : null}
+            </View>
+          ) : null}
+
+          <LabeledInput
+            label="Endpoint URL"
+            value={draft.provider.endpointUrl}
+            onChangeText={(value) => {
+              const next = cloneSettings(draft);
+              next.provider.endpointUrl = value;
+              setDraft(next);
+            }}
+          />
+          <LabeledInput
+            label="Timeout (ms)"
+            keyboardType="number-pad"
+            value={String(draft.provider.timeoutMs)}
+            onChangeText={(value) => {
+              const next = cloneSettings(draft);
+              next.provider.timeoutMs = Number(value) || 0;
+              setDraft(next);
+            }}
+          />
+
+          {methods.length > 1 ? (
+            <View className="flex-row gap-2">
+              {methods.map((item) => (
+                <Button
+                  key={item}
+                  variant={mode === item ? 'primary' : 'secondary'}
+                  size="sm"
+                  className="flex-1 rounded-xl"
+                  label={item === 'api' ? 'API Key' : 'OAuth'}
+                  onPress={() => setMode(item)}
+                />
+              ))}
+            </View>
+          ) : null}
+
+          {mode === 'api' ? (
+            <LabeledInput label="API Key" secureTextEntry value={key} onChangeText={setApiKey} />
+          ) : (
+            <View className="gap-2 rounded-xl border border-border bg-background p-3">
+              <Text className="text-sm font-semibold text-slate-700">OAuth</Text>
+              <Text className="text-xs text-slate-600">
+                Go to the verification URL, enter the code, then complete authorization.
+              </Text>
+
+              {oauth.flow ? (
+                <>
+                  <View className="gap-1.5">
+                    <Text className="text-sm font-semibold text-slate-700">Verification URL</Text>
+                    <View className="flex-row items-center gap-2">
+                      <Input value={oauth.flow.url} editable={false} className="flex-1" />
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        className="h-11 w-11 rounded-xl px-0"
+                        onPress={() => copy(oauth.flow?.url ?? '')}>
+                        <Copy size={18} color="#0f172a" />
+                      </Button>
+                    </View>
+                  </View>
+
+                  <View className="gap-1.5">
+                    <Text className="text-sm font-semibold text-slate-700">Code</Text>
+                    <View className="flex-row items-center gap-2">
+                      <Input value={oauth.flow.code} editable={false} className="flex-1" />
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        className="h-11 w-11 rounded-xl px-0"
+                        onPress={() => copy(oauth.flow?.code ?? '')}>
+                        <Copy size={18} color="#0f172a" />
+                      </Button>
+                    </View>
+                  </View>
+                </>
+              ) : null}
+
+              {connected ? <Text className="text-xs text-emerald-700">Connected.</Text> : null}
+              {oauth.status ? <Text className="text-xs text-slate-600">{oauth.status}</Text> : null}
+
+              <View className="flex-row gap-2">
+                <Button
+                  variant="secondary"
+                  className="flex-1"
+                  label="Start OAuth"
+                  disabled={oauth.busy}
+                  onPress={startOAuth}
+                />
+                <Button
+                  className="flex-1"
+                  label={oauth.busy ? 'Waiting…' : 'Complete OAuth'}
+                  disabled={!oauth.flow || oauth.busy}
+                  onPress={completeOAuth}
+                />
+              </View>
+            </View>
+          )}
+        </Section>
+
+        <Section title="Ingest">
+          <LabeledInput
+            label="Endpoint URL"
+            value={draft.ingest.endpointUrl}
+            onChangeText={(value) => {
+              const next = cloneSettings(draft);
+              next.ingest.endpointUrl = value;
+              setDraft(next);
+            }}
+          />
+          <LabeledInput
+            label="x-api-key"
+            secureTextEntry
+            value={draft.ingest.apiKey}
+            onChangeText={(value) => {
+              const next = cloneSettings(draft);
+              next.ingest.apiKey = value;
+              setDraft(next);
+            }}
+          />
+        </Section>
+
+        <Section title="Barcode">
+          <View className="flex-row items-center justify-between">
+            <Text className="text-sm font-semibold text-slate-700">Enable local barcode scan</Text>
+            <Switch
+              value={draft.barcode.enabled}
+              onValueChange={(value) => {
+                const next = cloneSettings(draft);
+                next.barcode.enabled = value;
+                setDraft(next);
+              }}
+            />
+          </View>
+          <View className="gap-1.5">
+            <Text className="text-sm font-semibold text-slate-700">Allowed types (comma-separated)</Text>
+            <Input
+              value={draft.barcode.allowedTypes.join(', ')}
+              onChangeText={(value) => {
+                const next = cloneSettings(draft);
+                next.barcode.allowedTypes = value
+                  .split(',')
+                  .map((item) => item.trim())
+                  .filter(Boolean);
+                setDraft(next);
+              }}
+            />
+          </View>
+        </Section>
+
+        <Section title="App Data">
+          <Text className="text-sm text-slate-600">
+            Reset this app on this device by clearing local history, queue, settings, tokens, and provider cache.
+          </Text>
           <Button
-            variant={settings.provider.kind === 'openai_compatible' ? 'primary' : 'secondary'}
-            size="sm"
-            className="flex-1 rounded-xl"
-            label="OpenAI-compatible"
-            onPress={() =>
-              setSettings((current) => ({
-                ...current,
-                provider: { ...current.provider, kind: 'openai_compatible' },
-              }))
-            }
+            variant="secondary"
+            className="rounded-xl border-red-200 bg-red-50"
+            textClassName="text-red-700"
+            label={clearing ? 'Clearing…' : 'Clear Local Data'}
+            disabled={clearing || saving || oauth.busy}
+            onPress={clearLocalData}
           />
-          <Button
-            variant={settings.provider.kind === 'gemini' ? 'primary' : 'secondary'}
-            size="sm"
-            className="flex-1 rounded-xl"
-            label="Gemini"
-            onPress={() =>
-              setSettings((current) => ({
-                ...current,
-                provider: { ...current.provider, kind: 'gemini' },
-              }))
-            }
-          />
-        </View>
-        <LabeledInput
-          label="Endpoint URL"
-          value={settings.provider.endpointUrl}
-          onChangeText={(value) =>
-            setSettings((current) => ({ ...current, provider: { ...current.provider, endpointUrl: value } }))
-          }
-        />
-        <LabeledInput
-          label="Model"
-          value={settings.provider.model}
-          onChangeText={(value) =>
-            setSettings((current) => ({ ...current, provider: { ...current.provider, model: value } }))
-          }
-        />
-        <LabeledInput
-          label="API Key"
-          secureTextEntry
-          value={settings.provider.apiKey}
-          onChangeText={(value) =>
-            setSettings((current) => ({ ...current, provider: { ...current.provider, apiKey: value } }))
-          }
-        />
-        <LabeledInput
-          label="Timeout (ms)"
-          keyboardType="number-pad"
-          value={String(settings.provider.timeoutMs)}
-          onChangeText={(value) =>
-            setSettings((current) => ({
-              ...current,
-              provider: {
-                ...current.provider,
-                timeoutMs: Number(value) || 0,
-              },
-            }))
-          }
-        />
-      </Section>
+        </Section>
+      </Screen>
 
-      <Section title="Ingest">
-        <LabeledInput
-          label="Endpoint URL"
-          value={settings.ingest.endpointUrl}
-          onChangeText={(value) =>
-            setSettings((current) => ({ ...current, ingest: { ...current.ingest, endpointUrl: value } }))
-          }
-        />
-        <LabeledInput
-          label="x-api-key"
-          secureTextEntry
-          value={settings.ingest.apiKey}
-          onChangeText={(value) =>
-            setSettings((current) => ({ ...current, ingest: { ...current.ingest, apiKey: value } }))
-          }
-        />
-      </Section>
-
-      <Section title="Barcode">
-        <View className="flex-row items-center justify-between">
-          <Text className="text-sm font-semibold text-slate-700">Enable local barcode scan</Text>
-          <Switch
-            value={settings.barcode.enabled}
-            onValueChange={(value) =>
-              setSettings((current) => ({ ...current, barcode: { ...current.barcode, enabled: value } }))
-            }
-          />
+      {dirty ? (
+        <View className="absolute bottom-0 left-0 right-0 border-t border-border bg-background/95 px-4 pb-5 pt-3">
+          {applyHint ? <Text className="mb-2 text-xs text-slate-600">{applyHint}</Text> : null}
+          <View className="flex-row gap-2">
+            <Button
+              variant="secondary"
+              className="flex-1 rounded-2xl"
+              label="Cancel"
+              disabled={saving}
+              onPress={cancel}
+            />
+            <Button
+              className="flex-1 rounded-2xl"
+              disabled={saving || !valid}
+              label={saving ? 'Applying…' : 'Apply'}
+              onPress={() => apply()}
+            />
+          </View>
         </View>
-        <View className="gap-1.5">
-          <Text className="text-sm font-semibold text-slate-700">Allowed types (comma-separated)</Text>
-          <Input
-            value={settings.barcode.allowedTypes.join(', ')}
-            onChangeText={(value) =>
-              setSettings((current) => ({
-                ...current,
-                barcode: {
-                  ...current.barcode,
-                  allowedTypes: value.split(',').map((item) => item.trim()),
-                },
-              }))
-            }
-          />
-        </View>
-      </Section>
-
-      <Button
-        disabled={isSaving}
-        label={isSaving ? 'Saving…' : 'Save Settings'}
-        className="rounded-2xl"
-        onPress={save}
-      />
-    </Screen>
+      ) : null}
+    </View>
   );
+}
+
+function normalizeForSave(settings: AppSettings): AppSettings {
+  const id = settings.provider.id;
+  const mode = settings.provider.authModeByProvider[id] ?? 'api';
+
+  return {
+    ...settings,
+    provider: {
+      ...settings.provider,
+      endpointUrl: settings.provider.endpointUrl.trim(),
+      model: settings.provider.model.trim(),
+      modelVariant: settings.provider.modelVariant?.trim() || null,
+      auth: {
+        ...settings.provider.auth,
+        [id]: getAuthForSave({
+          mode,
+          current: settings.provider.auth[id],
+        }),
+      },
+    },
+    ingest: {
+      endpointUrl: settings.ingest.endpointUrl.trim(),
+      apiKey: settings.ingest.apiKey,
+    },
+    barcode: {
+      ...settings.barcode,
+      allowedTypes: settings.barcode.allowedTypes.filter(Boolean),
+    },
+  };
+}
+
+function getAuthForSave({
+  mode,
+  current,
+}: {
+  mode: ProviderAuthMode;
+  current: ProviderAuth | undefined;
+}): ProviderAuth | undefined {
+  if (mode === 'api') {
+    if (current?.type === 'api' && current.key.trim()) {
+      return current;
+    }
+
+    return undefined;
+  }
+
+  if (current?.type === 'oauth') {
+    return current;
+  }
+
+  return undefined;
+}
+
+function formatThinkingLevel(value: string) {
+  if (value === 'xhigh') {
+    return 'XHigh';
+  }
+
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+function cloneSettings(settings: AppSettings): AppSettings {
+  return JSON.parse(JSON.stringify(settings)) as AppSettings;
 }

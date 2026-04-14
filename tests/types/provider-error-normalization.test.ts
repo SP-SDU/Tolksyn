@@ -19,4 +19,11 @@ describe('provider error normalization', () => {
     const error = normalizeRemoteError(source);
     expect(error).toBe(source);
   });
+
+  test('preserves unknown error message verbatim via internal app error', () => {
+    const error = normalizeRemoteError(new Error('Provider returned malformed envelope'));
+    expect(error).toBeInstanceOf(AppError);
+    expect(error.code).toBe('internal');
+    expect(error.message).toBe('Provider returned malformed envelope');
+  });
 });

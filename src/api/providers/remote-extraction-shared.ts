@@ -1,6 +1,8 @@
 import { AppError } from '@/types/app-error';
 import { emptyStructuredItem, validateStructuredItem } from '@/types/item-schema';
 
+const MIN_EXTRACTION_TIMEOUT_MS = 120_000;
+
 export function ensureHttps(endpointUrl: string): URL {
   const url = new URL(endpointUrl);
   if (url.protocol !== 'https:') {
@@ -29,7 +31,15 @@ export function normalizeRemoteError(error: unknown): AppError {
     return new AppError('network_unavailable', 'The extraction request failed due to network unavailability.', error);
   }
 
+  if (error instanceof Error) {
+    return new AppError('internal', error.message || 'The extraction request failed.', error);
+  }
+
   return new AppError('internal', 'The extraction request failed.', error);
+}
+
+export function extractionTimeoutMs(timeoutMs: number): number {
+  return Math.max(1, timeoutMs, MIN_EXTRACTION_TIMEOUT_MS);
 }
 
 
@@ -73,4 +83,16 @@ export function parseProviderJsonEnvelope(rawText: unknown) {
         ? record.auxiliary_text_optional.trim()
         : undefined,
   };
+}
+
+export function providerErrorMessage(error: unknown): string {
+  if (error instanceof AppError) {
+    return error.message;
+  }
+
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return String(error);
 }

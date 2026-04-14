@@ -20,7 +20,8 @@ describe('buildExtractionPrompt', () => {
   test('forces strict json-only response guidance', () => {
     const prompt = buildExtractionPrompt();
 
-    expect(prompt).toContain('Return only valid JSON');
+    expect(prompt).toContain('Return one single complete valid JSON object only');
     expect(prompt).toContain('Do not add markdown');
+    expect(prompt).toContain('JSON must be parseable by JSON.parse');
   });
 });
