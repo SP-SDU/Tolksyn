@@ -20,7 +20,7 @@ describe('github copilot oauth api routes', () => {
       ),
     );
 
-    const response = await codePost();
+    const response = await codePost(new Request('http://localhost:8081/api/oauth/github-copilot/device/code', { method: 'POST' }));
     const body = await response.json();
 
     expect(response.status).toBe(200);
@@ -66,6 +66,38 @@ describe('github copilot oauth api routes', () => {
       expect.objectContaining({
         body: expect.stringContaining('device-123'),
       }),
+    );
+
+    mock.mockRestore();
+  });
+
+  test('supports enterprise domain forwarding via query param', async () => {
+    const mock = jest.spyOn(global, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          device_code: 'dev',
+          user_code: 'CODE',
+          verification_uri: 'https://company.ghe.com/login/device',
+          interval: 5,
+        }),
+        {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        },
+      ),
+    );
+
+    await codePost(
+      new Request('http://localhost:8081/api/oauth/github-copilot/device/code?enterpriseUrl=company.ghe.com', {
+        method: 'POST',
+      }),
+    );
+
+    expect(mock).toHaveBeenCalledWith(
+      'https://company.ghe.com/login/device/code',
+      expect.objectContaining({ method: 'POST' }),
     );
 
     mock.mockRestore();

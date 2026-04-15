@@ -135,6 +135,95 @@ describe('provider catalog', () => {
     expect(models.some((item) => item.id === 'gpt-5.3-codex')).toBe(true);
     expect(models.some((item) => item.id === 'gpt-4.1')).toBe(false);
   });
+
+  test('uses local web github-copilot models proxy endpoint', async () => {
+    const fetch = jest
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          'github-copilot': {
+            id: 'github-copilot',
+            name: 'GitHub Copilot',
+            api: 'https://api.githubcopilot.com/chat/completions',
+            models: {
+              'gpt-4.1': {
+                id: 'gpt-4.1',
+                name: 'GPT-4.1',
+                release_date: '2026-01-01',
+                reasoning: true,
+              },
+            },
+          },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          token: 'copilot-access',
+          expires_at: 1_900_000_000,
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          data: [
+            {
+              model_picker_enabled: true,
+              id: 'gpt-4.1',
+              name: 'GPT-4.1',
+              version: 'gpt-4.1-2026-01-01',
+              capabilities: {
+                supports: {
+                  vision: true,
+                },
+                limits: {},
+              },
+            },
+          ],
+        }),
+      });
+
+    const originalWindow = (globalThis as { window?: unknown }).window;
+    (globalThis as { window?: unknown }).window = {
+      location: {
+        origin: 'http://localhost:8081',
+      },
+    };
+
+    const catalog = createProviderCatalog({
+      secrets: createSecretStore({
+        'tolksyn.secret.provider_auth': JSON.stringify({
+          'github-copilot': {
+            type: 'oauth',
+            refresh: 'refresh-token',
+            access: 'refresh-token',
+            expires: 0,
+            enterpriseUrl: 'company.ghe.com',
+          },
+        }),
+      }),
+      fetch: fetch as any,
+      now: () => 1_000,
+    });
+
+    try {
+      await catalog.modelOptions('github-copilot', 'oauth');
+
+      expect(fetch).toHaveBeenNthCalledWith(
+        2,
+        'http://localhost:8081/api/proxy/github-copilot/models?enterpriseUrl=company.ghe.com',
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            authorization: 'Bearer refresh-token',
+            'x-copilot-enterprise-url': 'company.ghe.com',
+          }),
+        }),
+      );
+    } finally {
+      (globalThis as { window?: unknown }).window = originalWindow;
+    }
+  });
 });
 
 function createSecretStore(seed?: Record<string, string>) {

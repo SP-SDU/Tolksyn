@@ -1,10 +1,10 @@
 import { AppError } from '@/types/app-error';
+import { normalizeEnterpriseDomain } from '@/api/providers/github-copilot-shared';
 import type { ProviderAuth } from '@/types/settings';
 
 const OPENAI_CLIENT_ID = 'app_EMoamEEZ73f0CkXaXp7hrann';
 const OPENAI_HOST = 'https://auth.openai.com';
 const GITHUB_CLIENT_ID = 'Ov23li8tweQw6odWQebz';
-const GITHUB_HOST = 'https://github.com';
 const POLL_BUFFER_MS = 3000;
 
 type FetchLike = typeof fetch;
@@ -15,6 +15,10 @@ export type OAuthFlow = {
   code: string;
   instructions: string;
   complete: () => Promise<ProviderAuth>;
+};
+
+export type OAuthStartOptions = {
+  enterpriseUrl?: string;
 };
 
 export function createProviderOAuth({
@@ -30,13 +34,13 @@ export function createProviderOAuth({
   const wait = sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
 
   return {
-    async start(providerId: string): Promise<OAuthFlow> {
+    async start(providerId: string, options?: OAuthStartOptions): Promise<OAuthFlow> {
       if (providerId === 'openai') {
         return startOpenAI({ fetch, now: getNow, sleep: wait });
       }
 
       if (providerId === 'github-copilot') {
-        return startCopilot({ fetch, sleep: wait });
+        return startCopilot({ fetch, sleep: wait, enterpriseUrl: options?.enterpriseUrl });
       }
 
       throw new AppError('unsupported', `OAuth is not supported for provider "${providerId}".`);
@@ -141,11 +145,14 @@ async function startOpenAI({
 async function startCopilot({
   fetch,
   sleep,
+  enterpriseUrl,
 }: {
   fetch: FetchLike;
   sleep: (ms: number) => Promise<void>;
+  enterpriseUrl?: string;
 }): Promise<OAuthFlow> {
-  const urls = copilotOAuthUrls();
+  const domain = normalizeEnterpriseDomain(enterpriseUrl);
+  const urls = copilotOAuthUrls(domain);
   const codeResponse = await fetch(urls.code, {
     method: 'POST',
     headers: {
@@ -213,6 +220,7 @@ async function startCopilot({
             refresh: token.access_token,
             access: token.access_token,
             expires: 0,
+            ...(domain ? { enterpriseUrl: domain } : {}),
           };
         }
 
@@ -233,18 +241,20 @@ async function startCopilot({
   };
 }
 
-function copilotOAuthUrls() {
+function copilotOAuthUrls(enterpriseDomain?: string) {
+  const domain = enterpriseDomain?.trim() || 'github.com';
   if (typeof window !== 'undefined' && typeof window.location?.origin === 'string') {
     const origin = window.location.origin.replace(/\/$/, '');
+    const suffix = enterpriseDomain ? `?enterpriseUrl=${encodeURIComponent(enterpriseDomain)}` : '';
     return {
-      code: `${origin}/api/oauth/github-copilot/device/code`,
-      token: `${origin}/api/oauth/github-copilot/device/token`,
+      code: `${origin}/api/oauth/github-copilot/device/code${suffix}`,
+      token: `${origin}/api/oauth/github-copilot/device/token${suffix}`,
     };
   }
 
   return {
-    code: `${GITHUB_HOST}/login/device/code`,
-    token: `${GITHUB_HOST}/login/oauth/access_token`,
+    code: `https://${domain}/login/device/code`,
+    token: `https://${domain}/login/oauth/access_token`,
   };
 }
 

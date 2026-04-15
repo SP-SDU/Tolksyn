@@ -1,7 +1,8 @@
 const GITHUB_CLIENT_ID = 'Ov23li8tweQw6odWQebz';
 
-export async function POST(): Promise<Response> {
-  const response = await fetch('https://github.com/login/device/code', {
+export async function POST(request: Request): Promise<Response> {
+  const domain = enterpriseDomain(request);
+  const response = await fetch(`https://${domain}/login/device/code`, {
     method: 'POST',
     headers: {
       Accept: 'application/json',
@@ -20,4 +21,10 @@ export async function POST(): Promise<Response> {
       'Cache-Control': 'no-store',
     },
   });
+}
+
+function enterpriseDomain(request: Request): string {
+  const query = new URL(request.url).searchParams.get('enterpriseUrl') ?? '';
+  const normalized = query.trim().replace(/^https?:\/\//, '').replace(/\/$/, '');
+  return normalized || 'github.com';
 }
