@@ -19,7 +19,7 @@ export type RemoteExtractionResult = {
     attempts: ExtractionPromptAttempt[];
   };
   metadata: {
-    provider: 'remote_openai_compatible' | 'remote_gemini' | 'remote_openai_codex';
+    provider: 'remote_openai_compatible' | 'remote_gemini' | 'remote_openai_codex' | 'remote_github_copilot';
     durationMs: number;
     imageWidth: number;
     imageHeight: number;

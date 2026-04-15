@@ -160,22 +160,33 @@ describe('remote extractor', () => {
     fetchMock.mockRestore();
   });
 
-  test('uses GitHub Copilot OAuth access token when provider is github-copilot', async () => {
-    const fetchMock = jest.spyOn(global, 'fetch').mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: async () => ({
-        choices: [
-          {
-            message: {
-              content: JSON.stringify({
-                structured_json: emptyStructuredItem(),
-              }),
-            },
-          },
-        ],
-      }),
-    } as any);
+  test('uses GitHub Copilot OAuth token exchange then calls chat completions for gpt-4 models', async () => {
+    const fetchMock = jest
+      .spyOn(global, 'fetch')
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          token: 'copilot-access',
+          expires_at: 1_900_000_000,
+        }),
+      } as any)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        text: async () =>
+          JSON.stringify({
+            choices: [
+              {
+                message: {
+                  content: JSON.stringify({
+                    structured_json: emptyStructuredItem(),
+                  }),
+                },
+              },
+            ],
+          }),
+      } as any);
 
     const extractor = createRemoteExtractor({
       getSettings: async () => ({
@@ -216,12 +227,94 @@ describe('remote extractor', () => {
       height: 800,
     });
 
-    expect(fetchMock).toHaveBeenCalledWith(
-      'https://api.githubcopilot.com/chat/completions',
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      'https://api.github.com/copilot_internal/v2/token',
       expect.objectContaining({
         headers: expect.objectContaining({
           Authorization: 'Bearer copilot-token',
         }),
+      }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      'https://api.githubcopilot.com/chat/completions',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: 'Bearer copilot-access',
+        }),
+      }),
+    );
+
+    fetchMock.mockRestore();
+  });
+
+  test('uses GitHub Copilot responses endpoint for gpt-5 models', async () => {
+    const fetchMock = jest
+      .spyOn(global, 'fetch')
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          token: 'copilot-access',
+          expires_at: 1_900_000_000,
+        }),
+      } as any)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        text: async () =>
+          JSON.stringify({
+            output_text: JSON.stringify({
+              structured_json: emptyStructuredItem(),
+            }),
+          }),
+      } as any);
+
+    const extractor = createRemoteExtractor({
+      getSettings: async () => ({
+        provider: {
+          id: 'github-copilot',
+          endpointUrl: 'https://api.githubcopilot.com/chat/completions',
+          model: 'gpt-5.4',
+          modelVariant: null,
+          timeoutMs: 6000,
+          authModeByProvider: {
+            'github-copilot': 'oauth',
+          },
+          auth: {
+            'github-copilot': {
+              type: 'oauth',
+              refresh: 'copilot-token',
+              access: 'copilot-token',
+              expires: 0,
+            },
+          },
+        },
+        ingest: {
+          endpointUrl: 'https://example.com/ingest',
+          apiKey: 'ingest-key',
+        },
+        barcode: {
+          enabled: true,
+          allowedTypes: ['ean13'],
+        },
+      }),
+    } as any);
+
+    await extractor.extract({
+      imageUri: 'file://img.jpg',
+      imageBase64: 'abc',
+      mimeType: 'image/jpeg',
+      width: 1200,
+      height: 800,
+    });
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      'https://api.githubcopilot.com/responses',
+      expect.objectContaining({
+        method: 'POST',
       }),
     );
 

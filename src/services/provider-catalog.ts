@@ -1,6 +1,12 @@
 import { Platform } from 'react-native';
 
 import type { SecretStore } from '@/repositories/settings-repository';
+import {
+  copilotBase,
+  copilotModelHeaders,
+  exchangeCopilotAccessToken,
+  normalizeEnterpriseDomain,
+} from '@/api/providers/github-copilot-shared';
 
 export type ProviderAuthMode = 'api' | 'oauth';
 
@@ -323,15 +329,6 @@ async function loadProviderAuth(secrets: SecretStore): Promise<Record<string, St
   }
 }
 
-function copilotBase(enterpriseUrl?: string): string {
-  if (!enterpriseUrl?.trim()) {
-    return 'https://api.githubcopilot.com';
-  }
-
-  const domain = enterpriseUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
-  return `https://copilot-api.${domain}`;
-}
-
 type CopilotResponse = {
   data: {
     model_picker_enabled: boolean;
@@ -406,16 +403,16 @@ export function createProviderCatalog({
   async function copilotModels(provider: ProviderItem): Promise<ProviderModel[]> {
     const auth = await loadProviderAuth(secrets);
     const token = auth['github-copilot'];
-    if (!token?.refresh?.trim()) {
+    const refreshToken = token?.refresh?.trim() || token?.access?.trim();
+    if (!refreshToken) {
       return provider.models;
     }
+    const enterpriseUrl = token?.enterpriseUrl;
 
     try {
-      const response = await fetch(`${copilotBase(token.enterpriseUrl)}/models`, {
-        headers: {
-          Authorization: `Bearer ${token.refresh}`,
-          'User-Agent': 'tolksyn/1.0.0',
-        },
+      const request = await copilotModelsRequest(fetch, refreshToken, enterpriseUrl);
+      const response = await fetch(request.url, {
+        headers: request.headers,
       });
 
       if (!response.ok) {
@@ -543,5 +540,39 @@ export function createProviderCatalog({
     authMethods,
     authMode,
     isSupportedProvider,
+  };
+}
+
+async function copilotModelsRequest(
+  fetcher: typeof fetch,
+  refreshToken: string,
+  enterpriseUrl?: string,
+): Promise<{ url: string; headers: Record<string, string> }> {
+  const domain = normalizeEnterpriseDomain(enterpriseUrl);
+  if (typeof window !== 'undefined' && typeof window.location?.origin === 'string') {
+    const origin = window.location.origin.replace(/\/$/, '');
+    const url = new URL(`${origin}/api/proxy/github-copilot/models`);
+    if (domain) {
+      url.searchParams.set('enterpriseUrl', domain);
+    }
+
+    return {
+      url: url.toString(),
+      headers: {
+        authorization: `Bearer ${refreshToken}`,
+        ...(domain ? { 'x-copilot-enterprise-url': domain } : {}),
+      },
+    };
+  }
+
+  const exchanged = await exchangeCopilotAccessToken({
+    fetch: fetcher,
+    refreshToken,
+    enterpriseUrl,
+  });
+
+  return {
+    url: `${copilotBase(enterpriseUrl)}/models`,
+    headers: copilotModelHeaders(exchanged.token),
   };
 }

@@ -1,4 +1,5 @@
 import { createGeminiExtractor } from '@/api/providers/gemini-extractor';
+import { createGitHubCopilotExtractor } from '@/api/providers/github-copilot-extractor';
 import { createOpenAICodexExtractor } from '@/api/providers/openai-codex-extractor';
 import { createOpenAICompatibleExtractor } from '@/api/providers/openai-compatible-extractor';
 import { extractWithRetries } from '@/services/extraction-retry';
@@ -12,6 +13,7 @@ export function createRemoteExtractor(settingsRepository: {
 }) {
   const openaiCompatible = createOpenAICompatibleExtractor({ fetch });
   const codex = createOpenAICodexExtractor({ fetch });
+  const copilot = createGitHubCopilotExtractor({ fetch });
   const gemini = createGeminiExtractor({ fetch });
 
   return {
@@ -92,6 +94,26 @@ export function createRemoteExtractor(settingsRepository: {
           },
           extract: (payload) =>
             codex.extract({
+              ...payload,
+              oauth: auth as Extract<typeof auth, { type: 'oauth' }>,
+            }),
+        });
+      }
+
+      if (id === 'github-copilot' && mode === 'oauth') {
+        return extractWithRetries({
+          input: {
+            endpointUrl: settings.provider.endpointUrl,
+            apiKey: '',
+            model: settings.provider.model,
+            imageBase64: input.imageBase64,
+            mimeType: input.mimeType,
+            timeoutMs: settings.provider.timeoutMs,
+            imageWidth: input.width,
+            imageHeight: input.height,
+          },
+          extract: (payload) =>
+            copilot.extract({
               ...payload,
               oauth: auth as Extract<typeof auth, { type: 'oauth' }>,
             }),

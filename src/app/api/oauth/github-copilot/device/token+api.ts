@@ -6,7 +6,8 @@ export async function POST(request: Request): Promise<Response> {
     grant_type?: string;
   };
 
-  const response = await fetch('https://github.com/login/oauth/access_token', {
+  const domain = enterpriseDomain(request);
+  const response = await fetch(`https://${domain}/login/oauth/access_token`, {
     method: 'POST',
     headers: {
       Accept: 'application/json',
@@ -26,4 +27,10 @@ export async function POST(request: Request): Promise<Response> {
       'Cache-Control': 'no-store',
     },
   });
+}
+
+function enterpriseDomain(request: Request): string {
+  const query = new URL(request.url).searchParams.get('enterpriseUrl') ?? '';
+  const normalized = query.trim().replace(/^https?:\/\//, '').replace(/\/$/, '');
+  return normalized || 'github.com';
 }
