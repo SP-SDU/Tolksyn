@@ -52,7 +52,7 @@ export function createAttemptRepository(db: DbLike, sqlite?: SQLiteDatabase) {
       };
 
       await db.insert(attemptsTable).values(serializeAttempt(attempt));
-      await pruneAttempts(db);
+      await pruneAttempts(db, sqlite);
       return attempt;
     },
 
@@ -66,7 +66,7 @@ export function createAttemptRepository(db: DbLike, sqlite?: SQLiteDatabase) {
           updatedAt: Date.now(),
         })
         .where(eq(attemptsTable.id, id));
-      await pruneAttempts(db);
+      await pruneAttempts(db, sqlite);
     },
 
     async saveDraft(id: string, draftStructuredJson: StructuredItem): Promise<void> {
@@ -77,7 +77,7 @@ export function createAttemptRepository(db: DbLike, sqlite?: SQLiteDatabase) {
           updatedAt: Date.now(),
         })
         .where(eq(attemptsTable.id, id));
-      await pruneAttempts(db);
+      await pruneAttempts(db, sqlite);
     },
 
     async markQueued(id: string, acceptedRevision: number): Promise<void> {
@@ -89,7 +89,7 @@ export function createAttemptRepository(db: DbLike, sqlite?: SQLiteDatabase) {
           updatedAt: Date.now(),
         })
         .where(eq(attemptsTable.id, id));
-      await pruneAttempts(db);
+      await pruneAttempts(db, sqlite);
     },
 
     async markSent(id: string): Promise<void> {
@@ -100,7 +100,7 @@ export function createAttemptRepository(db: DbLike, sqlite?: SQLiteDatabase) {
           updatedAt: Date.now(),
         })
         .where(eq(attemptsTable.id, id));
-      await pruneAttempts(db);
+      await pruneAttempts(db, sqlite);
     },
 
     async markFailed(id: string, errorCode: string): Promise<void> {
@@ -112,7 +112,7 @@ export function createAttemptRepository(db: DbLike, sqlite?: SQLiteDatabase) {
           updatedAt: Date.now(),
         })
         .where(eq(attemptsTable.id, id));
-      await pruneAttempts(db);
+      await pruneAttempts(db, sqlite);
     },
 
     async getById(id: string): Promise<AttemptRecord | null> {
@@ -328,20 +328,32 @@ function parseJsonOrUndefined<T>(value: string | null): T | undefined {
   }
 }
 
-async function pruneAttempts(db: DbLike): Promise<void> {
-  const rows = await db
-    .select({ id: attemptsTable.id })
-    .from(attemptsTable)
-    .orderBy(desc(attemptsTable.createdAt));
+async function pruneAttempts(db: DbLike, sqlite?: SQLiteDatabase): Promise<void> {
+  try {
+    const rows = sqlite?.getAllAsync
+      ? await sqlite.getAllAsync<{ id: string }>('select id from attempts order by created_at desc')
+      : await db
+          .select({ id: attemptsTable.id })
+          .from(attemptsTable)
+          .orderBy(desc(attemptsTable.createdAt));
 
-  if (rows.length <= MAX_ATTEMPTS) {
-    return;
+    if (rows.length <= MAX_ATTEMPTS) {
+      return;
+    }
+
+    const idsToDelete = rows.slice(MAX_ATTEMPTS).map((row) => row.id);
+    if (idsToDelete.length === 0) {
+      return;
+    }
+
+    if (sqlite?.runAsync) {
+      const placeholders = idsToDelete.map(() => '?').join(',');
+      await sqlite.runAsync(`delete from attempts where id in (${placeholders})`, idsToDelete);
+      return;
+    }
+
+    await db.delete(attemptsTable).where(inArray(attemptsTable.id, idsToDelete));
+  } catch (error) {
+    console.warn('[tolksyn] Attempt pruning skipped:', error instanceof Error ? error.message : String(error));
   }
-
-  const idsToDelete = rows.slice(MAX_ATTEMPTS).map((row) => row.id);
-  if (idsToDelete.length === 0) {
-    return;
-  }
-
-  await db.delete(attemptsTable).where(inArray(attemptsTable.id, idsToDelete));
 }

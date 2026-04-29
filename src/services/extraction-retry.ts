@@ -18,7 +18,8 @@ export async function extractWithRetries({
   extract: (input: RemoteExtractionInput) => Promise<RemoteExtractionResult>;
 }): Promise<RemoteExtractionResult> {
   const attempts: ExtractionPromptAttempt[] = [];
-  let prompt = buildExtractionPrompt();
+  const basePrompt = input.prompt ?? buildExtractionPrompt();
+  let prompt = basePrompt;
   let lastError = '';
   let lastResponseText = '';
 
@@ -73,7 +74,7 @@ export async function extractWithRetries({
       lastError = message;
       lastResponseText = '';
       prompt = buildRepairPrompt({
-        basePrompt: buildExtractionPrompt(),
+        basePrompt,
         attempt: index + 1,
         error: lastError,
         previousResponse: lastResponseText,

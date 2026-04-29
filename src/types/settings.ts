@@ -35,6 +35,9 @@ export type AppSettings = {
     enabled: boolean;
     allowedTypes: string[];
   };
+  webSearch: {
+    enabled: boolean;
+  };
 };
 
 export function defaultSettings(): AppSettings {
@@ -58,6 +61,9 @@ export function defaultSettings(): AppSettings {
     barcode: {
       enabled: true,
       allowedTypes: ['ean13', 'ean8', 'upc_a', 'upc_e', 'code128', 'code39', 'qr', 'pdf417'],
+    },
+    webSearch: {
+      enabled: false,
     },
   };
 }

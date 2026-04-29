@@ -177,6 +177,32 @@ describe('attempt repository', () => {
       }),
     );
   });
+
+  test('logs pruning failures as warning messages without error stack objects', async () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const error = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const db = {
+      insert: jest.fn(() => ({ values: jest.fn().mockResolvedValue(undefined) })),
+      select() {
+        throw new SyntaxError('Unterminated string in JSON at position 36');
+      },
+    };
+    const repository = createAttemptRepository(db as any, {} as any);
+
+    await repository.create({
+      id: 'attempt-prune-warning',
+      source: 'gallery',
+      imageUri: 'file://image.jpg',
+      thumbnailUri: 'file://thumb.jpg',
+      createdAt: 123,
+    });
+
+    expect(error).not.toHaveBeenCalled();
+    expect(warn).toHaveBeenCalledWith('[tolksyn] Attempt pruning skipped:', 'Unterminated string in JSON at position 36');
+
+    warn.mockRestore();
+    error.mockRestore();
+  });
 });
 
 function createTestDb() {

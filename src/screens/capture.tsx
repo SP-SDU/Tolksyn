@@ -20,6 +20,7 @@ export function CaptureScreen() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [barcodeState, setBarcodeState] = useState<'idle' | 'running' | 'done' | 'failed'>('idle');
   const [extractionState, setExtractionState] = useState<'idle' | 'running' | 'done' | 'failed'>('idle');
+  const [websearchState, setWebsearchState] = useState<'idle' | 'running' | 'done' | 'failed'>('idle');
   const [liveBarcodes, setLiveBarcodes] = useState<BarcodeHit[]>([]);
 
   async function handleGalleryImport() {
@@ -72,15 +73,17 @@ export function CaptureScreen() {
     setIsProcessing(true);
     setBarcodeState('idle');
     setExtractionState('idle');
+    setWebsearchState('idle');
 
     let barcode: 'idle' | 'running' | 'done' | 'failed' = 'idle';
     let extraction: 'idle' | 'running' | 'done' | 'failed' = 'idle';
+    let websearch: 'idle' | 'running' | 'done' | 'failed' = 'idle';
     const startedAt = Date.now();
 
     const formatProgressText = () => {
       const elapsedSec = Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
-      const elapsed = extraction === 'running' ? ` (${elapsedSec}s)` : '';
-      return `Barcode: ${formatStage(barcode)}\nVision-language: ${formatStage(extraction)}${elapsed}`;
+      const elapsed = extraction === 'running' || websearch === 'running' ? ` (${elapsedSec}s)` : '';
+      return `Barcode: ${formatStage(barcode)}\nVision-language: ${formatStage(extraction)}\nWebsearch: ${formatStage(websearch)}${elapsed}`;
     };
 
     toast.progress({
@@ -144,6 +147,26 @@ export function CaptureScreen() {
               tone: 'info',
             });
           }
+
+          if (stage === 'websearch_started') {
+            websearch = 'running';
+            setWebsearchState('running');
+            toast.progress({
+              id: progressId,
+              text: formatProgressText(),
+              tone: 'info',
+            });
+          }
+
+          if (stage === 'websearch_done') {
+            websearch = 'done';
+            setWebsearchState('done');
+            toast.progress({
+              id: progressId,
+              text: formatProgressText(),
+              tone: 'info',
+            });
+          }
         },
       });
 
@@ -151,6 +174,7 @@ export function CaptureScreen() {
       toast.progressDone({ id: progressId, text: 'Extraction complete. Opening review.' });
       router.push({ pathname: '/confirm/[attemptId]', params: { attemptId } });
     } catch (error) {
+      console.error('[tolksyn] Capture processing failed:', error);
       extraction = 'failed';
       setExtractionState('failed');
       const message = getErrorMessage(error, 'Unable to extract data from image.');
@@ -222,6 +246,7 @@ export function CaptureScreen() {
           <CardTitle className="text-base text-slate-100">Parallel extraction</CardTitle>
           <Text className="text-sm text-slate-300">Barcode: {formatStage(barcodeState)}</Text>
           <Text className="text-sm text-slate-300">Vision-language: {formatStage(extractionState)}</Text>
+          <Text className="text-sm text-slate-300">Websearch: {formatStage(websearchState)}</Text>
           <Text className="text-sm text-slate-300">Live hits: {liveBarcodes.length}</Text>
         </Card>
       </View>

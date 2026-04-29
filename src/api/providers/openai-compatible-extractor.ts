@@ -1,4 +1,4 @@
-import { providerHttpStatusToError } from '@/types/app-error';
+import { AppError, providerHttpStatusToError } from '@/types/app-error';
 import {
   ensureHttps,
   extractionTimeoutMs,
@@ -55,9 +55,9 @@ export function createOpenAICompatibleExtractor({ fetch }: { fetch: FetchLike })
           throw await providerHttpStatusToError(response);
         }
 
-        const payload = (await response.json()) as {
+        const payload = await parseProviderResponseJson<{
           choices?: { message?: { content?: unknown } }[];
-        };
+        }>(response);
         const content = payload.choices?.[0]?.message?.content;
         const parsed = parseProviderJsonEnvelope(content);
         const responseText = typeof content === 'string' ? content : JSON.stringify(content ?? null);
@@ -81,4 +81,18 @@ export function createOpenAICompatibleExtractor({ fetch }: { fetch: FetchLike })
       }
     },
   };
+}
+
+async function parseProviderResponseJson<T>(response: Response): Promise<T> {
+  if (typeof response.text !== 'function') {
+    return response.json() as Promise<T>;
+  }
+
+  const raw = await response.text();
+  try {
+    return JSON.parse(raw) as T;
+  } catch (error) {
+    console.error('[tolksyn] Provider HTTP response was malformed JSON:', raw);
+    throw new AppError('invalid_response', 'Provider HTTP response was malformed JSON.', error);
+  }
 }

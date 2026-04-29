@@ -103,12 +103,12 @@ describe('createOpenAICompatibleExtractor', () => {
   });
 
   test('aborts when request exceeds effective timeout and maps to timeout error', async () => {
+    jest.useFakeTimers();
     const extractor = createOpenAICompatibleExtractor({
       fetch: jest.fn((_url, init) => {
         const signal = init?.signal;
         return new Promise((resolve, reject) => {
-          signal?.addEventListener('abort', () => reject(new DOMException('Timed out', 'AbortError')));
-          setTimeout(() => {
+          const timeoutId = setTimeout(() => {
             resolve({
               ok: true,
               status: 200,
@@ -117,20 +117,42 @@ describe('createOpenAICompatibleExtractor', () => {
               }),
             } as any);
           }, extractionTimeoutMs(5) + 1000);
+
+          const onAbort = () => {
+            clearTimeout(timeoutId);
+            reject(new DOMException('Timed out', 'AbortError'));
+          };
+
+          if (signal) {
+            if (signal.aborted) {
+              onAbort();
+              return;
+            }
+            signal.addEventListener('abort', onAbort, { once: true });
+          }
         });
       }),
     });
 
-    await expect(
-      extractor.extract({
+    try {
+      const extractPromise = extractor.extract({
         endpointUrl: 'https://example.com/v1/chat/completions',
         apiKey: 'secret',
         model: 'gpt-4.1-mini',
         imageBase64: 'abc',
         mimeType: 'image/jpeg',
         timeoutMs: 5,
-      }),
-    ).rejects.toMatchObject({ code: 'timeout' } satisfies Partial<AppError>);
+      });
+      const expectation = expect(extractPromise).rejects.toMatchObject({
+        code: 'timeout',
+      } satisfies Partial<AppError>);
+
+      await jest.advanceTimersByTimeAsync(extractionTimeoutMs(5));
+
+      await expectation;
+    } finally {
+      jest.useRealTimers();
+    }
   }, 130_000);
 
   test('uses minimum extraction timeout floor for short configured timeout', async () => {
@@ -257,5 +279,52 @@ describe('createOpenAICompatibleExtractor', () => {
     expect(result.structuredJson.manufacturer).toBe('Siemens');
     expect(result.auxiliaryText).toBe('Detected label text');
     expect(result.metadata.provider).toBe('remote_openai_compatible');
+  });
+
+  test('preserves object auxiliary text from a successful response', async () => {
+    const auxiliary = {
+      fieldChanges: [
+        {
+          field: 'manufacturer',
+          before: null,
+          after: 'Siemens',
+          evidenceUrls: ['https://example.com/siemens'],
+          reason: 'Official datasheet evidence.',
+        },
+      ],
+      conflicts: ['Label and web source disagree on product number.'],
+    };
+    const extractor = createOpenAICompatibleExtractor({
+      fetch: jest.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  structured_json: {
+                    ...emptyStructuredItem(),
+                    manufacturer: 'Siemens',
+                  },
+                  auxiliary_text_optional: auxiliary,
+                }),
+              },
+            },
+          ],
+        }),
+      }),
+    });
+
+    const result = await extractor.extract({
+      endpointUrl: 'https://example.com/v1/chat/completions',
+      apiKey: 'secret',
+      model: 'gpt-4.1-mini',
+      imageBase64: 'abc',
+      mimeType: 'image/jpeg',
+      timeoutMs: 5000,
+    });
+
+    expect(result.auxiliaryText).toBe(JSON.stringify(auxiliary));
   });
 });

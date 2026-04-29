@@ -1,4 +1,6 @@
-import { mergeExtractionResult, type BarcodeHit } from '@/utils/merge-extraction-result';
+import { mergeExtractionResult, type BarcodeHit, type WebSearchEnrichment } from '@/utils/merge-extraction-result';
+import { getErrorMessage } from '@/types/app-error';
+import { emptyStructuredItem, type StructuredItem } from '@/types/item-schema';
 
 export async function processImage({
   source,
@@ -10,6 +12,7 @@ export async function processImage({
   attempts,
   barcodeDetector,
   extractor,
+  webSearchEnricher,
   onProgress,
 }: {
   source: 'camera' | 'gallery';
@@ -48,8 +51,9 @@ export async function processImage({
       mimeType: string;
       width: number;
       height: number;
+      prompt?: string;
     }): Promise<{
-      structuredJson: Record<string, unknown>;
+      structuredJson: StructuredItem;
       barcodes: BarcodeHit[];
       auxiliaryText?: string;
       responseText?: string;
@@ -72,7 +76,23 @@ export async function processImage({
       };
     }>;
   };
-  onProgress?: (stage: 'persisted' | 'barcode_started' | 'barcode_done' | 'extraction_started' | 'extraction_done') => void;
+  webSearchEnricher?: {
+    enrich(input: {
+      imageUri: string;
+      imageBase64: string;
+      mimeType: string;
+      width: number;
+      height: number;
+      structuredJson: Awaited<ReturnType<typeof extractor.extract>>['structuredJson'];
+      barcodes: BarcodeHit[];
+      auxiliaryText?: string;
+      responseText?: string;
+    }): Promise<{
+      structuredJson: Awaited<ReturnType<typeof extractor.extract>>['structuredJson'];
+      diagnostics: WebSearchEnrichment;
+    } | undefined>;
+  };
+  onProgress?: (stage: 'persisted' | 'barcode_started' | 'barcode_done' | 'extraction_started' | 'extraction_done' | 'websearch_started' | 'websearch_done') => void;
 }): Promise<{ attemptId: string }> {
   const attemptId = createAttemptId();
   const persisted = await imageStore.persistImage({ inputUri, attemptId });
@@ -90,30 +110,66 @@ export async function processImage({
   const [detectedBarcodes, extracted] = await Promise.all([
     (async () => {
       onProgress?.('barcode_started');
-      const barcodes = await barcodeDetector.detect({ imageUri: persisted.imageUri });
-      onProgress?.('barcode_done');
-      return barcodes;
+      try {
+        const barcodes = await barcodeDetector.detect({ imageUri: persisted.imageUri });
+        onProgress?.('barcode_done');
+        return barcodes;
+      } catch (error) {
+        console.error('[tolksyn] Barcode detection failed:', error);
+        onProgress?.('barcode_done');
+        return [];
+      }
     })(),
     (async () => {
       onProgress?.('extraction_started');
-      const extraction = await extractor.extract({
-        imageUri: persisted.imageUri,
-        imageBase64: persisted.imageBase64,
-        mimeType: persisted.mimeType,
-        width: persisted.width,
-        height: persisted.height,
-      });
-      onProgress?.('extraction_done');
-      return extraction;
+      try {
+        const extraction = await extractor.extract({
+          imageUri: persisted.imageUri,
+          imageBase64: persisted.imageBase64,
+          mimeType: persisted.mimeType,
+          width: persisted.width,
+          height: persisted.height,
+        });
+        onProgress?.('extraction_done');
+        return extraction;
+      } catch (error) {
+        onProgress?.('extraction_done');
+        return failedExtractionResult({
+          error,
+          width: persisted.width,
+          height: persisted.height,
+        });
+      }
     })(),
   ]);
 
+  const allBarcodes = [...(liveBarcodes ?? []), ...detectedBarcodes, ...extracted.barcodes];
+  if (webSearchEnricher) {
+    onProgress?.('websearch_started');
+  }
+  const webSearch = await enrichWithWebSearch({
+    webSearchEnricher,
+    imageUri: persisted.imageUri,
+    imageBase64: persisted.imageBase64,
+    mimeType: persisted.mimeType,
+    width: persisted.width,
+    height: persisted.height,
+    structuredJson: extracted.structuredJson,
+    barcodes: allBarcodes,
+    auxiliaryText: extracted.auxiliaryText,
+    responseText: extracted.responseText,
+  });
+  if (webSearchEnricher) {
+    onProgress?.('websearch_done');
+  }
+
   const merged = mergeExtractionResult({
-    structuredJson: extracted.structuredJson as ReturnType<typeof mergeExtractionResult>['structuredJson'],
-    barcodes: [...(liveBarcodes ?? []), ...detectedBarcodes, ...extracted.barcodes],
+    structuredJson: webSearch.structuredJson,
+    barcodes: allBarcodes,
     auxiliaryText: extracted.auxiliaryText,
     responseText: extracted.responseText,
     extractionDiagnostics: extracted.extractionDiagnostics,
+    webSearchEnrichment: webSearch.diagnostics,
     metadata: extracted.metadata,
   });
 
@@ -124,4 +180,104 @@ export async function processImage({
   }
 
   return { attemptId };
+}
+
+function failedExtractionResult({
+  error,
+  width,
+  height,
+}: {
+  error: unknown;
+  width: number;
+  height: number;
+}) {
+  const message = getErrorMessage(error, 'Extraction failed.');
+
+  return {
+    structuredJson: emptyStructuredItem(),
+    barcodes: [],
+    auxiliaryText: undefined,
+    responseText: undefined,
+    extractionDiagnostics: {
+      failed: true,
+      finalError: message,
+      fallbackStructuredJson: true,
+      attempts: [
+        {
+          attempt: 1,
+          prompt: '',
+          error: message,
+        },
+      ],
+    },
+    metadata: {
+      provider: 'remote_failed',
+      durationMs: 1,
+      imageWidth: width,
+      imageHeight: height,
+    },
+  };
+}
+
+async function enrichWithWebSearch({
+  webSearchEnricher,
+  imageUri,
+  imageBase64,
+  mimeType,
+  width,
+  height,
+  structuredJson,
+  barcodes,
+  auxiliaryText,
+  responseText,
+}: {
+  webSearchEnricher?: Parameters<typeof processImage>[0]['webSearchEnricher'];
+  imageUri: string;
+  imageBase64: string;
+  mimeType: string;
+  width: number;
+  height: number;
+  structuredJson: StructuredItem;
+  barcodes: BarcodeHit[];
+  auxiliaryText?: string;
+  responseText?: string;
+}): Promise<{
+  structuredJson: StructuredItem;
+  diagnostics?: WebSearchEnrichment;
+}> {
+  if (!webSearchEnricher) {
+    return { structuredJson };
+  }
+
+  try {
+    const enriched = await webSearchEnricher.enrich({
+      imageUri,
+      imageBase64,
+      mimeType,
+      width,
+      height,
+      structuredJson,
+      barcodes,
+      auxiliaryText,
+      responseText,
+    });
+
+    return enriched ?? { structuredJson };
+  } catch (error) {
+    return {
+      structuredJson,
+      diagnostics: {
+        enabled: true,
+        attempts: [],
+        queries: [],
+        searchResults: [],
+        sources: [],
+        fieldChanges: [],
+        conflicts: [],
+        failed: true,
+        error: getErrorMessage(error, 'Manufacturer web search failed.'),
+        durationMs: 0,
+      },
+    };
+  }
 }

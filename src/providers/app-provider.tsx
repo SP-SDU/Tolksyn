@@ -16,6 +16,9 @@ import { createBarcodeDetector } from '@/services/barcode-detector';
 import { processImage } from '@/services/capture-pipeline';
 import { importFromGallery } from '@/services/gallery-import';
 import { createImageStore } from '@/services/image-store';
+import { createExaWebSearch } from '@/services/exa-websearch';
+import { createManufacturerWebSearchEnricher } from '@/services/manufacturer-websearch';
+import { createWebFetch } from '@/services/webfetch';
 import { createProviderCatalog } from '@/services/provider-catalog';
 import { createProviderOAuth } from '@/services/provider-oauth';
 import { drainQueue } from '@/services/queue-worker';
@@ -77,6 +80,14 @@ function createRuntime(sqlite: Parameters<typeof createDb>[0]) {
   const barcodeDetector = createBarcodeDetector();
   const imageStore = createImageStore();
   const extractor = createRemoteExtractor(settings);
+  const webSearch = createExaWebSearch({ fetch });
+  const webFetch = createWebFetch({ fetch, proxyBaseUrl: typeof window === 'undefined' ? undefined : '/api/proxy/webfetch' });
+  const webSearchEnricher = createManufacturerWebSearchEnricher({
+    settings,
+    extractor,
+    webSearch,
+    webFetch,
+  });
   const oauth = createProviderOAuth({ fetch });
   const transport = createIngestTransport(settings);
   const submissionService = createSubmissionService({
@@ -136,6 +147,7 @@ function createRuntime(sqlite: Parameters<typeof createDb>[0]) {
             barcodeDetector.detect({ imageUri, allowedTypes: appSettings.barcode.allowedTypes }),
         },
         extractor,
+        webSearchEnricher,
       });
     },
 
