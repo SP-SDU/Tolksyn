@@ -59,4 +59,40 @@ describe('extractWithRetries', () => {
     expect(result.structuredJson).toEqual(emptyStructuredItem());
     expect(result.extractionDiagnostics?.attempts).toHaveLength(3);
   });
+
+  test('uses caller provided prompt for the first attempt and repair prompt base', async () => {
+    const extract = jest
+      .fn()
+      .mockRejectedValueOnce(new AppError('schema_violation', 'bad json'))
+      .mockResolvedValueOnce({
+        structuredJson: emptyStructuredItem(),
+        barcodes: [],
+        metadata: {
+          provider: 'remote_openai_compatible',
+          durationMs: 1,
+          imageWidth: 100,
+          imageHeight: 100,
+        },
+      });
+
+    await extractWithRetries({
+      input: {
+        endpointUrl: 'https://example.com',
+        apiKey: 'k',
+        model: 'm',
+        imageBase64: 'abc',
+        mimeType: 'image/jpeg',
+        timeoutMs: 5000,
+        prompt: 'Return query JSON only.',
+      },
+      extract,
+    });
+
+    expect(extract).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      prompt: 'Return query JSON only.',
+    }));
+    expect(extract).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      prompt: expect.stringContaining('Return query JSON only.'),
+    }));
+  });
 });

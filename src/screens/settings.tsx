@@ -696,6 +696,27 @@ export function SettingsScreen() {
           </View>
         </Section>
 
+        <Section title="Websearch">
+          <View className="gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3">
+            <View className="flex-row items-center justify-between gap-3">
+              <View className="flex-1 gap-1">
+                <Text className="text-sm font-semibold text-amber-900">Manufacturer web search</Text>
+                <Text className="text-xs text-amber-800">
+                  Experimental. Uses Exa AI to generate search queries, fetch source pages, and ask the VLM to reconcile manufacturer/product data.
+                </Text>
+              </View>
+              <Switch
+                value={draft.webSearch.enabled}
+                onValueChange={(value) => {
+                  const next = cloneSettings(draft);
+                  next.webSearch.enabled = value;
+                  setDraft(next);
+                }}
+              />
+            </View>
+          </View>
+        </Section>
+
         <Section title="App Data">
           <Text className="text-sm text-slate-600">
             Reset this app on this device by clearing local history, queue, settings, tokens, and provider cache.
@@ -761,6 +782,9 @@ function normalizeForSave(settings: AppSettings): AppSettings {
     barcode: {
       ...settings.barcode,
       allowedTypes: settings.barcode.allowedTypes.filter(Boolean),
+    },
+    webSearch: {
+      enabled: settings.webSearch.enabled,
     },
   };
 }

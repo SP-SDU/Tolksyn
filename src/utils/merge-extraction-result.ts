@@ -13,6 +13,44 @@ export type ExtractionMetadata = {
   imageHeight: number;
 };
 
+export type WebSearchEnrichment = {
+  enabled: boolean;
+  attempts: {
+    type: 'query_planning' | 'exa_search' | 'webfetch' | 'reconciliation';
+    status: 'success' | 'failed';
+    prompt?: string;
+    responseText?: string;
+    query?: string;
+    url?: string;
+    excerpt?: string;
+    error?: string;
+  }[];
+  queries: string[];
+  searchResults: {
+    query: string;
+    output: string;
+    urls: string[];
+  }[];
+  sources: {
+    url: string;
+    contentType?: string;
+    excerpt: string;
+  }[];
+  fieldChanges: {
+    field: string;
+    before: string | number | null;
+    after: string | number | null;
+    evidenceUrls: string[];
+    reason?: string;
+  }[];
+  conflicts: string[];
+  failed: boolean;
+  skipped?: boolean;
+  skipReason?: string;
+  error?: string;
+  durationMs: number;
+};
+
 export type MergeExtractionInput = {
   structuredJson: StructuredItem;
   barcodes: BarcodeHit[];
@@ -23,6 +61,7 @@ export type MergeExtractionInput = {
     finalError?: string;
     attempts: ExtractionPromptAttempt[];
   };
+  webSearchEnrichment?: WebSearchEnrichment;
   metadata: ExtractionMetadata;
 };
 

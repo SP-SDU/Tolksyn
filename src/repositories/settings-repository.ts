@@ -29,6 +29,7 @@ type PersistedSettings = {
     endpointUrl: string;
   };
   barcode: AppSettings['barcode'];
+  webSearch: AppSettings['webSearch'];
 };
 
 type LegacyProvider = {
@@ -48,6 +49,7 @@ type LegacyPersistedSettings = {
     endpointUrl?: string;
   };
   barcode?: AppSettings['barcode'];
+  webSearch?: AppSettings['webSearch'];
 };
 
 type DbLike = ExpoSQLiteDatabase<typeof schema>;
@@ -96,6 +98,7 @@ export function createSettingsRepository({
           apiKey: ingestApiKey,
         },
         barcode: persisted.barcode,
+        webSearch: persisted.webSearch,
       };
     },
 
@@ -122,6 +125,9 @@ export function createSettingsRepository({
         barcode: {
           enabled: settings.barcode.enabled,
           allowedTypes: settings.barcode.allowedTypes,
+        },
+        webSearch: {
+          enabled: settings.webSearch.enabled,
         },
       };
 
@@ -209,6 +215,7 @@ async function parsePersisted(
       endpointUrl: raw.ingest?.endpointUrl ?? defaults.ingest.endpointUrl,
     },
     barcode: raw.barcode ?? defaults.barcode,
+    webSearch: raw.webSearch ?? defaults.webSearch,
   };
 
   await migrateLegacyApiSecret(secrets, id);
@@ -251,6 +258,7 @@ function fromDefaults(): PersistedSettings {
       endpointUrl: defaults.ingest.endpointUrl,
     },
     barcode: defaults.barcode,
+    webSearch: defaults.webSearch,
   };
 }
 

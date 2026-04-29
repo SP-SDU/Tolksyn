@@ -20,6 +20,9 @@ describe('settings repository web fallback', () => {
         enabled: true,
         allowedTypes: ['ean13'],
       },
+      webSearch: {
+        enabled: true,
+      },
     });
 
     const secrets = createSecretStore({
@@ -73,6 +76,7 @@ describe('settings repository web fallback', () => {
 
     expect(settings.provider.id).toBe('github-copilot');
     expect(settings.provider.showExperimentalProviders).toBe(true);
+    expect(settings.webSearch.enabled).toBe(true);
     expect(settings.provider.auth['github-copilot']).toEqual({
       type: 'oauth',
       refresh: 'r',

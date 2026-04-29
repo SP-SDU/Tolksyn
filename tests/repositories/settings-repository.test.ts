@@ -6,6 +6,16 @@ import * as schema from '@/db/schema';
 import { createSettingsRepository } from '@/repositories/settings-repository';
 
 describe('settings repository', () => {
+  test('defaults manufacturer web search to disabled', async () => {
+    const repo = createSettingsRepository({ db: createTestDb() as any, secrets: createSecretStore() });
+
+    const settings = await repo.getSettings();
+
+    expect(settings.webSearch).toEqual({
+      enabled: false,
+    });
+  });
+
   test('migrates legacy provider key into per-provider auth map', async () => {
     const db = createTestDb();
     const secret = createSecretStore({
@@ -37,6 +47,7 @@ describe('settings repository', () => {
 
     expect(settings.provider.id).toBe('google');
     expect(settings.provider.showExperimentalProviders).toBe(false);
+    expect(settings.webSearch.enabled).toBe(false);
     expect(settings.provider.auth.google).toEqual({
       type: 'api',
       key: 'legacy-provider-key',
@@ -79,15 +90,19 @@ describe('settings repository', () => {
         endpointUrl: ' https://example.com/ingest ',
         apiKey: 'ingest-key',
       },
-      barcode: {
-        enabled: true,
-        allowedTypes: ['ean13', 'qr'],
-      },
-    });
+        barcode: {
+          enabled: true,
+          allowedTypes: ['ean13', 'qr'],
+        },
+        webSearch: {
+          enabled: true,
+        },
+      });
 
     const rows = await db.select().from(schema.settingsTable).where(eq(schema.settingsTable.key, 'tolksyn.settings'));
     expect(rows).toHaveLength(1);
     expect(rows[0].value).toContain('"id":"openai"');
+    expect(rows[0].value).toContain('"webSearch":{"enabled":true}');
     expect(rows[0].value).not.toContain('google-key');
     expect(rows[0].value).not.toContain('refresh-token');
 
@@ -99,6 +114,7 @@ describe('settings repository', () => {
     expect(next.provider.endpointUrl).toBe('https://api.openai.com/v1/chat/completions');
     expect(next.provider.model).toBe('gpt-4.1-mini');
     expect(next.provider.showExperimentalProviders).toBe(true);
+    expect(next.webSearch.enabled).toBe(true);
     expect(next.ingest.endpointUrl).toBe('https://example.com/ingest');
     expect(next.provider.auth.openai).toEqual({
       type: 'oauth',

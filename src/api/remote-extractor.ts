@@ -23,6 +23,7 @@ export function createRemoteExtractor(settingsRepository: {
       mimeType: string;
       width: number;
       height: number;
+      prompt?: string;
     }) {
       const settings = await settingsRepository.getSettings();
       const id = settings.provider.id;
@@ -75,6 +76,7 @@ export function createRemoteExtractor(settingsRepository: {
             timeoutMs: settings.provider.timeoutMs,
             imageWidth: input.width,
             imageHeight: input.height,
+            prompt: input.prompt,
           },
           extract: (payload) => gemini.extract(payload),
         });
@@ -91,6 +93,7 @@ export function createRemoteExtractor(settingsRepository: {
             timeoutMs: settings.provider.timeoutMs,
             imageWidth: input.width,
             imageHeight: input.height,
+            prompt: input.prompt,
           },
           extract: (payload) =>
             codex.extract({
@@ -111,6 +114,7 @@ export function createRemoteExtractor(settingsRepository: {
             timeoutMs: settings.provider.timeoutMs,
             imageWidth: input.width,
             imageHeight: input.height,
+            prompt: input.prompt,
           },
           extract: (payload) =>
             copilot.extract({
@@ -130,6 +134,7 @@ export function createRemoteExtractor(settingsRepository: {
           timeoutMs: settings.provider.timeoutMs,
           imageWidth: input.width,
           imageHeight: input.height,
+          prompt: input.prompt,
         },
         extract: (payload) => openaiCompatible.extract(payload),
       });

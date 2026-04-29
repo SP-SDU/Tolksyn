@@ -52,6 +52,7 @@ export function parseProviderJsonEnvelope(rawText: unknown) {
   try {
     parsed = JSON.parse(rawText);
   } catch (error) {
+    console.error('[tolksyn] Provider returned malformed JSON:', rawText);
     throw new AppError('invalid_response', 'Provider response did not contain valid JSON.', error);
   }
 
@@ -78,11 +79,21 @@ export function parseProviderJsonEnvelope(rawText: unknown) {
 
   return {
     structuredJson: validation.data,
-    auxiliaryText:
-      typeof record.auxiliary_text_optional === 'string' && record.auxiliary_text_optional.trim().length > 0
-        ? record.auxiliary_text_optional.trim()
-        : undefined,
+    auxiliaryText: normalizeAuxiliaryText(record.auxiliary_text_optional),
   };
+}
+
+function normalizeAuxiliaryText(value: unknown): string | undefined {
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : undefined;
+  }
+
+  if (value && typeof value === 'object') {
+    return JSON.stringify(value);
+  }
+
+  return undefined;
 }
 
 export function providerErrorMessage(error: unknown): string {

@@ -61,12 +61,12 @@ describe('createGeminiExtractor', () => {
   });
 
   test('aborts when request exceeds effective timeout and maps to timeout error', async () => {
+    jest.useFakeTimers();
     const extractor = createGeminiExtractor({
       fetch: jest.fn((_url, init) => {
         const signal = init?.signal;
         return new Promise((resolve, reject) => {
-          signal?.addEventListener('abort', () => reject(new DOMException('Timed out', 'AbortError')));
-          setTimeout(() => {
+          const timeoutId = setTimeout(() => {
             resolve({
               ok: true,
               status: 200,
@@ -75,20 +75,42 @@ describe('createGeminiExtractor', () => {
               }),
             } as any);
           }, extractionTimeoutMs(5) + 1000);
+
+          const onAbort = () => {
+            clearTimeout(timeoutId);
+            reject(new DOMException('Timed out', 'AbortError'));
+          };
+
+          if (signal) {
+            if (signal.aborted) {
+              onAbort();
+              return;
+            }
+            signal.addEventListener('abort', onAbort, { once: true });
+          }
         });
       }),
     });
 
-    await expect(
-      extractor.extract({
+    try {
+      const extractPromise = extractor.extract({
         endpointUrl: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent',
         apiKey: 'secret',
         model: 'gemini-2.0-flash',
         imageBase64: 'abc',
         mimeType: 'image/jpeg',
         timeoutMs: 5,
-      }),
-    ).rejects.toMatchObject({ code: 'timeout' } satisfies Partial<AppError>);
+      });
+      const expectation = expect(extractPromise).rejects.toMatchObject({
+        code: 'timeout',
+      } satisfies Partial<AppError>);
+
+      await jest.advanceTimersByTimeAsync(extractionTimeoutMs(5));
+
+      await expectation;
+    } finally {
+      jest.useRealTimers();
+    }
   }, 130_000);
 
   test('uses minimum extraction timeout floor for short configured timeout', async () => {
