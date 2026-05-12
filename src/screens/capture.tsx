@@ -31,6 +31,7 @@ export function CaptureScreen() {
   const [activeStageStartedAt, setActiveStageStartedAt] = useState<number | null>(null);
   const [elapsedSec, setElapsedSec] = useState(0);
   const [liveBarcodes, setLiveBarcodes] = useState<BarcodeHit[]>([]);
+  const liveBarcodeScanningEnabled = Platform.OS !== 'web';
 
   useEffect(() => {
     if (!isProcessing || !activeStageStartedAt) {
@@ -206,21 +207,25 @@ export function CaptureScreen() {
             ref={cameraRef}
             style={styles.camera}
             facing="back"
-            barcodeScannerSettings={{
-              barcodeTypes: ['ean13', 'ean8', 'upc_a', 'upc_e', 'code128', 'code39', 'qr', 'pdf417'],
-            }}
-            onBarcodeScanned={(event) => {
-              setLiveBarcodes((current) => {
-                const exists = current.some(
-                  (barcode) => barcode.data === event.data && barcode.type === event.type,
-                );
-                if (exists) {
-                  return current;
-                }
+            {...(liveBarcodeScanningEnabled
+              ? {
+                  barcodeScannerSettings: {
+                    barcodeTypes: ['ean13', 'ean8', 'upc_a', 'upc_e', 'code128', 'code39', 'qr', 'pdf417'],
+                  },
+                  onBarcodeScanned: (event: { data: string; type: string }) => {
+                    setLiveBarcodes((current) => {
+                      const exists = current.some(
+                        (barcode) => barcode.data === event.data && barcode.type === event.type,
+                      );
+                      if (exists) {
+                        return current;
+                      }
 
-                return [...current, { type: event.type, data: event.data }];
-              });
-            }}
+                      return [...current, { type: event.type, data: event.data }];
+                    });
+                  },
+                }
+              : {})}
           />
         ) : (
           <View className="flex-1 items-center justify-center gap-3 px-6">

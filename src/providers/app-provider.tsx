@@ -3,6 +3,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Network from 'expo-network';
 import { useSQLiteContext } from 'expo-sqlite';
 import { createContext, startTransition, useContext, useEffect, useMemo } from 'react';
+import { Platform } from 'react-native';
 
 import { createIngestTransport } from '@/api/ingest-transport';
 import { createRemoteExtractor } from '@/api/remote-extractor';
@@ -81,7 +82,7 @@ function createRuntime(sqlite: Parameters<typeof createDb>[0]) {
   const imageStore = createImageStore();
   const extractor = createRemoteExtractor(settings);
   const webSearch = createExaWebSearch({ fetch });
-  const webFetch = createWebFetch({ fetch, proxyBaseUrl: typeof window === 'undefined' ? undefined : '/api/proxy/webfetch' });
+  const webFetch = createWebFetch({ fetch, proxyBaseUrl: Platform.OS === 'web' ? '/api/proxy/webfetch' : undefined });
   const webSearchEnricher = createManufacturerWebSearchEnricher({
     settings,
     extractor,
@@ -145,7 +146,9 @@ function createRuntime(sqlite: Parameters<typeof createDb>[0]) {
         attempts,
         barcodeDetector: {
           detect: ({ imageUri }) =>
-            barcodeDetector.detect({ imageUri, allowedTypes: appSettings.barcode.allowedTypes }),
+            appSettings.barcode.enabled
+              ? barcodeDetector.detect({ imageUri, allowedTypes: appSettings.barcode.allowedTypes })
+              : Promise.resolve([]),
         },
         extractor,
         webSearchEnricher,
