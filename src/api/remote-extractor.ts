@@ -68,6 +68,7 @@ export function createRemoteExtractor(settingsRepository: {
 
       if (id === 'google') {
         return extractWithRetries({
+          fallbackProvider: 'remote_gemini',
           input: {
             endpointUrl: settings.provider.endpointUrl,
             apiKey: credential,
@@ -86,6 +87,7 @@ export function createRemoteExtractor(settingsRepository: {
 
       if (id === 'openai' && mode === 'oauth' && settings.provider.endpointUrl.includes('chatgpt.com/backend-api/codex/responses')) {
         return extractWithRetries({
+          fallbackProvider: 'remote_openai_codex',
           input: {
             endpointUrl: settings.provider.endpointUrl,
             apiKey: '',
@@ -108,6 +110,7 @@ export function createRemoteExtractor(settingsRepository: {
 
       if (id === 'github-copilot' && mode === 'oauth') {
         return extractWithRetries({
+          fallbackProvider: 'remote_github_copilot',
           input: {
             endpointUrl: settings.provider.endpointUrl,
             apiKey: '',
@@ -129,6 +132,7 @@ export function createRemoteExtractor(settingsRepository: {
       }
 
       return extractWithRetries({
+        fallbackProvider: 'remote_openai_compatible',
         input: {
           endpointUrl: settings.provider.endpointUrl,
           apiKey: credential,

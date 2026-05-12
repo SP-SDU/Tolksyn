@@ -1,3 +1,5 @@
+import type { AppErrorCode } from '@/types/app-error';
+
 export type QueueItem = {
   id: string;
   sequence: number;
@@ -11,8 +13,8 @@ export type QueueItem = {
 
 export type QueueSubmissionResult =
   | { kind: 'success' }
-  | { kind: 'retryable_error'; errorCode: string }
-  | { kind: 'permanent_error'; errorCode: string };
+  | { kind: 'retryable_error'; errorCode: AppErrorCode }
+  | { kind: 'permanent_error'; errorCode: AppErrorCode };
 
 export interface QueueRepository {
   peekReady(now: number): Promise<QueueItem | null>;

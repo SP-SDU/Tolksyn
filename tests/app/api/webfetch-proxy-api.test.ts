@@ -3,7 +3,7 @@ import { GET } from '@/app/api/proxy/webfetch+api';
 describe('webfetch proxy api route', () => {
   test('forwards http url fetches with browser-like headers', async () => {
     const mock = jest.spyOn(global, 'fetch').mockResolvedValue(
-      new Response('Product page', {
+      new Response('<html><body><h1>Product page</h1><script>x()</script></body></html>', {
         status: 200,
         headers: { 'Content-Type': 'text/html; charset=utf-8' },
       }),
@@ -12,7 +12,7 @@ describe('webfetch proxy api route', () => {
     const response = await GET(new Request('http://localhost:8081/api/proxy/webfetch?url=https%3A%2F%2Fexample.com%2Fproduct'));
 
     expect(response.status).toBe(200);
-    expect(response.headers.get('Content-Type')).toBe('text/html; charset=utf-8');
+    expect(response.headers.get('Content-Type')).toBe('text/plain; charset=utf-8');
     expect(await response.text()).toBe('Product page');
     expect(mock).toHaveBeenCalledWith(
       'https://example.com/product',
@@ -25,6 +25,22 @@ describe('webfetch proxy api route', () => {
         }),
       }),
     );
+
+    mock.mockRestore();
+  });
+
+  test('rejects oversized upstream responses', async () => {
+    const mock = jest.spyOn(global, 'fetch').mockResolvedValue(
+      new Response('', {
+        status: 200,
+        headers: { 'Content-Length': String(5 * 1024 * 1024 + 1) },
+      }),
+    );
+
+    const response = await GET(new Request('http://localhost:8081/api/proxy/webfetch?url=https%3A%2F%2Fexample.com%2Fhuge'));
+
+    expect(response.status).toBe(413);
+    expect(await response.text()).toBe('Response too large');
 
     mock.mockRestore();
   });

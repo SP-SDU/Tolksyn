@@ -46,9 +46,9 @@ describe('webfetch', () => {
 
   test('uses proxy endpoint when proxy base url is provided', async () => {
     const fetch = jest.fn().mockResolvedValue(
-      new Response('<html><body><h1>Siemens product</h1></body></html>', {
+      new Response('Siemens product', {
         status: 200,
-        headers: { 'Content-Type': 'text/html' },
+        headers: { 'Content-Type': 'text/plain; charset=utf-8' },
       }),
     );
     const webFetch = createWebFetch({ fetch: fetch as unknown as typeof global.fetch, proxyBaseUrl: '/api/proxy/webfetch' });
@@ -57,7 +57,7 @@ describe('webfetch', () => {
 
     expect(result).toEqual({
       url: 'https://mall.industry.siemens.com/product?mlfb=3RW4027-2BB04',
-      contentType: 'text/html',
+      contentType: 'text/plain',
       text: 'Siemens product',
     });
     expect(fetch).toHaveBeenCalledWith(

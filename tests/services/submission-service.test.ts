@@ -1,4 +1,5 @@
 import { createSubmissionService } from '@/services/submission-service';
+import { AppError } from '@/types/app-error';
 import { emptyStructuredItem } from '@/types/item-schema';
 
 describe('createSubmissionService', () => {
@@ -141,5 +142,51 @@ describe('createSubmissionService', () => {
 
     expect(result).toEqual({ outcome: 'queued', idempotencyKey: 'idempotency-key' });
     expect(markQueued).toHaveBeenCalledWith('attempt-1', 3);
+  });
+
+  test('marks permanent transport failures and throws an app error', async () => {
+    const markFailed = jest.fn();
+    const service = createSubmissionService({
+      attempts: {
+        markSent: jest.fn(),
+        markQueued: jest.fn(),
+        markFailed,
+      },
+      queue: {
+        enqueue: jest.fn(),
+      },
+      transport: {
+        submit: jest.fn().mockResolvedValue({ kind: 'permanent_error', errorCode: 'auth_failed' }),
+      },
+      network: {
+        isOnline: async () => true,
+      },
+      createIdempotencyKey: async () => 'idempotency-key',
+      now: () => 10,
+    });
+
+    await expect(
+      service.acceptAttempt({
+        attemptId: 'attempt-1',
+        acceptedRevision: 4,
+        payload: {
+          schemaVersion: 'tolksyn.item.v1',
+          attemptId: 'attempt-1',
+          acceptedRevision: 4,
+          structuredJson: emptyStructuredItem(),
+          barcodeEnrichment: {
+            detected: [],
+            primary: null,
+            relatedFieldSuggestions: { eanOrUpc: null },
+            conflicts: [],
+          },
+          metadata: { source: 'camera' },
+        },
+      }),
+    ).rejects.toMatchObject({
+      code: 'auth_failed',
+      message: 'Submission authentication failed. Check the ingest API key in Settings.',
+    } satisfies Partial<AppError>);
+    expect(markFailed).toHaveBeenCalledWith('attempt-1', 'auth_failed');
   });
 });
