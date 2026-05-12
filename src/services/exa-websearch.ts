@@ -1,4 +1,5 @@
 import { AppError, providerHttpStatusToError } from '@/types/app-error';
+import { sanitizeSearchQuery, sanitizeUntrustedWebText, validateSafeHttpsUrl } from '@/services/web-safety';
 
 const EXA_MCP_URL = 'https://mcp.exa.ai/mcp';
 
@@ -13,6 +14,7 @@ export type ExaSearchInput = {
 export function createExaWebSearch({ fetch }: { fetch: typeof global.fetch }) {
   return {
     async search(input: ExaSearchInput): Promise<string> {
+      const query = sanitizeSearchQuery(input.query);
       const controller = new AbortController();
       const timeoutHandle = setTimeout(() => controller.abort(), 25_000);
 
@@ -31,7 +33,7 @@ export function createExaWebSearch({ fetch }: { fetch: typeof global.fetch }) {
             params: {
               name: 'web_search_exa',
               arguments: {
-                query: input.query,
+                query,
                 type: input.type ?? 'auto',
                 numResults: input.numResults ?? 8,
                 livecrawl: input.livecrawl ?? 'fallback',
@@ -45,7 +47,7 @@ export function createExaWebSearch({ fetch }: { fetch: typeof global.fetch }) {
           throw await providerHttpStatusToError(response);
         }
 
-        return parseExaSse(await response.text()) ?? 'No search results found. Please try a different query.';
+        return sanitizeUntrustedWebText(parseExaSse(await response.text()) ?? 'No search results found. Please try a different query.');
       } catch (error) {
         if (error instanceof AppError) {
           throw error;
@@ -97,6 +99,12 @@ export function extractUrlsFromText(text: string): string[] {
 
   for (const match of matches) {
     const url = match.replace(/[.,;:!?]+$/, '');
+    try {
+      validateSafeHttpsUrl(url, 'exa result');
+    } catch {
+      continue;
+    }
+
     if (seen.has(url)) {
       continue;
     }

@@ -1,4 +1,5 @@
 import { AppError, providerHttpStatusToError } from '@/types/app-error';
+import { sanitizeUntrustedWebText, validateSafeHttpsUrl } from '@/services/web-safety';
 
 const MAX_RESPONSE_SIZE = 5 * 1024 * 1024;
 
@@ -11,11 +12,9 @@ export type WebFetchResult = {
 export function createWebFetch({ fetch, proxyBaseUrl }: { fetch: typeof global.fetch; proxyBaseUrl?: string }) {
   return {
     async fetch({ url, timeoutMs = 30_000 }: { url: string; timeoutMs?: number }): Promise<WebFetchResult> {
-      if (!url.startsWith('http://') && !url.startsWith('https://')) {
-        throw new Error('URL must start with http:// or https://');
-      }
+      const safeUrl = validateSafeHttpsUrl(url, 'webfetch');
 
-      const requestUrl = proxyBaseUrl ? `${proxyBaseUrl}?url=${encodeURIComponent(url)}` : url;
+      const requestUrl = proxyBaseUrl ? `${proxyBaseUrl}?url=${encodeURIComponent(safeUrl)}` : safeUrl;
 
       const controller = new AbortController();
       const timeoutHandle = setTimeout(() => controller.abort(), Math.min(timeoutMs, 120_000));
@@ -47,9 +46,9 @@ export function createWebFetch({ fetch, proxyBaseUrl }: { fetch: typeof global.f
         }
 
         return {
-          url,
+          url: safeUrl,
           contentType: contentType.split(';')[0]?.trim().toLowerCase() || '',
-          text: contentType.includes('text/html') ? htmlToText(text) : text,
+          text: sanitizeUntrustedWebText(contentType.includes('text/html') ? htmlToText(text) : text),
         };
       } catch (error) {
         if (error instanceof AppError) {
