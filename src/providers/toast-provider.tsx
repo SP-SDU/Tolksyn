@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState, type PropsWithChildren } from 'react';
 import { Text, View } from 'react-native';
 
 import { AppDesign } from '@/constants/design';
@@ -21,7 +21,7 @@ type ToastApi = {
 
 const ToastContext = createContext<ToastApi | null>(null);
 
-export function ToastProvider({ children }: React.PropsWithChildren) {
+export function ToastProvider({ children }: PropsWithChildren) {
   const [state, setState] = useState(initialToastState);
 
   useEffect(() => {

@@ -1,4 +1,5 @@
 import type { StructuredItem } from '@/types/item-schema';
+import type { BarcodeHit } from '@/utils/merge-extraction-result';
 
 export type ExtractionPromptAttempt = {
   attempt: number;
@@ -9,7 +10,7 @@ export type ExtractionPromptAttempt = {
 
 export type RemoteExtractionResult = {
   structuredJson: StructuredItem;
-  barcodes: [];
+  barcodes: BarcodeHit[];
   auxiliaryText?: string;
   responseText?: string;
   extractionDiagnostics?: {
