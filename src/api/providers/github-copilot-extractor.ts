@@ -18,6 +18,7 @@ import type {
   RemoteExtractionResult,
 } from '@/api/providers/remote-extraction-types';
 import type { ProviderAuth } from '@/types/settings';
+import { createAbortError, linkAbortSignal } from '@/utils/abort';
 
 export function createGitHubCopilotExtractor({ fetch }: { fetch: FetchLike }) {
   return {
@@ -26,8 +27,8 @@ export function createGitHubCopilotExtractor({ fetch }: { fetch: FetchLike }) {
         oauth: Extract<ProviderAuth, { type: 'oauth' }>;
       },
     ): Promise<RemoteExtractionResult> {
-      const controller = new AbortController();
-      const timeoutHandle = setTimeout(() => controller.abort(), extractionTimeoutMs(input.timeoutMs));
+      const linked = linkAbortSignal(input.signal);
+      const timeoutHandle = setTimeout(() => linked.controller.abort(), extractionTimeoutMs(input.timeoutMs));
 
       try {
         const useResponses = isCopilotResponsesModel(input.model);
@@ -40,7 +41,7 @@ export function createGitHubCopilotExtractor({ fetch }: { fetch: FetchLike }) {
         const startedAt = Date.now();
         const response = await fetch(url.toString(), {
           method: 'POST',
-          signal: controller.signal,
+          signal: linked.signal,
           headers: await copilotRequestHeaders({
             fetch,
             refreshToken,
@@ -114,9 +115,14 @@ export function createGitHubCopilotExtractor({ fetch }: { fetch: FetchLike }) {
           },
         };
       } catch (error) {
+        if (input.signal?.aborted) {
+          throw createAbortError();
+        }
+
         throw normalizeRemoteError(error);
       } finally {
         clearTimeout(timeoutHandle);
+        linked.cleanup();
       }
     },
   };

@@ -1,5 +1,6 @@
 import { AppError, providerHttpStatusToError } from '@/types/app-error';
 import { sanitizeSearchQuery, sanitizeUntrustedWebText, validateSafeHttpsUrl } from '@/services/web-safety';
+import { createAbortError, linkAbortSignal } from '@/utils/abort';
 
 const EXA_MCP_URL = 'https://mcp.exa.ai/mcp';
 
@@ -9,19 +10,20 @@ export type ExaSearchInput = {
   livecrawl?: 'fallback' | 'preferred';
   type?: 'auto' | 'fast' | 'deep';
   contextMaxCharacters?: number;
+  signal?: AbortSignal;
 };
 
 export function createExaWebSearch({ fetch }: { fetch: typeof global.fetch }) {
   return {
     async search(input: ExaSearchInput): Promise<string> {
       const query = sanitizeSearchQuery(input.query);
-      const controller = new AbortController();
-      const timeoutHandle = setTimeout(() => controller.abort(), 25_000);
+      const linked = linkAbortSignal(input.signal);
+      const timeoutHandle = setTimeout(() => linked.controller.abort(), 25_000);
 
       try {
         const response = await fetch(exaUrl(), {
           method: 'POST',
-          signal: controller.signal,
+          signal: linked.signal,
           headers: {
             Accept: 'application/json, text/event-stream',
             'Content-Type': 'application/json',
@@ -49,6 +51,10 @@ export function createExaWebSearch({ fetch }: { fetch: typeof global.fetch }) {
 
         return sanitizeUntrustedWebText(parseExaSse(await response.text()) ?? 'No search results found. Please try a different query.');
       } catch (error) {
+        if (input.signal?.aborted) {
+          throw createAbortError();
+        }
+
         if (error instanceof AppError) {
           throw error;
         }
@@ -60,6 +66,7 @@ export function createExaWebSearch({ fetch }: { fetch: typeof global.fetch }) {
         throw new AppError('network_unavailable', error instanceof Error ? error.message : 'Exa web search failed.', error);
       } finally {
         clearTimeout(timeoutHandle);
+        linked.cleanup();
       }
     },
   };

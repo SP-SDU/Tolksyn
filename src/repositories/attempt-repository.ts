@@ -115,6 +115,18 @@ export function createAttemptRepository(db: DbLike, sqlite?: SQLiteDatabase) {
       await pruneAttempts(db, sqlite);
     },
 
+    async deleteById(id: string): Promise<void> {
+      if (sqlite?.runAsync) {
+        try {
+          await sqlite.runAsync('delete from attempts where id = ?', id);
+          return;
+        } catch {
+        }
+      }
+
+      await db.delete(attemptsTable).where(eq(attemptsTable.id, id));
+    },
+
     async getById(id: string): Promise<AttemptRecord | null> {
       if (sqlite?.getFirstAsync) {
         try {

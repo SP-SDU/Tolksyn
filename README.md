@@ -1,50 +1,31 @@
-# Welcome to your Expo app 👋
+# Tolksyn
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Expo app for turning product-label photos into reviewed structured item payloads.
 
-## Get started
+## What It Does
 
-1. Install dependencies
+- Captures a label image from camera or gallery.
+- Reads visible barcodes when available.
+- Sends the image to a configured vision model for extraction.
+- Adds optional web-search enrichment.
+- Lets the user edit fields before submitting to an ingest endpoint.
+- Stores recent attempts and queues accepted payloads when offline.
 
-   ```bash
-   npm install
-   ```
+## Setup
 
-2. Start the app
+- Install Node.js and npm.
+- Run `npm install`.
+- Run `npm run start`.
+- Choose Android, iOS, web, or Expo Go from the Expo terminal.
 
-   ```bash
-   npx expo start
-   ```
+## App Settings
 
-In the output, you'll find options to open the app in a
+- Provider: OpenAI, Google, or GitHub Copilot where supported.
+- Auth: OAuth or API key depending on provider.
+- Ingest: endpoint URL plus `x-api-key`.
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+## Checks
 
-You can start developing by editing the files inside the **src/app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
-```
-
-This command will move the starter code to the **src-example** directory and create a blank **src/app** directory where you can start developing.
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+- `npm run test`
+- `npm run lint`
+- `npm run typecheck`

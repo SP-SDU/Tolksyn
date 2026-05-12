@@ -11,19 +11,20 @@ import type {
   RemoteExtractionInput,
   RemoteExtractionResult,
 } from '@/api/providers/remote-extraction-types';
+import { createAbortError, linkAbortSignal } from '@/utils/abort';
 
 export function createGeminiExtractor({ fetch }: { fetch: FetchLike }) {
   return {
     async extract(input: RemoteExtractionInput): Promise<RemoteExtractionResult> {
-      const controller = new AbortController();
-      const timeoutHandle = setTimeout(() => controller.abort(), extractionTimeoutMs(input.timeoutMs));
+      const linked = linkAbortSignal(input.signal);
+      const timeoutHandle = setTimeout(() => linked.controller.abort(), extractionTimeoutMs(input.timeoutMs));
 
       try {
         const url = ensureHttps(input.endpointUrl);
         const startedAt = Date.now();
         const response = await fetch(url.toString(), {
           method: 'POST',
-          signal: controller.signal,
+          signal: linked.signal,
           headers: {
             'Content-Type': 'application/json',
             'x-goog-api-key': input.apiKey,
@@ -74,9 +75,14 @@ export function createGeminiExtractor({ fetch }: { fetch: FetchLike }) {
           },
         };
       } catch (error) {
+        if (input.signal?.aborted) {
+          throw createAbortError();
+        }
+
         throw normalizeRemoteError(error);
       } finally {
         clearTimeout(timeoutHandle);
+        linked.cleanup();
       }
     },
   };

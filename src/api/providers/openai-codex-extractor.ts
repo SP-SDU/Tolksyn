@@ -12,6 +12,7 @@ import type {
   RemoteExtractionResult,
 } from '@/api/providers/remote-extraction-types';
 import type { ProviderAuth } from '@/types/settings';
+import { createAbortError, linkAbortSignal } from '@/utils/abort';
 
 export function createOpenAICodexExtractor({ fetch }: { fetch: FetchLike }) {
   return {
@@ -20,8 +21,8 @@ export function createOpenAICodexExtractor({ fetch }: { fetch: FetchLike }) {
         oauth: Extract<ProviderAuth, { type: 'oauth' }>;
       },
     ): Promise<RemoteExtractionResult> {
-      const controller = new AbortController();
-      const timeoutHandle = setTimeout(() => controller.abort(), extractionTimeoutMs(input.timeoutMs));
+      const linked = linkAbortSignal(input.signal);
+      const timeoutHandle = setTimeout(() => linked.controller.abort(), extractionTimeoutMs(input.timeoutMs));
 
       try {
         const url = codexUrl(input.endpointUrl);
@@ -45,7 +46,7 @@ export function createOpenAICodexExtractor({ fetch }: { fetch: FetchLike }) {
         };
         const response = await fetch(url.toString(), {
           method: 'POST',
-          signal: controller.signal,
+          signal: linked.signal,
           headers: {
             'Content-Type': 'application/json',
             authorization: `Bearer ${input.oauth.access}`,
@@ -88,9 +89,14 @@ export function createOpenAICodexExtractor({ fetch }: { fetch: FetchLike }) {
           },
         };
       } catch (error) {
+        if (input.signal?.aborted) {
+          throw createAbortError();
+        }
+
         throw normalizeRemoteError(error);
       } finally {
         clearTimeout(timeoutHandle);
+        linked.cleanup();
       }
     },
   };

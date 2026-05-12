@@ -133,6 +133,7 @@ function createRuntime(sqlite: Parameters<typeof createDb>[0]) {
       source: 'camera' | 'gallery';
       inputUri: string;
       liveBarcodes?: BarcodeHit[];
+      signal?: AbortSignal;
       onProgress?: Parameters<typeof processImage>[0]['onProgress'];
     }) {
       const appSettings = await settings.getSettings();

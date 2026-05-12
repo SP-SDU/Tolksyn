@@ -1,10 +1,10 @@
 import { Image } from 'expo-image';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 
-import { CardDescription, CardTitle } from '@/components/ui/card';
-import { Screen, ScreenTitle } from '@/components/ui/screen';
+import { AppHeader, StatusPill } from '@/components/ui/app-chrome';
+import { Screen } from '@/components/ui/screen';
 import { useAppRuntime } from '@/providers/app-provider';
 
 export function HistoryScreen() {
@@ -30,17 +30,28 @@ export function HistoryScreen() {
 
   return (
     <Screen className="gap-3">
-      <ScreenTitle title="History" subtitle="Last 20 attempts kept locally." />
+      <AppHeader eyebrow="Local" title="History" meta="Last 20 attempts kept on this device." />
+      {!attempts.length ? (
+        <View className="border-2 border-border bg-paper p-4">
+          <Text className="text-sm font-black uppercase tracking-wide text-muted">No attempts yet.</Text>
+        </View>
+      ) : null}
       {attempts.map((attempt) => (
         <Pressable
           key={attempt.id}
+          accessibilityRole="button"
           onPress={() => router.push({ pathname: '/confirm/[attemptId]', params: { attemptId: attempt.id } })}>
-          <View className="flex-row items-center gap-3 rounded-2xl border border-border bg-card px-3 py-3">
-            <Image source={attempt.thumbnailUri} className="h-[72px] w-[72px] rounded-xl bg-slate-200" />
+          <View className="flex-row items-stretch gap-3 border-2 border-border bg-card p-3">
+            <Image source={attempt.thumbnailUri} className="h-[78px] w-[78px] border-2 border-border bg-imageBase" />
             <View className="flex-1 gap-1">
-              <CardTitle className="text-base">{attempt.id}</CardTitle>
-              <CardDescription>Status: {attempt.status}</CardDescription>
-              <CardDescription>Created: {new Date(attempt.createdAt).toLocaleString()}</CardDescription>
+              <View className="flex-row flex-wrap gap-2">
+                <StatusPill label={attempt.status} tone={attempt.status.endsWith('_failed') ? 'danger' : 'default'} />
+                <StatusPill label={attempt.source} tone="info" />
+              </View>
+              <Text className="text-base font-black uppercase tracking-tight text-foreground">{attempt.id}</Text>
+              <Text className="text-xs font-semibold uppercase tracking-wide text-muted">
+                {new Date(attempt.createdAt).toLocaleString()}
+              </Text>
             </View>
           </View>
         </Pressable>

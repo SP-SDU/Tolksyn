@@ -3,10 +3,11 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { Alert, Text, View } from 'react-native';
 
+import { AppHeader, BrutalFrame, FieldRow, StatusPill, StickyActionBar } from '@/components/ui/app-chrome';
 import { Button } from '@/components/ui/button';
+import { DiagnosticDisclosure } from '@/components/ui/diagnostic-disclosure';
 import { Input } from '@/components/ui/input';
-import { Screen, ScreenTitle } from '@/components/ui/screen';
-import { Section } from '@/components/ui/section';
+import { Screen } from '@/components/ui/screen';
 import { useAppRuntime } from '@/providers/app-provider';
 import { getErrorMessage } from '@/types/app-error';
 import type { StructuredItem } from '@/types/item-schema';
@@ -29,7 +30,6 @@ export function ConfirmScreen({ attemptId }: { attemptId: string }) {
   const [attempt, setAttempt] = useState<Awaited<ReturnType<typeof runtime.attempts.getById>>>(null);
   const [draft, setDraft] = useState<StructuredItem | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showDiagnostics, setShowDiagnostics] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -56,7 +56,7 @@ export function ConfirmScreen({ attemptId }: { attemptId: string }) {
   if (!attempt) {
     return (
       <View className="flex-1 items-center justify-center bg-background">
-        <Text className="text-muted">Attempt not found.</Text>
+        <Text className="text-sm font-black uppercase tracking-wide text-muted">Attempt not found.</Text>
       </View>
     );
   }
@@ -64,7 +64,9 @@ export function ConfirmScreen({ attemptId }: { attemptId: string }) {
   if (!draft) {
     return (
       <View className="flex-1 items-center justify-center bg-background px-6">
-        <Text className="text-center text-muted">Extraction result is unavailable for this attempt.</Text>
+        <Text className="text-center text-sm font-black uppercase tracking-wide text-muted">
+          Extraction result is unavailable for this attempt.
+        </Text>
         <View className="mt-4 w-full max-w-xs gap-2">
           <Button variant="secondary" label="Back" onPress={() => router.replace('/')} />
           <Button label="Try Again" onPress={handleTryAgain} />
@@ -77,6 +79,8 @@ export function ConfirmScreen({ attemptId }: { attemptId: string }) {
   const currentDraft = draft;
   const webSearch = currentAttempt.extractionResult?.webSearchEnrichment;
   const extractionAttempts = currentAttempt.extractionDiagnostics?.attempts ?? [];
+  const detectedBarcodes = currentAttempt.extractionResult?.barcodeEnrichment.detected ?? [];
+  const suggestedBarcode = currentAttempt.extractionResult?.barcodeEnrichment.relatedFieldSuggestions.eanOrUpc ?? 'None';
 
   async function handleAccept() {
     setIsSubmitting(true);
@@ -126,23 +130,41 @@ export function ConfirmScreen({ attemptId }: { attemptId: string }) {
   }
 
   return (
-    <Screen className="gap-4">
-      <ScreenTitle title="Confirm & Edit" />
-      <Image
-        source={currentAttempt.imageUri}
-        className="h-[220px] w-full rounded-3xl bg-slate-200"
-        contentFit="cover"
-      />
+    <View className="flex-1 bg-background">
+      <Screen className="gap-4 pb-32">
+        <AppHeader
+          eyebrow="Step 2"
+          title="Verify"
+          meta="Edit the extraction. Accept only when the record is clean."
+        />
 
-      <Section title="Structured JSON">
+        <View className="gap-3">
+          <Image
+            source={currentAttempt.imageUri}
+            className="h-[220px] w-full border-4 border-border bg-imageBase"
+            contentFit="cover"
+          />
+          <BrutalFrame className="gap-2 bg-paper">
+            <View className="flex-row flex-wrap gap-2">
+              <StatusPill label={currentAttempt.status} tone={currentAttempt.status.endsWith('_failed') ? 'danger' : 'default'} />
+              <StatusPill label={currentAttempt.source} tone="info" />
+              <StatusPill label={`Rev ${currentAttempt.acceptedRevision + 1}`} tone="warning" />
+            </View>
+            <FieldRow label="Attempt" value={currentAttempt.id} />
+            <FieldRow label="Created" value={new Date(currentAttempt.createdAt).toLocaleString()} />
+          </BrutalFrame>
+        </View>
+
+        <BrutalFrame className="gap-4">
+          <Text className="text-xl font-black uppercase tracking-tight text-foreground">Structured Record</Text>
         {currentAttempt.extractionDiagnostics?.failed ? (
-          <Text className="text-sm text-amber-700">
+          <Text className="border-2 border-border bg-caution p-3 text-sm font-black uppercase tracking-wide text-foreground">
             VLM extraction failed. Fields are defaulted to null so you can edit and continue manually.
           </Text>
         ) : null}
         {editableFields.map(([key, value]) => (
           <View key={key} className="gap-1.5">
-            <Text className="text-sm font-semibold text-slate-700">{formatLabel(key)}</Text>
+            <Text className="text-xs font-black uppercase tracking-wide text-foreground">{formatLabel(key)}</Text>
             <Input
               multiline
               value={value == null ? '' : String(value)}
@@ -161,102 +183,102 @@ export function ConfirmScreen({ attemptId }: { attemptId: string }) {
             />
           </View>
         ))}
-      </Section>
+        </BrutalFrame>
 
-      <Section title="Barcode enrichment">
-        <Text className="text-sm text-muted">
-          Suggested EAN/UPC: {currentAttempt.extractionResult?.barcodeEnrichment.relatedFieldSuggestions.eanOrUpc ?? 'None'}
-        </Text>
-        {(currentAttempt.extractionResult?.barcodeEnrichment.detected ?? []).map((barcode) => (
-          <Text key={`${barcode.type}:${barcode.data}`} className="text-sm text-muted">
-            {barcode.type}: {barcode.data}
-          </Text>
-        ))}
-      </Section>
+        <BrutalFrame className="gap-3 bg-paper">
+          <Text className="text-xl font-black uppercase tracking-tight text-foreground">Barcode</Text>
+          <FieldRow label="Suggested EAN/UPC" value={suggestedBarcode} />
+          {detectedBarcodes.length ? (
+            detectedBarcodes.map((barcode) => (
+              <FieldRow key={`${barcode.type}:${barcode.data}`} label={barcode.type} value={barcode.data} />
+            ))
+          ) : (
+            <Text className="text-sm font-semibold text-muted">No barcode was detected.</Text>
+          )}
+        </BrutalFrame>
 
-      {extractionAttempts.length || webSearch ? (
-        <Section title="Extraction attempts">
-          <Text className="text-sm text-muted">
-            {formatDiagnosticsSummary(extractionAttempts.length, webSearch)}
-          </Text>
-          {webSearch ? <Text className="text-sm font-semibold text-slate-700">Manufacturer websearch</Text> : null}
-          {webSearch ? (
-            <Text className="text-sm text-muted">Status: {webSearch.failed ? 'Failed' : webSearch.skipped ? 'Skipped' : 'Completed'}</Text>
-          ) : null}
-          {webSearch?.skipReason ? <Text className="text-sm text-muted">Reason: {webSearch.skipReason}</Text> : null}
-          {webSearch?.error ? <Text className="text-sm text-red-700">Error: {webSearch.error}</Text> : null}
+        {extractionAttempts.length > 0 || webSearch ? (
+          <BrutalFrame className="gap-3">
+            <Text className="text-xl font-black uppercase tracking-tight text-foreground">Evidence</Text>
+            <Text className="text-sm font-semibold text-muted">
+              {formatDiagnosticsSummary(extractionAttempts.length, webSearch)}
+            </Text>
+            {webSearch ? <Text className="text-sm font-black uppercase tracking-wide text-foreground">Manufacturer Websearch</Text> : null}
+            {webSearch ? (
+              <StatusPill label={webSearch.failed ? 'Failed' : webSearch.skipped ? 'Skipped' : 'Completed'} tone={webSearch.failed ? 'danger' : 'success'} />
+            ) : null}
+            {webSearch?.skipReason ? <Text className="text-sm font-semibold text-muted">Reason: {webSearch.skipReason}</Text> : null}
+            {webSearch?.error ? <Text className="text-sm font-semibold text-danger">Error: {webSearch.error}</Text> : null}
           {webSearch?.fieldChanges.length ? (
             webSearch.fieldChanges.map((change) => (
-              <View key={`${change.field}-${String(change.after)}`} className="gap-1.5 rounded-xl border border-border px-3 py-2">
-                <Text className="text-xs font-semibold text-slate-700">Changed field: {formatLabel(change.field)}</Text>
-                <Text selectable className="text-xs text-slate-600">Original: {change.before == null ? 'null' : String(change.before)}</Text>
-                <Text selectable className="text-xs text-slate-600">Web-updated: {change.after == null ? 'null' : String(change.after)}</Text>
-                {change.reason ? <Text selectable className="text-xs text-slate-600">Reason: {change.reason}</Text> : null}
-                {change.evidenceUrls.length ? <Text selectable className="text-xs text-slate-600">Evidence: {change.evidenceUrls.join(', ')}</Text> : null}
+              <View key={`${change.field}-${String(change.after)}`} className="gap-1.5 border-2 border-border bg-paper px-3 py-2">
+                <Text className="text-xs font-black uppercase tracking-wide text-foreground">Changed: {formatLabel(change.field)}</Text>
+                <Text selectable className="text-xs font-semibold text-muted">Original: {change.before == null ? 'null' : String(change.before)}</Text>
+                <Text selectable className="text-xs font-semibold text-muted">Web-updated: {change.after == null ? 'null' : String(change.after)}</Text>
+                {change.reason ? <Text selectable className="text-xs font-semibold text-muted">Reason: {change.reason}</Text> : null}
+                {change.evidenceUrls.length ? <Text selectable className="text-xs font-semibold text-muted">Evidence: {change.evidenceUrls.join(', ')}</Text> : null}
               </View>
             ))
           ) : webSearch ? (
-            <Text className="text-sm text-muted">No fields changed by websearch.</Text>
+            <Text className="text-sm font-semibold text-muted">No fields changed by websearch.</Text>
           ) : null}
           {webSearch?.conflicts.length ? (
             webSearch.conflicts.map((conflict) => (
-              <Text key={conflict} className="text-sm text-amber-700">Conflict: {conflict}</Text>
+              <Text key={conflict} className="text-sm font-semibold text-danger">Conflict: {conflict}</Text>
             ))
           ) : null}
-          <Button
-            variant="secondary"
-            label={showDiagnostics ? 'Hide diagnostics' : 'Show diagnostics'}
-            onPress={() => setShowDiagnostics((current) => !current)}
-          />
-          {showDiagnostics ? (
+          <DiagnosticDisclosure label="Diagnostics">
             <View className="gap-3">
               {extractionAttempts.map((item) => (
-                <View key={`${item.attempt}-${item.error ?? 'ok'}`} className="gap-1.5 rounded-xl border border-border px-3 py-2">
-                  <Text className="text-xs font-semibold text-slate-700">Attempt {item.attempt}</Text>
-                  {item.error ? <Text className="text-xs text-red-700">Error: {item.error}</Text> : <Text className="text-xs text-emerald-700">Success</Text>}
-                  <Text selectable className="text-xs text-slate-600">Prompt: {item.prompt}</Text>
-                  {item.responseText ? <Text selectable className="text-xs text-slate-600">Response: {item.responseText}</Text> : null}
+                <View key={`${item.attempt}-${item.error ?? 'ok'}`} className="gap-1.5 border-2 border-border bg-panel px-3 py-2">
+                  <Text className="text-xs font-black uppercase tracking-wide text-foreground">Attempt {item.attempt}</Text>
+                  {item.error ? <Text className="text-xs font-semibold text-danger">Error: {item.error}</Text> : <Text className="text-xs font-semibold text-signalBlue">Success</Text>}
+                  <Text selectable className="text-xs font-semibold text-muted">Prompt: {item.prompt}</Text>
+                  {item.responseText ? <Text selectable className="text-xs font-semibold text-muted">Response: {item.responseText}</Text> : null}
                 </View>
               ))}
               {webSearch?.attempts.map((item, index) => (
-                <View key={`${item.type}-${index}`} className="gap-1.5 rounded-xl border border-border px-3 py-2">
-                  <Text className="text-xs font-semibold text-slate-700">Websearch {formatWebSearchAttemptType(item.type)}</Text>
-                  <Text className={item.status === 'failed' ? 'text-xs text-red-700' : 'text-xs text-emerald-700'}>
+                <View key={`${item.type}-${index}`} className="gap-1.5 border-2 border-border bg-panel px-3 py-2">
+                  <Text className="text-xs font-black uppercase tracking-wide text-foreground">Websearch {formatWebSearchAttemptType(item.type)}</Text>
+                  <Text className={item.status === 'failed' ? 'text-xs font-semibold text-danger' : 'text-xs font-semibold text-signalBlue'}>
                     {item.status === 'failed' ? 'Failed' : 'Success'}
                   </Text>
-                  {item.query ? <Text selectable className="text-xs text-slate-600">Query: {item.query}</Text> : null}
-                  {item.url ? <Text selectable className="text-xs text-slate-600">URL: {item.url}</Text> : null}
-                  {item.prompt ? <Text selectable className="text-xs text-slate-600">Prompt: {item.prompt}</Text> : null}
-                  {item.responseText ? <Text selectable className="text-xs text-slate-600">Response: {item.responseText}</Text> : null}
-                  {item.excerpt ? <Text selectable className="text-xs text-slate-600">Excerpt: {item.excerpt}</Text> : null}
-                  {item.error ? <Text selectable className="text-xs text-red-700">Error: {item.error}</Text> : null}
+                  {item.query ? <Text selectable className="text-xs font-semibold text-muted">Query: {item.query}</Text> : null}
+                  {item.url ? <Text selectable className="text-xs font-semibold text-muted">URL: {item.url}</Text> : null}
+                  {item.prompt ? <Text selectable className="text-xs font-semibold text-muted">Prompt: {item.prompt}</Text> : null}
+                  {item.responseText ? <Text selectable className="text-xs font-semibold text-muted">Response: {item.responseText}</Text> : null}
+                  {item.excerpt ? <Text selectable className="text-xs font-semibold text-muted">Excerpt: {item.excerpt}</Text> : null}
+                  {item.error ? <Text selectable className="text-xs font-semibold text-danger">Error: {item.error}</Text> : null}
                 </View>
               ))}
               {webSearch?.queries.map((query) => (
-                <Text key={query} className="text-sm text-muted">Query: {query}</Text>
+                <Text key={query} className="text-sm font-semibold text-muted">Query: {query}</Text>
               ))}
               {webSearch?.sources.map((source) => (
-                <View key={source.url} className="gap-1.5 rounded-xl border border-border px-3 py-2">
-                  <Text selectable className="text-xs font-semibold text-slate-700">Source: {source.url}</Text>
-                  <Text selectable className="text-xs text-slate-600">Excerpt: {source.excerpt}</Text>
+                <View key={source.url} className="gap-1.5 border-2 border-border bg-panel px-3 py-2">
+                  <Text selectable className="text-xs font-black uppercase tracking-wide text-foreground">Source: {source.url}</Text>
+                  <Text selectable className="text-xs font-semibold text-muted">Excerpt: {source.excerpt}</Text>
                 </View>
               ))}
             </View>
-          ) : null}
-        </Section>
-      ) : null}
+          </DiagnosticDisclosure>
+          </BrutalFrame>
+        ) : null}
+      </Screen>
 
-      <View className="flex-row gap-2">
-        <Button variant="secondary" className="flex-1" label="Discard" onPress={() => router.replace('/')} />
-        <Button variant="secondary" className="flex-1" label="Try Again" onPress={handleTryAgain} />
-        <Button
-          className="flex-1"
-          disabled={isSubmitting}
-          label={isSubmitting ? 'Sending…' : 'Accept'}
-          onPress={handleAccept}
-        />
-      </View>
-    </Screen>
+      <StickyActionBar className="absolute bottom-0 left-0 right-0">
+        <View className="flex-row gap-2">
+          <Button variant="secondary" className="flex-1" label="Discard" onPress={() => router.replace('/')} />
+          <Button variant="secondary" className="flex-1" label="Retry" onPress={handleTryAgain} />
+          <Button
+            className="flex-1"
+            disabled={isSubmitting}
+            label={isSubmitting ? 'Sending…' : 'Accept'}
+            onPress={handleAccept}
+          />
+        </View>
+      </StickyActionBar>
+    </View>
   );
 }
 

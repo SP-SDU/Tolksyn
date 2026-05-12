@@ -7,10 +7,10 @@ export function Input({ className, ...props }: TextInputProps & { className?: st
     <TextInput
       {...props}
       className={cn(
-        'rounded-xl border border-border bg-card px-3 py-3 text-foreground',
+        'min-h-12 border-2 border-border bg-paper px-3 py-3 text-base text-foreground',
         className,
       )}
-      placeholderTextColor="#94a3b8"
+      placeholderTextColor="#5f5a52"
     />
   );
 }
@@ -27,7 +27,7 @@ export function LabeledInput({
 }) {
   return (
     <View className="gap-1.5">
-      <Text className={cn('text-sm font-semibold text-slate-700', labelClassName)}>{label}</Text>
+      <Text className={cn('text-xs font-black uppercase tracking-wide text-foreground', labelClassName)}>{label}</Text>
       <Input {...props} className={className} />
     </View>
   );
