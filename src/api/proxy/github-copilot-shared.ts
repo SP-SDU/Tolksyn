@@ -8,11 +8,16 @@ import {
 import { AppError } from '@/types/app-error';
 
 export async function proxyCopilotModels(request: Request): Promise<Response> {
-  const upstream = await withCopilotToken(request, async ({ token, enterpriseUrl }) =>
-    fetch(`${copilotBase(enterpriseUrl)}/models`, {
-      headers: copilotModelHeaders(token),
-    }),
-  );
+  let upstream: Response;
+  try {
+    upstream = await withCopilotToken(request, async ({ token, enterpriseUrl }) =>
+      fetch(`${copilotBase(enterpriseUrl)}/models`, {
+        headers: copilotModelHeaders(token),
+      }),
+    );
+  } catch (error) {
+    return errorResponse(error);
+  }
 
   return passthroughJson(upstream);
 }
@@ -20,19 +25,24 @@ export async function proxyCopilotModels(request: Request): Promise<Response> {
 export async function proxyCopilotPost(request: Request, path: 'chat/completions' | 'responses'): Promise<Response> {
   const body = await request.text();
 
-  const upstream = await withCopilotToken(request, async ({ token, enterpriseUrl }) =>
-    fetch(`${copilotBase(enterpriseUrl)}/${path}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...copilotHeaders(token, {
-          vision: hasVisionInput(body),
-          initiator: 'user',
-        }),
-      },
-      body,
-    }),
-  );
+  let upstream: Response;
+  try {
+    upstream = await withCopilotToken(request, async ({ token, enterpriseUrl }) =>
+      fetch(`${copilotBase(enterpriseUrl)}/${path}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...copilotHeaders(token, {
+            vision: hasVisionInput(body),
+            initiator: 'user',
+          }),
+        },
+        body,
+      }),
+    );
+  } catch (error) {
+    return errorResponse(error);
+  }
 
   return passthroughJson(upstream);
 }
@@ -100,7 +110,9 @@ async function withCopilotToken(
 function errorResponse(error: unknown): Response {
   const status =
     error instanceof AppError
-      ? error.code === 'auth_failed'
+      ? error.code === 'unsupported'
+        ? 400
+        : error.code === 'auth_failed'
         ? 401
         : error.code === 'rate_limited'
           ? 429

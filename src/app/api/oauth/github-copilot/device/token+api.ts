@@ -1,3 +1,6 @@
+import { AppError } from '@/types/app-error';
+import { normalizeEnterpriseDomain } from '@/api/providers/github-copilot-shared';
+
 const GITHUB_CLIENT_ID = 'Ov23li8tweQw6odWQebz';
 
 export async function POST(request: Request): Promise<Response> {
@@ -6,7 +9,13 @@ export async function POST(request: Request): Promise<Response> {
     grant_type?: string;
   };
 
-  const domain = enterpriseDomain(request);
+  let domain: string;
+  try {
+    domain = enterpriseDomain(request);
+  } catch (error) {
+    return invalidEnterpriseResponse(error);
+  }
+
   const response = await fetch(`https://${domain}/login/oauth/access_token`, {
     method: 'POST',
     headers: {
@@ -31,6 +40,16 @@ export async function POST(request: Request): Promise<Response> {
 
 function enterpriseDomain(request: Request): string {
   const query = new URL(request.url).searchParams.get('enterpriseUrl') ?? '';
-  const normalized = query.trim().replace(/^https?:\/\//, '').replace(/\/$/, '');
-  return normalized || 'github.com';
+  return normalizeEnterpriseDomain(query) ?? 'github.com';
+}
+
+function invalidEnterpriseResponse(error: unknown): Response {
+  const message = error instanceof AppError ? error.message : 'Invalid GitHub Enterprise URL.';
+  return new Response(JSON.stringify({ message }), {
+    status: 400,
+    headers: {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-store',
+    },
+  });
 }

@@ -24,7 +24,7 @@ export async function GET(request: Request): Promise<Response> {
   return new Response(sanitizeUntrustedWebText(await upstream.text()), {
     status: upstream.status,
     headers: {
-      'Content-Type': upstream.headers.get('Content-Type') ?? 'text/plain',
+      'Content-Type': 'text/plain; charset=utf-8',
       'Cache-Control': 'no-store',
     },
   });

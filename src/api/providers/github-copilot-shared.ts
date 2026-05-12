@@ -17,7 +17,37 @@ export function normalizeEnterpriseDomain(enterpriseUrl?: string): string | unde
     return undefined;
   }
 
-  return value.replace(/^https?:\/\//, '').replace(/\/$/, '');
+  let parsed: URL;
+  try {
+    parsed = new URL(/^https?:\/\//i.test(value) ? value : `https://${value}`);
+  } catch (error) {
+    throw new AppError('unsupported', 'Invalid GitHub Enterprise URL.', error);
+  }
+
+  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+    throw new AppError('unsupported', 'Invalid GitHub Enterprise URL protocol.');
+  }
+
+  if (parsed.username || parsed.password || parsed.port || parsed.pathname !== '/' || parsed.search || parsed.hash) {
+    throw new AppError('unsupported', 'GitHub Enterprise URL must be a hostname only.');
+  }
+
+  const hostname = parsed.hostname.replace(/^\[|\]$/g, '').toLowerCase();
+  if (!hostname || isUnsafeEnterpriseHostname(hostname)) {
+    throw new AppError('unsupported', 'Unsafe GitHub Enterprise hostname.');
+  }
+
+  return hostname;
+}
+
+function isUnsafeEnterpriseHostname(hostname: string): boolean {
+  return (
+    hostname === 'localhost' ||
+    hostname.endsWith('.localhost') ||
+    hostname.endsWith('.local') ||
+    hostname.includes(':') ||
+    /^\d+(?:\.\d+){3}$/.test(hostname)
+  );
 }
 
 export function copilotBase(enterpriseUrl?: string): string {

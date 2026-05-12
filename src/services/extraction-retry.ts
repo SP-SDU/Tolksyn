@@ -22,7 +22,6 @@ export async function extractWithRetries({
   const basePrompt = input.prompt ?? buildExtractionPrompt();
   let prompt = basePrompt;
   let lastError = '';
-  let lastResponseText = '';
 
   for (let index = 1; index <= MAX_EXTRACTION_ATTEMPTS; index += 1) {
     try {
@@ -55,7 +54,6 @@ export async function extractWithRetries({
       attempts.push({
         attempt: index,
         prompt,
-        responseText: lastResponseText,
         error: message,
       });
 
@@ -79,12 +77,10 @@ export async function extractWithRetries({
       }
 
       lastError = message;
-      lastResponseText = '';
       prompt = buildRepairPrompt({
         basePrompt,
         attempt: index + 1,
         error: lastError,
-        previousResponse: lastResponseText,
       });
     }
   }
@@ -115,12 +111,10 @@ function buildRepairPrompt({
   basePrompt,
   attempt,
   error,
-  previousResponse,
 }: {
   basePrompt: string;
   attempt: number;
   error: string;
-  previousResponse: string;
 }) {
   return [
     basePrompt,
@@ -128,7 +122,6 @@ function buildRepairPrompt({
     `Previous error: ${error}`,
     'Fix your previous output and return one single valid JSON object only.',
     'No markdown, no prose, no code fences, no partial fragments.',
-    previousResponse ? `Previous invalid output: ${previousResponse.slice(0, 1500)}` : null,
   ]
     .filter(Boolean)
     .join(' ');
