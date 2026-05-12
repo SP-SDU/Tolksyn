@@ -29,8 +29,14 @@ describe('webfetch proxy api route', () => {
     mock.mockRestore();
   });
 
-  test('rejects missing or non-http urls', async () => {
+  test('rejects missing or unsafe urls', async () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
     await expect(GET(new Request('http://localhost:8081/api/proxy/webfetch'))).resolves.toMatchObject({ status: 400 });
     await expect(GET(new Request('http://localhost:8081/api/proxy/webfetch?url=file%3A%2F%2F%2Fetc%2Fpasswd'))).resolves.toMatchObject({ status: 400 });
+    await expect(GET(new Request('http://localhost:8081/api/proxy/webfetch?url=http%3A%2F%2Fexample.com%2Fproduct'))).resolves.toMatchObject({ status: 400 });
+    await expect(GET(new Request('http://localhost:8081/api/proxy/webfetch?url=https%3A%2F%2F127.0.0.1%2Fproduct'))).resolves.toMatchObject({ status: 400 });
+
+    warn.mockRestore();
   });
 });

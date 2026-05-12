@@ -3,6 +3,7 @@ import type { AppSettings } from '@/types/settings';
 import type { StructuredItem } from '@/types/item-schema';
 import type { BarcodeHit, WebSearchEnrichment } from '@/utils/merge-extraction-result';
 import { extractUrlsFromText, type ExaSearchInput } from '@/services/exa-websearch';
+import { sanitizeSearchQuery, sanitizeUntrustedWebText } from '@/services/web-safety';
 import type { WebFetchResult } from '@/services/webfetch';
 
 type ImageInput = {
@@ -72,15 +73,16 @@ export function createManufacturerWebSearchEnricher({
 
       const searchResults = await Promise.all(
         queries.map(async (query) => {
-          const output = await webSearch.search({ query });
+          const safeQuery = sanitizeSearchQuery(query);
+          const output = sanitizeUntrustedWebText(await webSearch.search({ query: safeQuery }));
           attempts.push({
             type: 'exa_search',
             status: 'success',
-            query,
+            query: safeQuery,
             responseText: output,
           });
           return {
-            query,
+            query: safeQuery,
             output,
             urls: extractUrlsFromText(output),
           };
@@ -376,5 +378,5 @@ function uniqueUrls(urls: string[]): string[] {
 }
 
 function excerpt(text: string): string {
-  return text.replace(/\s+/g, ' ').trim().slice(0, 1200);
+  return sanitizeUntrustedWebText(text, 1200);
 }
