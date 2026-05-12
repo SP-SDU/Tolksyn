@@ -25,7 +25,7 @@ describe('github copilot proxy api routes', () => {
       );
 
     const response = await modelsGet(
-      new Request('http://localhost:8081/api/proxy/github-copilot/models?enterpriseUrl=company.ghe.com', {
+      new Request('http://localhost:8081/api/proxy/github-copilot/models', {
         headers: {
           authorization: 'Bearer refresh-token',
         },
@@ -36,7 +36,7 @@ describe('github copilot proxy api routes', () => {
     expect(await response.text()).toContain('data');
     expect(mock).toHaveBeenNthCalledWith(
       1,
-      'https://api.company.ghe.com/copilot_internal/v2/token',
+      'https://api.github.com/copilot_internal/v2/token',
       expect.objectContaining({
         headers: expect.objectContaining({
           Authorization: 'Bearer refresh-token',
@@ -45,7 +45,7 @@ describe('github copilot proxy api routes', () => {
     );
     expect(mock).toHaveBeenNthCalledWith(
       2,
-      'https://copilot-api.company.ghe.com/models',
+      'https://api.githubcopilot.com/models',
       expect.objectContaining({
         headers: expect.objectContaining({
           Authorization: 'Bearer copilot-access',

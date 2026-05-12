@@ -1,6 +1,7 @@
 import { sanitizeUntrustedWebText, validateSafeHttpsUrl } from '@/services/web-safety';
 
 const MAX_RESPONSE_SIZE = 5 * 1024 * 1024;
+const WEBFETCH_TIMEOUT_MS = 30_000;
 
 const WEBFETCH_HEADERS = {
   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36',
@@ -18,10 +19,28 @@ export async function GET(request: Request): Promise<Response> {
     return new Response('Missing or invalid url', { status: 400 });
   }
 
-  const upstream = await fetch(safeUrl, {
-    method: 'GET',
-    headers: WEBFETCH_HEADERS,
-  });
+  const controller = new AbortController();
+  const timeoutHandle = setTimeout(() => controller.abort(), WEBFETCH_TIMEOUT_MS);
+  let upstream: Response;
+
+  try {
+    upstream = await fetch(safeUrl, {
+      method: 'GET',
+      headers: WEBFETCH_HEADERS,
+      redirect: 'error',
+      signal: controller.signal,
+    });
+  } catch (error) {
+    return new Response(error instanceof Error && error.name === 'AbortError' ? 'Upstream request timed out' : 'Upstream request failed', {
+      status: error instanceof Error && error.name === 'AbortError' ? 504 : 502,
+      headers: {
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Cache-Control': 'no-store',
+      },
+    });
+  } finally {
+    clearTimeout(timeoutHandle);
+  }
 
   const text = await readLimitedResponseText(upstream);
   if (text === undefined) {
@@ -61,6 +80,7 @@ async function readLimitedResponseText(response: Response): Promise<string | und
   const decoder = new TextDecoder();
   const chunks: string[] = [];
   let received = 0;
+  let canceled = false;
 
   try {
     while (true) {
@@ -71,6 +91,8 @@ async function readLimitedResponseText(response: Response): Promise<string | und
 
       received += value.byteLength;
       if (received > MAX_RESPONSE_SIZE) {
+        canceled = true;
+        await reader.cancel();
         return undefined;
       }
 
@@ -80,7 +102,9 @@ async function readLimitedResponseText(response: Response): Promise<string | und
     chunks.push(decoder.decode());
     return chunks.join('');
   } finally {
-    reader.releaseLock();
+    if (!canceled) {
+      reader.releaseLock();
+    }
   }
 }
 

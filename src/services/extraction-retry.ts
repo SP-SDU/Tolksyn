@@ -8,7 +8,7 @@ import type {
 } from '@/api/providers/remote-extraction-types';
 import { AppError } from '@/types/app-error';
 import { emptyStructuredItem } from '@/types/item-schema';
-import { isAbortError, throwIfAborted } from '@/utils/abort';
+import { createAbortError, isAbortError, throwIfAborted } from '@/utils/abort';
 
 const MAX_EXTRACTION_ATTEMPTS = 3;
 
@@ -48,8 +48,12 @@ export async function extractWithRetries({
         },
       };
     } catch (error) {
-      if (isAbortError(error) || input.signal?.aborted) {
+      if (isAbortError(error)) {
         throw error;
+      }
+
+      if (input.signal?.aborted) {
+        throw createAbortError();
       }
 
       const code = error instanceof AppError ? error.code : 'internal';

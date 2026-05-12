@@ -1,6 +1,10 @@
 import { createWebFetch } from '@/services/webfetch';
 
 describe('webfetch', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   test('fetches html and returns text content with browser-like headers', async () => {
     const fetch = jest.fn().mockResolvedValue(
       new Response('<html><head><style>.x{}</style></head><body><h1>Product page</h1><script>x()</script><p>Phoenix Contact 2865463</p></body></html>', {
@@ -67,12 +71,10 @@ describe('webfetch', () => {
   });
 
   test('rejects non-https urls', async () => {
-    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
     const webFetch = createWebFetch({ fetch: jest.fn() as unknown as typeof global.fetch, proxyBaseUrl: undefined });
 
     await expect(webFetch.fetch({ url: 'file:///etc/passwd' })).rejects.toThrow('Unsafe URL');
     await expect(webFetch.fetch({ url: 'http://example.com/product' })).rejects.toThrow('Unsafe URL');
-
-    warn.mockRestore();
   });
 });

@@ -199,7 +199,6 @@ describe('provider catalog', () => {
             refresh: 'refresh-token',
             access: 'refresh-token',
             expires: 0,
-            enterpriseUrl: 'company.ghe.com',
           },
         }),
       }),
@@ -212,11 +211,10 @@ describe('provider catalog', () => {
 
       expect(fetch).toHaveBeenNthCalledWith(
         2,
-        'http://localhost:8081/api/proxy/github-copilot/models?enterpriseUrl=company.ghe.com',
+        'http://localhost:8081/api/proxy/github-copilot/models',
         expect.objectContaining({
           headers: expect.objectContaining({
             authorization: 'Bearer refresh-token',
-            'x-copilot-enterprise-url': 'company.ghe.com',
           }),
         }),
       );

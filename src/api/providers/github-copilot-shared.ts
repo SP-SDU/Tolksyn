@@ -37,7 +37,11 @@ export function normalizeEnterpriseDomain(enterpriseUrl?: string): string | unde
     throw new AppError('unsupported', 'Unsafe GitHub Enterprise hostname.');
   }
 
-  return hostname;
+  if (hostname === 'github.com') {
+    return undefined;
+  }
+
+  throw new AppError('unsupported', 'Custom GitHub Enterprise hosts are not enabled.');
 }
 
 function isUnsafeEnterpriseHostname(hostname: string): boolean {
