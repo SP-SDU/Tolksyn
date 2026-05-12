@@ -64,13 +64,14 @@ export function copilotBase(enterpriseUrl?: string): string {
 }
 
 export function isCopilotResponsesModel(modelId: string): boolean {
-  const match = /^gpt-(\d+)/i.exec(modelId);
+  const normalized = modelId.toLowerCase();
+  const match = /^gpt-(\d+)/.exec(normalized);
   if (!match) {
     return false;
   }
 
   const generation = Number(match[1]);
-  return generation >= 5 && !modelId.startsWith('gpt-5-mini');
+  return generation >= 5 && !normalized.startsWith('gpt-5-mini');
 }
 
 export function copilotTokenExchangeUrl(enterpriseUrl?: string): string {

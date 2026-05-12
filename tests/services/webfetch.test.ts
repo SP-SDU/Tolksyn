@@ -77,4 +77,26 @@ describe('webfetch', () => {
     await expect(webFetch.fetch({ url: 'file:///etc/passwd' })).rejects.toThrow('Unsafe URL');
     await expect(webFetch.fetch({ url: 'http://example.com/product' })).rejects.toThrow('Unsafe URL');
   });
+
+  test('cancels oversized streamed responses', async () => {
+    let canceled = false;
+    const stream = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        controller.enqueue(new Uint8Array(5 * 1024 * 1024 + 1));
+      },
+      cancel() {
+        canceled = true;
+      },
+    });
+    const fetch = jest.fn().mockResolvedValue(
+      new Response(stream, {
+        status: 200,
+        headers: { 'Content-Type': 'text/plain' },
+      }),
+    );
+    const webFetch = createWebFetch({ fetch: fetch as unknown as typeof global.fetch, proxyBaseUrl: undefined });
+
+    await expect(webFetch.fetch({ url: 'https://example.com/huge' })).rejects.toThrow('Response too large');
+    expect(canceled).toBe(true);
+  });
 });

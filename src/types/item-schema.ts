@@ -42,9 +42,8 @@ type NumericFieldName = (typeof numericFieldNames)[number];
 export type StructuredItem = Record<TextFieldName, string | null> &
   Record<NumericFieldName, number | null>;
 
-export type StructuredItemInput = StructuredItem &
-  Partial<Record<NumericFieldName, string | null>> &
-  Partial<Record<TextFieldName, string | null>>;
+export type StructuredItemInput = Partial<Record<TextFieldName, string | null>> &
+  Partial<Record<NumericFieldName, number | string | null>>;
 
 type ValidationSuccess = {
   success: true;

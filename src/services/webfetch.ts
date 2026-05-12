@@ -41,10 +41,7 @@ export function createWebFetch({ fetch, proxyBaseUrl }: { fetch: typeof global.f
         }
 
         const contentType = response.headers.get('content-type') ?? '';
-        const text = await response.text();
-        if (text.length > MAX_RESPONSE_SIZE) {
-          throw new AppError('unsupported', 'Response too large (exceeds 5MB limit)');
-        }
+        const text = await readLimitedResponseText(response);
 
         return {
           url: safeUrl,
@@ -71,6 +68,48 @@ export function createWebFetch({ fetch, proxyBaseUrl }: { fetch: typeof global.f
       }
     },
   };
+}
+
+async function readLimitedResponseText(response: Response): Promise<string> {
+  if (!response.body) {
+    const text = await response.text();
+    if (text.length > MAX_RESPONSE_SIZE) {
+      throw new AppError('unsupported', 'Response too large (exceeds 5MB limit)');
+    }
+
+    return text;
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  const chunks: string[] = [];
+  let received = 0;
+  let canceled = false;
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) {
+        break;
+      }
+
+      received += value.byteLength;
+      if (received > MAX_RESPONSE_SIZE) {
+        canceled = true;
+        await reader.cancel();
+        throw new AppError('unsupported', 'Response too large (exceeds 5MB limit)');
+      }
+
+      chunks.push(decoder.decode(value, { stream: true }));
+    }
+
+    chunks.push(decoder.decode());
+    return chunks.join('');
+  } finally {
+    if (!canceled) {
+      reader.releaseLock();
+    }
+  }
 }
 
 function htmlToText(html: string): string {

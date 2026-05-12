@@ -1,7 +1,13 @@
 import { createGitHubCopilotExtractor } from '@/api/providers/github-copilot-extractor';
+import { isCopilotResponsesModel } from '@/api/providers/github-copilot-shared';
 import { emptyStructuredItem } from '@/types/item-schema';
 
 describe('createGitHubCopilotExtractor', () => {
+  test('detects responses models case-insensitively', () => {
+    expect(isCopilotResponsesModel('GPT-5.4')).toBe(true);
+    expect(isCopilotResponsesModel('GPT-5-MINI')).toBe(false);
+  });
+
   test('uses chat completions endpoint for gpt-4 models', async () => {
     const fetch = jest
       .fn()

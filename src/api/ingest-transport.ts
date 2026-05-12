@@ -3,6 +3,8 @@ import { AppError } from '@/types/app-error';
 import type { AppSettings } from '@/types/settings';
 import { isRetryableHttpStatus } from '@/utils/retry-policy';
 
+const INGEST_TIMEOUT_MS = 30_000;
+
 export function createIngestTransport(settingsRepository: {
   getSettings(): Promise<AppSettings>;
 }) {
@@ -24,15 +26,23 @@ export function createIngestTransport(settingsRepository: {
           return { kind: 'permanent_error', errorCode: 'auth_failed' };
         }
 
-        const response = await fetch(settings.ingest.endpointUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Idempotency-Key': idempotencyKey,
-            'x-api-key': settings.ingest.apiKey,
-          },
-          body: JSON.stringify(payload),
-        });
+        const controller = new AbortController();
+        const timeoutHandle = setTimeout(() => controller.abort(), INGEST_TIMEOUT_MS);
+        let response: Response;
+        try {
+          response = await fetch(settings.ingest.endpointUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Idempotency-Key': idempotencyKey,
+              'x-api-key': settings.ingest.apiKey,
+            },
+            body: JSON.stringify(payload),
+            signal: controller.signal,
+          });
+        } finally {
+          clearTimeout(timeoutHandle);
+        }
 
         if (response.ok) {
           return { kind: 'success' };
