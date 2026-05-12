@@ -99,4 +99,29 @@ describe('extractWithRetries', () => {
       prompt: expect.stringContaining('Return query JSON only.'),
     }));
   });
+
+  test('preserves abort semantics when cancellation wins a provider error race', async () => {
+    const controller = new AbortController();
+    const extract = jest.fn().mockImplementation(async () => {
+      controller.abort();
+      throw new AppError('schema_violation', 'late provider error');
+    });
+
+    await expect(
+      extractWithRetries({
+        fallbackProvider: 'remote_openai_compatible',
+        input: {
+          endpointUrl: 'https://example.com',
+          apiKey: 'k',
+          model: 'm',
+          imageBase64: 'abc',
+          mimeType: 'image/jpeg',
+          timeoutMs: 5000,
+          signal: controller.signal,
+        },
+        extract,
+      }),
+    ).rejects.toMatchObject({ name: 'AbortError' });
+    expect(extract).toHaveBeenCalledTimes(1);
+  });
 });

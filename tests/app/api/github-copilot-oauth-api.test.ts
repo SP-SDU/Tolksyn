@@ -71,34 +71,18 @@ describe('github copilot oauth api routes', () => {
     mock.mockRestore();
   });
 
-  test('supports enterprise domain forwarding via query param', async () => {
-    const mock = jest.spyOn(global, 'fetch').mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          device_code: 'dev',
-          user_code: 'CODE',
-          verification_uri: 'https://company.ghe.com/login/device',
-          interval: 5,
-        }),
-        {
-          status: 200,
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        },
-      ),
-    );
+  test('rejects custom enterprise domains', async () => {
+    const mock = jest.spyOn(global, 'fetch');
 
-    await codePost(
+    const response = await codePost(
       new Request('http://localhost:8081/api/oauth/github-copilot/device/code?enterpriseUrl=company.ghe.com', {
         method: 'POST',
       }),
     );
 
-    expect(mock).toHaveBeenCalledWith(
-      'https://company.ghe.com/login/device/code',
-      expect.objectContaining({ method: 'POST' }),
-    );
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ message: 'Custom GitHub Enterprise hosts are not enabled.' });
+    expect(mock).not.toHaveBeenCalled();
 
     mock.mockRestore();
   });

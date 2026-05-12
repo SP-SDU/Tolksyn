@@ -146,46 +146,15 @@ describe('provider oauth', () => {
     }
   });
 
-  test('supports enterprise domain in github-copilot oauth flow', async () => {
-    const fetch = jest
-      .fn()
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          verification_uri: 'https://company.ghe.com/login/device',
-          user_code: 'GHE-CODE',
-          device_code: 'ghe-device-code',
-          interval: 1,
-        }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          access_token: 'enterprise-copilot-token',
-        }),
-      });
+  test('rejects custom enterprise domain in github-copilot oauth flow', async () => {
+    const fetch = jest.fn();
 
     const oauth = createProviderOAuth({ fetch: fetch as any, now: () => 2_000, sleep: jest.fn().mockResolvedValue(undefined) });
-    const flow = await oauth.start('github-copilot', { enterpriseUrl: 'https://company.ghe.com/' });
-    const auth = await flow.complete();
-
-    expect(auth).toEqual({
-      type: 'oauth',
-      refresh: 'enterprise-copilot-token',
-      access: 'enterprise-copilot-token',
-      expires: 0,
-      enterpriseUrl: 'company.ghe.com',
+    await expect(oauth.start('github-copilot', { enterpriseUrl: 'https://company.ghe.com/' })).rejects.toMatchObject({
+      code: 'unsupported',
+      message: 'Custom GitHub Enterprise hosts are not enabled.',
     });
-    expect(fetch).toHaveBeenNthCalledWith(
-      1,
-      'https://company.ghe.com/login/device/code',
-      expect.objectContaining({ method: 'POST' }),
-    );
-    expect(fetch).toHaveBeenNthCalledWith(
-      2,
-      'https://company.ghe.com/login/oauth/access_token',
-      expect.objectContaining({ method: 'POST' }),
-    );
+    expect(fetch).not.toHaveBeenCalled();
   });
 
   test('returns actionable error when web oauth proxy route is unavailable', async () => {

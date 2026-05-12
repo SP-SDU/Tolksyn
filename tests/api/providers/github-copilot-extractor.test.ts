@@ -133,7 +133,6 @@ describe('createGitHubCopilotExtractor', () => {
           refresh: 'refresh-token',
           access: 'refresh-token',
           expires: 0,
-          enterpriseUrl: 'company.ghe.com',
         },
       });
 
@@ -143,7 +142,6 @@ describe('createGitHubCopilotExtractor', () => {
           method: 'POST',
           headers: expect.objectContaining({
             authorization: 'Bearer refresh-token',
-            'x-copilot-enterprise-url': 'company.ghe.com',
           }),
         }),
       );
