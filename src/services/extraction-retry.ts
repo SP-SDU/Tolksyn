@@ -3,6 +3,7 @@ import { providerErrorMessage } from '@/api/providers/remote-extraction-shared';
 import type {
   ExtractionPromptAttempt,
   RemoteExtractionInput,
+  RemoteExtractionProvider,
   RemoteExtractionResult,
 } from '@/api/providers/remote-extraction-types';
 import { AppError } from '@/types/app-error';
@@ -12,9 +13,11 @@ import { isAbortError, throwIfAborted } from '@/utils/abort';
 const MAX_EXTRACTION_ATTEMPTS = 3;
 
 export async function extractWithRetries({
+  fallbackProvider,
   input,
   extract,
 }: {
+  fallbackProvider: RemoteExtractionProvider;
   input: RemoteExtractionInput;
   extract: (input: RemoteExtractionInput) => Promise<RemoteExtractionResult>;
 }): Promise<RemoteExtractionResult> {
@@ -62,7 +65,7 @@ export async function extractWithRetries({
           structuredJson: emptyStructuredItem(),
           barcodes: [],
           metadata: {
-            provider: 'remote_openai_compatible',
+            provider: fallbackProvider,
             durationMs: 1,
             imageWidth: input.imageWidth ?? 0,
             imageHeight: input.imageHeight ?? 0,
@@ -89,7 +92,7 @@ export async function extractWithRetries({
     structuredJson: emptyStructuredItem(),
     barcodes: [],
     metadata: {
-      provider: 'remote_openai_compatible',
+      provider: fallbackProvider,
       durationMs: 1,
       imageWidth: input.imageWidth ?? 0,
       imageHeight: input.imageHeight ?? 0,

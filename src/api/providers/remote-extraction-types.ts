@@ -8,6 +8,12 @@ export type ExtractionPromptAttempt = {
   error?: string;
 };
 
+export type RemoteExtractionProvider =
+  | 'remote_openai_compatible'
+  | 'remote_gemini'
+  | 'remote_openai_codex'
+  | 'remote_github_copilot';
+
 export type RemoteExtractionResult = {
   structuredJson: StructuredItem;
   barcodes: BarcodeHit[];
@@ -20,7 +26,7 @@ export type RemoteExtractionResult = {
     attempts: ExtractionPromptAttempt[];
   };
   metadata: {
-    provider: 'remote_openai_compatible' | 'remote_gemini' | 'remote_openai_codex' | 'remote_github_copilot';
+    provider: RemoteExtractionProvider;
     durationMs: number;
     imageWidth: number;
     imageHeight: number;

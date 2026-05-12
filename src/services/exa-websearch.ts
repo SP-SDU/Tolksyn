@@ -106,18 +106,19 @@ export function extractUrlsFromText(text: string): string[] {
 
   for (const match of matches) {
     const url = match.replace(/[.,;:!?]+$/, '');
+    let normalized: string;
     try {
-      validateSafeHttpsUrl(url, 'exa result');
+      normalized = validateSafeHttpsUrl(url, 'exa result');
     } catch {
       continue;
     }
 
-    if (seen.has(url)) {
+    if (seen.has(normalized)) {
       continue;
     }
 
-    seen.add(url);
-    urls.push(url);
+    seen.add(normalized);
+    urls.push(normalized);
   }
 
   return urls;

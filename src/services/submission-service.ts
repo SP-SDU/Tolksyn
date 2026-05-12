@@ -1,4 +1,5 @@
 import type { QueueSubmissionResult } from '@/services/queue-worker';
+import { AppError, type AppErrorCode } from '@/types/app-error';
 import type { BarcodeConflict, BarcodeHit } from '@/utils/merge-extraction-result';
 
 export type SubmissionPayload = {
@@ -90,7 +91,7 @@ export function createSubmissionService({
       }
 
       await attempts.markFailed(attemptId, result.errorCode);
-      throw new Error(result.errorCode);
+      throw new AppError(result.errorCode, submissionErrorMessage(result.errorCode));
     },
   };
 
@@ -116,4 +117,20 @@ export function createSubmissionService({
     });
     await attempts.markQueued(attemptId, acceptedRevision);
   }
+}
+
+function submissionErrorMessage(code: AppErrorCode): string {
+  if (code === 'auth_failed') {
+    return 'Submission authentication failed. Check the ingest API key in Settings.';
+  }
+
+  if (code === 'invalid_response') {
+    return 'Submission was rejected by the ingest endpoint.';
+  }
+
+  if (code === 'unsupported') {
+    return 'Submission is not supported by the configured ingest endpoint.';
+  }
+
+  return 'Unable to submit this attempt.';
 }

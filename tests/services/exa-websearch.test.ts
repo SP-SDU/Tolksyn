@@ -74,7 +74,7 @@ describe('exa websearch', () => {
 
     expect(
       extractUrlsFromText(
-        'Official: https://example.com/product. Datasheet https://example.com/ds.pdf and https://example.com/product http://example.com/unsafe https://127.0.0.1/private',
+        'Official: https://example.com/product#section. Datasheet https://example.com/ds.pdf and https://example.com/product http://example.com/unsafe https://127.0.0.1/private',
       ),
     ).toEqual(['https://example.com/product', 'https://example.com/ds.pdf']);
 

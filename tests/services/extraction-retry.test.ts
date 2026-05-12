@@ -23,6 +23,7 @@ describe('extractWithRetries', () => {
       });
 
     const result = await extractWithRetries({
+      fallbackProvider: 'remote_openai_compatible',
       input: {
         endpointUrl: 'https://example.com',
         apiKey: 'k',
@@ -43,6 +44,7 @@ describe('extractWithRetries', () => {
     const extract = jest.fn().mockRejectedValue(new AppError('schema_violation', 'bad json'));
 
     const result = await extractWithRetries({
+      fallbackProvider: 'remote_gemini',
       input: {
         endpointUrl: 'https://example.com',
         apiKey: 'k',
@@ -55,6 +57,7 @@ describe('extractWithRetries', () => {
     });
 
     expect(extract).toHaveBeenCalledTimes(3);
+    expect(result.metadata.provider).toBe('remote_gemini');
     expect(result.extractionDiagnostics?.failed).toBe(true);
     expect(result.structuredJson).toEqual(emptyStructuredItem());
     expect(result.extractionDiagnostics?.attempts).toHaveLength(3);
@@ -76,6 +79,7 @@ describe('extractWithRetries', () => {
       });
 
     await extractWithRetries({
+      fallbackProvider: 'remote_openai_compatible',
       input: {
         endpointUrl: 'https://example.com',
         apiKey: 'k',
