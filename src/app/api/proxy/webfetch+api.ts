@@ -1,7 +1,5 @@
 import { sanitizeUntrustedWebText, validateSafeHttpsUrl } from '@/services/web-safety';
-
-const MAX_RESPONSE_SIZE = 5 * 1024 * 1024;
-const WEBFETCH_TIMEOUT_MS = 30_000;
+import { RuntimeLimits } from '@/constants/runtime';
 
 const WEBFETCH_HEADERS = {
   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36',
@@ -20,7 +18,7 @@ export async function GET(request: Request): Promise<Response> {
   }
 
   const controller = new AbortController();
-  const timeoutHandle = setTimeout(() => controller.abort(), WEBFETCH_TIMEOUT_MS);
+  const timeoutHandle = setTimeout(() => controller.abort(), RuntimeLimits.webFetchTimeoutMs);
   let upstream: Response;
 
   try {
@@ -67,13 +65,13 @@ export async function GET(request: Request): Promise<Response> {
 
 async function readLimitedResponseText(response: Response): Promise<string | undefined> {
   const contentLength = response.headers.get('Content-Length');
-  if (contentLength && Number(contentLength) > MAX_RESPONSE_SIZE) {
+  if (contentLength && Number(contentLength) > RuntimeLimits.maxWebResponseBytes) {
     return undefined;
   }
 
   if (!response.body) {
     const text = await response.text();
-    return text.length > MAX_RESPONSE_SIZE ? undefined : text;
+    return text.length > RuntimeLimits.maxWebResponseBytes ? undefined : text;
   }
 
   const reader = response.body.getReader();
@@ -90,7 +88,7 @@ async function readLimitedResponseText(response: Response): Promise<string | und
       }
 
       received += value.byteLength;
-      if (received > MAX_RESPONSE_SIZE) {
+      if (received > RuntimeLimits.maxWebResponseBytes) {
         canceled = true;
         await reader.cancel();
         return undefined;

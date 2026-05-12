@@ -2,8 +2,7 @@ import type { QueueItem, QueueSubmissionResult } from '@/services/queue-worker';
 import { AppError } from '@/types/app-error';
 import type { AppSettings } from '@/types/settings';
 import { isRetryableHttpStatus } from '@/utils/retry-policy';
-
-const INGEST_TIMEOUT_MS = 30_000;
+import { RuntimeLimits } from '@/constants/runtime';
 
 export function createIngestTransport(settingsRepository: {
   getSettings(): Promise<AppSettings>;
@@ -27,7 +26,7 @@ export function createIngestTransport(settingsRepository: {
         }
 
         const controller = new AbortController();
-        const timeoutHandle = setTimeout(() => controller.abort(), INGEST_TIMEOUT_MS);
+        const timeoutHandle = setTimeout(() => controller.abort(), RuntimeLimits.ingestTimeoutMs);
         let response: Response;
         try {
           response = await fetch(settings.ingest.endpointUrl, {

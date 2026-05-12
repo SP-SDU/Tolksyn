@@ -1,8 +1,8 @@
-import { Image } from 'expo-image';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { Alert, Text, View } from 'react-native';
 
+import { ImagePreview } from '@/components/image-preview';
 import { AppHeader, BrutalFrame, FieldRow, StatusPill, StickyActionBar } from '@/components/ui/app-chrome';
 import { Button } from '@/components/ui/button';
 import { DiagnosticDisclosure } from '@/components/ui/diagnostic-disclosure';
@@ -30,6 +30,8 @@ export function ConfirmScreen({ attemptId }: { attemptId: string }) {
   const [attempt, setAttempt] = useState<Awaited<ReturnType<typeof runtime.attempts.getById>>>(null);
   const [draft, setDraft] = useState<StructuredItem | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isRetrying, setIsRetrying] = useState(false);
+  const [isDiscarding, setIsDiscarding] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -118,6 +120,7 @@ export function ConfirmScreen({ attemptId }: { attemptId: string }) {
   }
 
   async function handleTryAgain() {
+    setIsRetrying(true);
     try {
       const result = await runtime.processImage({
         source: currentAttempt.source,
@@ -126,6 +129,20 @@ export function ConfirmScreen({ attemptId }: { attemptId: string }) {
       router.replace({ pathname: '/confirm/[attemptId]', params: { attemptId: result.attemptId } });
     } catch (error) {
       Alert.alert('Retry failed', getErrorMessage(error, 'Unable to retry extraction for this image.'));
+    } finally {
+      setIsRetrying(false);
+    }
+  }
+
+  async function handleDiscard() {
+    setIsDiscarding(true);
+    try {
+      await runtime.attempts.deleteById(currentAttempt.id);
+      router.replace('/');
+    } catch (error) {
+      Alert.alert('Discard failed', getErrorMessage(error, 'Unable to discard this attempt.'));
+    } finally {
+      setIsDiscarding(false);
     }
   }
 
@@ -139,8 +156,8 @@ export function ConfirmScreen({ attemptId }: { attemptId: string }) {
         />
 
         <View className="gap-3">
-          <Image
-            source={currentAttempt.imageUri}
+          <ImagePreview
+            uri={currentAttempt.imageUri}
             className="h-[220px] w-full border-4 border-border bg-imageBase"
             contentFit="cover"
           />
@@ -268,11 +285,11 @@ export function ConfirmScreen({ attemptId }: { attemptId: string }) {
 
       <StickyActionBar className="absolute bottom-0 left-0 right-0">
         <View className="flex-row gap-2">
-          <Button variant="secondary" className="flex-1" label="Discard" onPress={() => router.replace('/')} />
-          <Button variant="secondary" className="flex-1" label="Retry" onPress={handleTryAgain} />
+          <Button variant="secondary" className="flex-1" disabled={isSubmitting || isRetrying || isDiscarding} label={isDiscarding ? 'Discarding…' : 'Discard'} onPress={handleDiscard} />
+          <Button variant="secondary" className="flex-1" disabled={isSubmitting || isRetrying || isDiscarding} label={isRetrying ? 'Retrying…' : 'Retry'} onPress={handleTryAgain} />
           <Button
             className="flex-1"
-            disabled={isSubmitting}
+            disabled={isSubmitting || isRetrying || isDiscarding}
             label={isSubmitting ? 'Sending…' : 'Accept'}
             onPress={handleAccept}
           />

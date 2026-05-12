@@ -1,4 +1,6 @@
 import type { BarcodeHit } from '@/utils/merge-extraction-result';
+import { EXPO_TO_WEB_BARCODE_TYPE, WEB_TO_EXPO_BARCODE_TYPE } from '@/constants/barcode';
+import { RuntimeLimits } from '@/constants/runtime';
 
 type WebBarcodeDetector = {
   detect(source: ImageBitmapSource): Promise<{ format: string; rawValue: string }[]>;
@@ -8,29 +10,6 @@ type WebBarcodeDetectorConstructor = {
   new (options?: { formats?: string[] }): WebBarcodeDetector;
   getSupportedFormats?: () => Promise<readonly string[]>;
 };
-
-const BARCODE_IMAGE_TIMEOUT_MS = 10_000;
-const MAX_BARCODE_IMAGE_SIZE = 5 * 1024 * 1024;
-
-const expoToWebBarcodeType: Record<string, string> = {
-  aztec: 'aztec',
-  codabar: 'codabar',
-  code39: 'code_39',
-  code93: 'code_93',
-  code128: 'code_128',
-  datamatrix: 'data_matrix',
-  ean8: 'ean_8',
-  ean13: 'ean_13',
-  itf14: 'itf',
-  pdf417: 'pdf417',
-  qr: 'qr_code',
-  upc_a: 'upc_a',
-  upc_e: 'upc_e',
-};
-
-const webToExpoBarcodeType = new Map(
-  Object.entries(expoToWebBarcodeType).map(([expoType, webType]) => [webType, expoType]),
-);
 
 export function createBarcodeDetector() {
   return {
@@ -46,9 +25,9 @@ async function detectWebBarcodes(imageUri: string, allowedTypes?: string[]): Pro
     return [];
   }
 
-  let formats = allowedTypes?.map((type) => expoToWebBarcodeType[type] ?? type).filter(Boolean);
+  let formats = allowedTypes?.map((type) => EXPO_TO_WEB_BARCODE_TYPE[type] ?? type).filter(Boolean);
   if (!formats?.length) {
-    formats = Object.values(expoToWebBarcodeType);
+    formats = Object.values(EXPO_TO_WEB_BARCODE_TYPE);
   }
 
   const supportedFormats = await BarcodeDetector.getSupportedFormats?.().catch(() => undefined);
@@ -61,7 +40,7 @@ async function detectWebBarcodes(imageUri: string, allowedTypes?: string[]): Pro
   }
 
   const controller = new AbortController();
-  const timeoutHandle = setTimeout(() => controller.abort(), BARCODE_IMAGE_TIMEOUT_MS);
+  const timeoutHandle = setTimeout(() => controller.abort(), RuntimeLimits.barcodeImageTimeoutMs);
 
   try {
     const response = await fetch(imageUri, { signal: controller.signal });
@@ -70,7 +49,7 @@ async function detectWebBarcodes(imageUri: string, allowedTypes?: string[]): Pro
     }
 
     const contentLength = response.headers.get('Content-Length');
-    if (contentLength && Number(contentLength) > MAX_BARCODE_IMAGE_SIZE) {
+    if (contentLength && Number(contentLength) > RuntimeLimits.maxBarcodeImageBytes) {
       return [];
     }
 
@@ -80,7 +59,7 @@ async function detectWebBarcodes(imageUri: string, allowedTypes?: string[]): Pro
     }
 
     const blob = await response.blob();
-    if (blob.size > MAX_BARCODE_IMAGE_SIZE) {
+    if (blob.size > RuntimeLimits.maxBarcodeImageBytes) {
       return [];
     }
 
@@ -89,7 +68,7 @@ async function detectWebBarcodes(imageUri: string, allowedTypes?: string[]): Pro
       const detector = new BarcodeDetector({ formats });
       const results = await detector.detect(source);
       return results.map((result) => ({
-        type: webToExpoBarcodeType.get(result.format) ?? result.format,
+        type: WEB_TO_EXPO_BARCODE_TYPE.get(result.format) ?? result.format,
         data: result.rawValue,
       }));
     } finally {

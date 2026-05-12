@@ -1,11 +1,12 @@
-import { Image } from 'expo-image';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
+import { ImagePreview } from '@/components/image-preview';
 import { AppHeader, StatusPill } from '@/components/ui/app-chrome';
 import { Screen } from '@/components/ui/screen';
 import { useAppRuntime } from '@/providers/app-provider';
+import { RuntimeLimits } from '@/constants/runtime';
 
 export function HistoryScreen() {
   const runtime = useAppRuntime();
@@ -16,7 +17,7 @@ export function HistoryScreen() {
     useCallback(() => {
       let active = true;
 
-      void runtime.attempts.listRecent(20).then((items) => {
+      void runtime.attempts.listRecent(RuntimeLimits.historyLimit).then((items) => {
         if (active) {
           setAttempts(items);
         }
@@ -42,7 +43,7 @@ export function HistoryScreen() {
           accessibilityRole="button"
           onPress={() => router.push({ pathname: '/confirm/[attemptId]', params: { attemptId: attempt.id } })}>
           <View className="flex-row items-stretch gap-3 border-2 border-border bg-card p-3">
-            <Image source={attempt.thumbnailUri} className="h-[78px] w-[78px] border-2 border-border bg-imageBase" />
+            <ImagePreview uri={attempt.thumbnailUri} className="h-[78px] w-[78px] border-2 border-border bg-imageBase" />
             <View className="flex-1 gap-1">
               <View className="flex-row flex-wrap gap-2">
                 <StatusPill label={attempt.status} tone={attempt.status.endsWith('_failed') ? 'danger' : 'default'} />
