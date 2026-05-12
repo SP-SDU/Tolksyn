@@ -5,7 +5,7 @@ import { Alert, StyleSheet, Text, View } from 'react-native';
 
 import { BarcodeCamera, type BarcodeCameraHandle } from '@/components/barcode-camera';
 import { ImagePreview } from '@/components/image-preview';
-import { ScanFinderOverlay } from '@/components/scan-finder-overlay';
+import { ScanAnimation } from '@/components/scan-animation';
 import { AppHeader, BrutalFrame, StatusPill } from '@/components/ui/app-chrome';
 import { Button } from '@/components/ui/button';
 import { ScreenView } from '@/components/ui/screen';
@@ -202,7 +202,7 @@ export function CaptureScreen() {
         {processingImageUri ? (
           <>
             <ImagePreview uri={processingImageUri} className="h-full w-full bg-imageBase" contentFit="cover" />
-            {isProcessing ? <ScanFinderOverlay /> : null}
+            {isProcessing ? <ScanAnimation /> : null}
           </>
         ) : permission?.granted ? (
           <BarcodeCamera

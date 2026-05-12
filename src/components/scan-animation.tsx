@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { Animated, Easing, Platform, View, type ViewStyle } from 'react-native';
+import { Animated, Easing, View } from 'react-native';
 
 import { AppDesign } from '@/constants/design';
 
@@ -11,7 +11,7 @@ const scanSteps = [
   { value: 0, durationMs: 760 },
 ] as const;
 
-export function ScanFinderOverlay() {
+export function ScanAnimation() {
   const progress = useRef(new Animated.Value(0)).current;
   const finder = <ScanFinder />;
 
@@ -36,19 +36,6 @@ export function ScanFinderOverlay() {
       animation.stop();
     };
   }, [progress]);
-
-  if (Platform.OS === 'web') {
-    const webAnimationStyle = {
-      animation: 'scan-finder 3.9s ease-in-out infinite',
-      willChange: 'transform',
-    } as unknown as ViewStyle;
-
-    return (
-      <View pointerEvents="none" className="absolute inset-0 items-center justify-center bg-black/15">
-        <View style={webAnimationStyle}>{finder}</View>
-      </View>
-    );
-  }
 
   const translateX = progress.interpolate({
     inputRange: [0, 1, 2, 3, 4],
