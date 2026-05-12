@@ -4,7 +4,6 @@ import { useRef, useState } from 'react';
 import { Alert, StyleSheet, Text, View } from 'react-native';
 
 import { Button } from '@/components/ui/button';
-import { Card, CardTitle } from '@/components/ui/card';
 import { ScreenView } from '@/components/ui/screen';
 import { useAppRuntime } from '@/providers/app-provider';
 import { useToast } from '@/providers/toast-provider';
@@ -241,14 +240,6 @@ export function CaptureScreen() {
             />
           </View>
         )}
-
-        <Card className="absolute bottom-3 left-3 right-3 gap-1 bg-slate-900/85">
-          <CardTitle className="text-base text-slate-100">Parallel extraction</CardTitle>
-          <Text className="text-sm text-slate-300">Barcode: {formatStage(barcodeState)}</Text>
-          <Text className="text-sm text-slate-300">Vision-language: {formatStage(extractionState)}</Text>
-          <Text className="text-sm text-slate-300">Websearch: {formatStage(websearchState)}</Text>
-          <Text className="text-sm text-slate-300">Live hits: {liveBarcodes.length}</Text>
-        </Card>
       </View>
 
       <View className="items-center">
