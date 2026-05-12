@@ -2,6 +2,10 @@ import { POST as codePost } from '@/app/api/oauth/github-copilot/device/code+api
 import { POST as tokenPost } from '@/app/api/oauth/github-copilot/device/token+api';
 
 describe('github copilot oauth api routes', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   test('forwards device code request to github endpoint', async () => {
     const mock = jest.spyOn(global, 'fetch').mockResolvedValue(
       new Response(
@@ -29,8 +33,6 @@ describe('github copilot oauth api routes', () => {
       'https://github.com/login/device/code',
       expect.objectContaining({ method: 'POST' }),
     );
-
-    mock.mockRestore();
   });
 
   test('forwards token payload request to github endpoint', async () => {
@@ -67,8 +69,6 @@ describe('github copilot oauth api routes', () => {
         body: expect.stringContaining('device-123'),
       }),
     );
-
-    mock.mockRestore();
   });
 
   test('rejects custom enterprise domains', async () => {
@@ -83,7 +83,5 @@ describe('github copilot oauth api routes', () => {
     expect(response.status).toBe(400);
     expect(await response.json()).toMatchObject({ message: 'Custom GitHub Enterprise hosts are not enabled.' });
     expect(mock).not.toHaveBeenCalled();
-
-    mock.mockRestore();
   });
 });

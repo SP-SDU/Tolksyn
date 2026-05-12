@@ -1,9 +1,10 @@
-import { CameraView, useCameraPermissions } from 'expo-camera';
+import { useCameraPermissions } from 'expo-camera';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Alert, Animated, Easing, Platform, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 
+import { BarcodeCamera, type BarcodeCameraHandle } from '@/components/barcode-camera';
 import { AppHeader, BrutalFrame, StatusPill } from '@/components/ui/app-chrome';
 import { Button } from '@/components/ui/button';
 import { ScreenView } from '@/components/ui/screen';
@@ -20,7 +21,7 @@ export function CaptureScreen() {
   const runtime = useAppRuntime();
   const toast = useToast();
   const router = useRouter();
-  const cameraRef = useRef<CameraView | null>(null);
+  const cameraRef = useRef<BarcodeCameraHandle | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const [permission, requestPermission] = useCameraPermissions();
   const [isProcessing, setIsProcessing] = useState(false);
@@ -31,7 +32,6 @@ export function CaptureScreen() {
   const [activeStageStartedAt, setActiveStageStartedAt] = useState<number | null>(null);
   const [elapsedSec, setElapsedSec] = useState(0);
   const [liveBarcodes, setLiveBarcodes] = useState<BarcodeHit[]>([]);
-  const liveBarcodeScanningEnabled = Platform.OS !== 'web';
 
   useEffect(() => {
     if (!isProcessing || !activeStageStartedAt) {
@@ -203,29 +203,23 @@ export function CaptureScreen() {
             {isProcessing ? <ScanFinderOverlay /> : null}
           </>
         ) : permission?.granted ? (
-          <CameraView
+          <BarcodeCamera
             ref={cameraRef}
             style={styles.camera}
             facing="back"
-            {...(liveBarcodeScanningEnabled
-              ? {
-                  barcodeScannerSettings: {
-                    barcodeTypes: ['ean13', 'ean8', 'upc_a', 'upc_e', 'code128', 'code39', 'qr', 'pdf417'],
-                  },
-                  onBarcodeScanned: (event: { data: string; type: string }) => {
-                    setLiveBarcodes((current) => {
-                      const exists = current.some(
-                        (barcode) => barcode.data === event.data && barcode.type === event.type,
-                      );
-                      if (exists) {
-                        return current;
-                      }
-
-                      return [...current, { type: event.type, data: event.data }];
-                    });
-                  },
+            barcodeTypes={['ean13', 'ean8', 'upc_a', 'upc_e', 'code128', 'code39', 'qr', 'pdf417']}
+            onBarcodeScanned={(event) => {
+              setLiveBarcodes((current) => {
+                const exists = current.some(
+                  (barcode) => barcode.data === event.data && barcode.type === event.type,
+                );
+                if (exists) {
+                  return current;
                 }
-              : {})}
+
+                return [...current, { type: event.type, data: event.data }];
+              });
+            }}
           />
         ) : (
           <View className="flex-1 items-center justify-center gap-3 px-6">

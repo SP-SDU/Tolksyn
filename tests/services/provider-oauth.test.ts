@@ -141,7 +141,7 @@ describe('provider oauth', () => {
         expect.objectContaining({ method: 'POST' }),
       );
     } finally {
-      process.env.EXPO_OS = originalPlatform;
+      restoreEnv('EXPO_OS', originalPlatform);
       (globalThis as { window?: unknown }).window = originalWindow;
     }
   });
@@ -183,3 +183,12 @@ describe('provider oauth', () => {
     }
   });
 });
+
+function restoreEnv(key: string, value: string | undefined): void {
+  if (value === undefined) {
+    delete process.env[key];
+    return;
+  }
+
+  process.env[key] = value;
+}
