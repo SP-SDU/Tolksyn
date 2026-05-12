@@ -1,8 +1,7 @@
 import { AppError, providerHttpStatusToError } from '@/types/app-error';
 import { sanitizeUntrustedWebText, validateSafeHttpsUrl } from '@/services/web-safety';
 import { createAbortError, linkAbortSignal } from '@/utils/abort';
-
-const MAX_RESPONSE_SIZE = 5 * 1024 * 1024;
+import { RuntimeLimits } from '@/constants/runtime';
 
 export type WebFetchResult = {
   url: string;
@@ -18,7 +17,7 @@ export function createWebFetch({ fetch, proxyBaseUrl }: { fetch: typeof global.f
       const requestUrl = proxyBaseUrl ? `${proxyBaseUrl}?url=${encodeURIComponent(safeUrl)}` : safeUrl;
 
       const linked = linkAbortSignal(signal);
-      const timeoutHandle = setTimeout(() => linked.controller.abort(), Math.min(timeoutMs, 120_000));
+      const timeoutHandle = setTimeout(() => linked.controller.abort(), Math.min(timeoutMs, RuntimeLimits.maxWebFetchTimeoutMs));
 
       try {
         const response = await fetch(requestUrl, {
@@ -36,7 +35,7 @@ export function createWebFetch({ fetch, proxyBaseUrl }: { fetch: typeof global.f
         }
 
         const contentLength = response.headers.get('content-length');
-        if (contentLength && Number(contentLength) > MAX_RESPONSE_SIZE) {
+        if (contentLength && Number(contentLength) > RuntimeLimits.maxWebResponseBytes) {
           throw new AppError('unsupported', 'Response too large (exceeds 5MB limit)');
         }
 
@@ -73,7 +72,7 @@ export function createWebFetch({ fetch, proxyBaseUrl }: { fetch: typeof global.f
 async function readLimitedResponseText(response: Response): Promise<string> {
   if (!response.body) {
     const text = await response.text();
-    if (text.length > MAX_RESPONSE_SIZE) {
+    if (text.length > RuntimeLimits.maxWebResponseBytes) {
       throw new AppError('unsupported', 'Response too large (exceeds 5MB limit)');
     }
 
@@ -94,7 +93,7 @@ async function readLimitedResponseText(response: Response): Promise<string> {
       }
 
       received += value.byteLength;
-      if (received > MAX_RESPONSE_SIZE) {
+      if (received > RuntimeLimits.maxWebResponseBytes) {
         canceled = true;
         await reader.cancel();
         throw new AppError('unsupported', 'Response too large (exceeds 5MB limit)');

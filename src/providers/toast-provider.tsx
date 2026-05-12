@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useState, type PropsWith
 import { Text, View } from 'react-native';
 
 import { AppDesign } from '@/constants/design';
+import { ToastDurations } from '@/constants/runtime';
 import {
   enqueueToast,
   initialToastState,
@@ -40,7 +41,7 @@ export function ToastProvider({ children }: PropsWithChildren) {
 
   const api = useMemo<ToastApi>(
     () => ({
-      show({ text, tone = 'info', durationMs = 2200 }) {
+      show({ text, tone = 'info', durationMs = ToastDurations.messageMs }) {
         const entry: ToastEntry = {
           id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
           text,
@@ -62,7 +63,7 @@ export function ToastProvider({ children }: PropsWithChildren) {
         setState((current) => upsertProgressToast(current, entry));
       },
 
-      progressDone({ id, text, durationMs = 2500 }) {
+      progressDone({ id, text, durationMs = ToastDurations.successMs }) {
         const entry: ToastEntry = {
           id: `${id}:done:${Date.now()}`,
           text,
@@ -73,7 +74,7 @@ export function ToastProvider({ children }: PropsWithChildren) {
         setState((current) => replaceProgressWithMessage(current, id, entry));
       },
 
-      progressFail({ id, text, durationMs = 3500 }) {
+      progressFail({ id, text, durationMs = ToastDurations.failureMs }) {
         const entry: ToastEntry = {
           id: `${id}:fail:${Date.now()}`,
           text,

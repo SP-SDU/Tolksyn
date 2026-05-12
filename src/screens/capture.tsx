@@ -1,14 +1,16 @@
 import { useCameraPermissions } from 'expo-camera';
-import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Alert, Animated, Easing, Platform, StyleSheet, Text, View, type ViewStyle } from 'react-native';
+import { Alert, StyleSheet, Text, View } from 'react-native';
 
 import { BarcodeCamera, type BarcodeCameraHandle } from '@/components/barcode-camera';
+import { ImagePreview } from '@/components/image-preview';
+import { ScanFinderOverlay } from '@/components/scan-finder-overlay';
 import { AppHeader, BrutalFrame, StatusPill } from '@/components/ui/app-chrome';
 import { Button } from '@/components/ui/button';
 import { ScreenView } from '@/components/ui/screen';
-import { AppDesign } from '@/constants/design';
+import { SUPPORTED_BARCODE_TYPES } from '@/constants/barcode';
+import { ToastDurations } from '@/constants/runtime';
 import { useAppRuntime } from '@/providers/app-provider';
 import { useToast } from '@/providers/toast-provider';
 import { getErrorMessage } from '@/types/app-error';
@@ -61,7 +63,7 @@ export function CaptureScreen() {
       setProcessingImageUri(uri);
       await runProcessing({ source: 'gallery', inputUri: uri });
     } catch (error) {
-      toast.show({ text: getErrorMessage(error, 'Unable to import image.'), tone: 'error', durationMs: 3200 });
+      toast.show({ text: getErrorMessage(error, 'Unable to import image.'), tone: 'error', durationMs: ToastDurations.errorMs });
       Alert.alert('Import failed', getErrorMessage(error, 'Unable to import image.'));
     }
   }
@@ -70,7 +72,7 @@ export function CaptureScreen() {
     if (!permission?.granted) {
       const result = await requestPermission();
       if (!result.granted) {
-        toast.show({ text: 'Camera permission is required.', tone: 'warning', durationMs: 2800 });
+        toast.show({ text: 'Camera permission is required.', tone: 'warning', durationMs: ToastDurations.warningMs });
         Alert.alert('Permission required', 'Camera access is required to capture images.');
         return;
       }
@@ -85,7 +87,7 @@ export function CaptureScreen() {
       setProcessingImageUri(picture.uri);
       await runProcessing({ source: 'camera', inputUri: picture.uri, liveBarcodes });
     } catch (error) {
-      toast.show({ text: getErrorMessage(error, 'Unable to capture image.'), tone: 'error', durationMs: 3200 });
+      toast.show({ text: getErrorMessage(error, 'Unable to capture image.'), tone: 'error', durationMs: ToastDurations.errorMs });
       Alert.alert('Capture failed', getErrorMessage(error, 'Unable to capture image.'));
     }
   }
@@ -158,7 +160,7 @@ export function CaptureScreen() {
       console.error('[tolksyn] Capture processing failed:', error);
       setExtractionState('failed');
       const message = getErrorMessage(error, 'Unable to extract data from image.');
-      toast.show({ text: `Extraction failed: ${message}`, tone: 'error', durationMs: 3200 });
+      toast.show({ text: `Extraction failed: ${message}`, tone: 'error', durationMs: ToastDurations.errorMs });
       Alert.alert('Extraction failed', getErrorMessage(error, 'Unable to extract data from image.'));
     } finally {
       if (abortControllerRef.current === controller) {
@@ -199,7 +201,7 @@ export function CaptureScreen() {
       <View className="relative flex-1 overflow-hidden border-4 border-border bg-black">
         {processingImageUri ? (
           <>
-            <Image source={processingImageUri} className="h-full w-full bg-imageBase" contentFit="cover" />
+            <ImagePreview uri={processingImageUri} className="h-full w-full bg-imageBase" contentFit="cover" />
             {isProcessing ? <ScanFinderOverlay /> : null}
           </>
         ) : permission?.granted ? (
@@ -207,7 +209,7 @@ export function CaptureScreen() {
             ref={cameraRef}
             style={styles.camera}
             facing="back"
-            barcodeTypes={['ean13', 'ean8', 'upc_a', 'upc_e', 'code128', 'code39', 'qr', 'pdf417']}
+            barcodeTypes={SUPPORTED_BARCODE_TYPES}
             onBarcodeScanned={(event) => {
               setLiveBarcodes((current) => {
                 const exists = current.some(
@@ -308,73 +310,6 @@ function stageTone(stage: PipelineStage): 'default' | 'warning' | 'success' | 'd
   }
 
   return 'default';
-}
-
-function ScanFinderOverlay() {
-  const progress = useRef(new Animated.Value(0)).current;
-  const finder = (
-    <View
-      style={{
-        width: 92,
-        height: 92,
-        borderWidth: 3,
-        borderColor: AppDesign.color.yellow,
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
-    >
-      <View style={{ width: 8, height: 8, backgroundColor: AppDesign.color.yellow }} />
-    </View>
-  );
-
-  useEffect(() => {
-    progress.setValue(0);
-    const animation = Animated.loop(
-      Animated.sequence([
-        Animated.timing(progress, { toValue: 1, duration: 760, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
-        Animated.timing(progress, { toValue: 2, duration: 820, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
-        Animated.timing(progress, { toValue: 3, duration: 700, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
-        Animated.timing(progress, { toValue: 4, duration: 880, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
-        Animated.timing(progress, { toValue: 0, duration: 760, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
-      ]),
-    );
-
-    animation.start();
-
-    return () => {
-      animation.stop();
-    };
-  }, [progress]);
-
-  const translateX = progress.interpolate({
-    inputRange: [0, 1, 2, 3, 4],
-    outputRange: [-86, 58, -12, 92, -62],
-  });
-  const translateY = progress.interpolate({
-    inputRange: [0, 1, 2, 3, 4],
-    outputRange: [-108, -44, 70, 12, 112],
-  });
-
-  if (Platform.OS === 'web') {
-    const webAnimationStyle = {
-      animation: 'scan-finder 3.9s ease-in-out infinite',
-      willChange: 'transform',
-    } as unknown as ViewStyle;
-
-    return (
-      <View pointerEvents="none" className="absolute inset-0 items-center justify-center bg-black/15">
-        <View style={webAnimationStyle}>{finder}</View>
-      </View>
-    );
-  }
-
-  return (
-    <View pointerEvents="none" className="absolute inset-0 items-center justify-center bg-black/15">
-      <Animated.View style={{ transform: [{ translateX }, { translateY }] }}>
-        {finder}
-      </Animated.View>
-    </View>
-  );
 }
 
 const styles = StyleSheet.create({

@@ -1,4 +1,5 @@
 import { buildExtractionPrompt } from '@/api/providers/extraction-prompt';
+import { RuntimeLimits } from '@/constants/runtime';
 import { providerErrorMessage } from '@/api/providers/remote-extraction-shared';
 import type {
   ExtractionPromptAttempt,
@@ -9,8 +10,6 @@ import type {
 import { AppError } from '@/types/app-error';
 import { emptyStructuredItem } from '@/types/item-schema';
 import { createAbortError, isAbortError, throwIfAborted } from '@/utils/abort';
-
-const MAX_EXTRACTION_ATTEMPTS = 3;
 
 export async function extractWithRetries({
   fallbackProvider,
@@ -26,7 +25,7 @@ export async function extractWithRetries({
   let prompt = basePrompt;
   let lastError = '';
 
-  for (let index = 1; index <= MAX_EXTRACTION_ATTEMPTS; index += 1) {
+  for (let index = 1; index <= RuntimeLimits.maxExtractionAttempts; index += 1) {
     try {
       throwIfAborted(input.signal);
       const result = await extract({
@@ -64,7 +63,7 @@ export async function extractWithRetries({
         error: message,
       });
 
-      if (!isRetryable(code) || index >= MAX_EXTRACTION_ATTEMPTS) {
+      if (!isRetryable(code) || index >= RuntimeLimits.maxExtractionAttempts) {
         return {
           structuredJson: emptyStructuredItem(),
           barcodes: [],

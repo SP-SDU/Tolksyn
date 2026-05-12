@@ -1,6 +1,7 @@
 import { Directory, File, Paths } from 'expo-file-system';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { Platform } from 'react-native';
+import { RuntimeLimits } from '@/constants/runtime';
 
 export function createImageStore() {
   return {
@@ -12,8 +13,8 @@ export function createImageStore() {
       width: number;
       height: number;
     }> {
-      const normalized = await renderImage(inputUri, 1600);
-      const thumbnail = await renderImage(normalized.uri, 320);
+      const normalized = await renderImage(inputUri, RuntimeLimits.normalizedImageWidth);
+      const thumbnail = await renderImage(normalized.uri, RuntimeLimits.thumbnailImageWidth);
 
       if (Platform.OS === 'web') {
         return {

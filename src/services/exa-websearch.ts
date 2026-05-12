@@ -1,4 +1,5 @@
 import { AppError, providerHttpStatusToError } from '@/types/app-error';
+import { RuntimeLimits } from '@/constants/runtime';
 import { sanitizeSearchQuery, sanitizeUntrustedWebText, validateSafeHttpsUrl } from '@/services/web-safety';
 import { createAbortError, linkAbortSignal } from '@/utils/abort';
 
@@ -18,7 +19,7 @@ export function createExaWebSearch({ fetch }: { fetch: typeof global.fetch }) {
     async search(input: ExaSearchInput): Promise<string> {
       const query = sanitizeSearchQuery(input.query);
       const linked = linkAbortSignal(input.signal);
-      const timeoutHandle = setTimeout(() => linked.controller.abort(), 25_000);
+      const timeoutHandle = setTimeout(() => linked.controller.abort(), RuntimeLimits.exaSearchTimeoutMs);
 
       try {
         const response = await fetch(exaUrl(), {

@@ -1,9 +1,10 @@
 import { useFocusEffect } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
-import { Copy } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Platform, ScrollView, Switch, Text, View } from 'react-native';
+import { Alert, Platform, Switch, Text, View } from 'react-native';
 
+import { CopyButton } from '@/components/copy-button';
+import { OptionPicker } from '@/components/option-picker';
 import { AppHeader, BrutalFrame, FieldRow, StatusPill, StickyActionBar } from '@/components/ui/app-chrome';
 import { Button } from '@/components/ui/button';
 import { Input, LabeledInput } from '@/components/ui/input';
@@ -14,6 +15,7 @@ import { useToast } from '@/providers/toast-provider';
 import { isExperimentalProvider } from '@/services/provider-catalog';
 import type { ProviderAuthMode, ProviderItem, ProviderModel } from '@/services/provider-catalog';
 import type { OAuthFlow } from '@/services/provider-oauth';
+import { ToastDurations } from '@/constants/runtime';
 import { getErrorMessage } from '@/types/app-error';
 import { defaultSettings, type AppSettings, type ProviderAuth } from '@/types/settings';
 
@@ -256,7 +258,7 @@ export function SettingsScreen() {
       toast.show({
         text: getErrorMessage(error, 'Unable to complete OAuth flow.'),
         tone: 'error',
-        durationMs: 3200,
+        durationMs: ToastDurations.errorMs,
       });
       Alert.alert('OAuth failed', getErrorMessage(error, 'Unable to complete OAuth flow.'));
     }
@@ -337,18 +339,14 @@ export function SettingsScreen() {
     setThinkingOpen(false);
   }
 
-  async function copy(text: string) {
-    try {
-      if (typeof navigator !== 'undefined' && navigator.clipboard) {
-        await navigator.clipboard.writeText(text);
-      }
+  function onCopied() {
+    setOauth((state) => ({ ...state, status: 'Copied.' }));
+    toast.show({ text: 'Copied.', tone: 'success' });
+  }
 
-      setOauth((state) => ({ ...state, status: 'Copied.' }));
-      toast.show({ text: 'Copied.', tone: 'success' });
-    } catch {
-      setOauth((state) => ({ ...state, status: 'Copy failed. Copy manually.' }));
-      toast.show({ text: 'Copy failed. Copy manually.', tone: 'warning', durationMs: 2800 });
-    }
+  function onCopyFailed() {
+    setOauth((state) => ({ ...state, status: 'Copy failed. Copy manually.' }));
+    toast.show({ text: 'Copy failed. Copy manually.', tone: 'warning', durationMs: ToastDurations.warningMs });
   }
 
   function clearLocalData() {
@@ -401,7 +399,7 @@ export function SettingsScreen() {
         ),
       );
       setOauth({ busy: false, status: 'Local data cleared.' });
-      toast.show({ text: 'All local app data cleared.', tone: 'success', durationMs: 2800 });
+      toast.show({ text: 'All local app data cleared.', tone: 'success', durationMs: ToastDurations.warningMs });
       setProviderOpen(false);
       setModelOpen(false);
       setThinkingOpen(false);
@@ -448,32 +446,11 @@ export function SettingsScreen() {
               className="items-start"
               label={`${providerName} (${id})`}
               onPress={() => {
-                setProviderOpen((current) => !current);
+                setProviderOpen(true);
                 setModelOpen(false);
                 setThinkingOpen(false);
               }}
             />
-            {providerOpen ? (
-              <View className="max-h-56 gap-2 border-2 border-border bg-background p-2">
-                <Input value={query} placeholder="Search providers" onChangeText={setQuery} />
-                <ScrollView>
-                  <View className="gap-2">
-                    {list.map((item) => (
-                      <Button
-                        key={item.id}
-                        variant={item.id === id ? 'primary' : 'secondary'}
-                        size="sm"
-                        className="justify-start px-3"
-                        textClassName="text-left text-sm"
-                        label={`${item.name} (${item.id})`}
-                        onPress={() => selectProvider(item.id)}
-                      />
-                    ))}
-                    {!list.length ? <Text className="px-1 text-xs font-semibold text-muted">No providers match.</Text> : null}
-                  </View>
-                </ScrollView>
-              </View>
-            ) : null}
           </View>
 
           <Text className="text-xs font-semibold uppercase tracking-wide text-muted">
@@ -489,31 +466,11 @@ export function SettingsScreen() {
               className="items-start"
               label={modelName || 'Select model'}
               onPress={() => {
-                setModelOpen((current) => !current);
+                setModelOpen(true);
                 setProviderOpen(false);
                 setThinkingOpen(false);
               }}
             />
-            {modelOpen ? (
-              <View className="max-h-56 gap-2 border-2 border-border bg-background p-2">
-                <ScrollView>
-                  <View className="gap-2">
-                    {models.map((item) => (
-                      <Button
-                        key={item.id}
-                        variant={item.id === draft.provider.model ? 'primary' : 'secondary'}
-                        size="sm"
-                        className="justify-start px-3"
-                        textClassName="text-left text-sm"
-                        label={`${item.name} (${item.id})`}
-                        onPress={() => selectModel(item.id)}
-                      />
-                    ))}
-                    {!models.length ? <Text className="px-1 text-xs font-semibold text-muted">No models available.</Text> : null}
-                  </View>
-                </ScrollView>
-              </View>
-            ) : null}
           </View>
 
           {thinkingLevels.length ? (
@@ -524,38 +481,11 @@ export function SettingsScreen() {
                 className="items-start"
                 label={draft.provider.modelVariant ? formatThinkingLevel(draft.provider.modelVariant) : 'Auto'}
                 onPress={() => {
-                  setThinkingOpen((current) => !current);
+                  setThinkingOpen(true);
                   setProviderOpen(false);
                   setModelOpen(false);
                 }}
               />
-              {thinkingOpen ? (
-                <View className="max-h-56 gap-2 border-2 border-border bg-background p-2">
-                  <ScrollView>
-                    <View className="gap-2">
-                      <Button
-                        variant={draft.provider.modelVariant == null ? 'primary' : 'secondary'}
-                        size="sm"
-                        className="justify-start px-3"
-                        textClassName="text-left text-sm"
-                        label="Auto"
-                        onPress={() => selectThinkingLevel(null)}
-                      />
-                      {thinkingLevels.map((item) => (
-                        <Button
-                          key={item}
-                          variant={draft.provider.modelVariant === item ? 'primary' : 'secondary'}
-                          size="sm"
-                          className="justify-start px-3"
-                          textClassName="text-left text-sm"
-                          label={formatThinkingLevel(item)}
-                          onPress={() => selectThinkingLevel(item)}
-                        />
-                      ))}
-                    </View>
-                  </ScrollView>
-                </View>
-              ) : null}
             </View>
           ) : null}
 
@@ -612,13 +542,14 @@ export function SettingsScreen() {
                     <Text className="text-xs font-black uppercase tracking-wide text-foreground">Verification URL</Text>
                     <View className="flex-row items-center gap-2">
                       <Input value={oauth.flow.url} editable={false} className="flex-1" />
-                      <Button
+                      <CopyButton
+                        value={oauth.flow?.url ?? ''}
                         variant="secondary"
                         size="sm"
                         className="h-12 w-12 px-0"
-                        onPress={() => copy(oauth.flow?.url ?? '')}>
-                        <Copy size={18} color="#1a1a1a" />
-                      </Button>
+                        onCopied={onCopied}
+                        onCopyFailed={onCopyFailed}
+                      />
                     </View>
                   </View>
 
@@ -626,13 +557,14 @@ export function SettingsScreen() {
                     <Text className="text-xs font-black uppercase tracking-wide text-foreground">Code</Text>
                     <View className="flex-row items-center gap-2">
                       <Input value={oauth.flow.code} editable={false} className="flex-1" />
-                      <Button
+                      <CopyButton
+                        value={oauth.flow?.code ?? ''}
                         variant="secondary"
                         size="sm"
                         className="h-12 w-12 px-0"
-                        onPress={() => copy(oauth.flow?.code ?? '')}>
-                        <Copy size={18} color="#1a1a1a" />
-                      </Button>
+                        onCopied={onCopied}
+                        onCopyFailed={onCopyFailed}
+                      />
                     </View>
                   </View>
                 </>
@@ -763,6 +695,33 @@ export function SettingsScreen() {
           </View>
         </StickyActionBar>
       ) : null}
+
+      <OptionPicker
+        title="Select Provider"
+        open={providerOpen}
+        items={list.map((item) => ({ id: item.id, label: `${item.name} (${item.id})` }))}
+        selectedId={id}
+        query={query}
+        onQueryChange={setQuery}
+        onClose={() => setProviderOpen(false)}
+        onSelect={(nextId) => void selectProvider(nextId)}
+      />
+      <OptionPicker
+        title="Select Model"
+        open={modelOpen}
+        items={models.map((item) => ({ id: item.id, label: `${item.name} (${item.id})` }))}
+        selectedId={draft.provider.model}
+        onClose={() => setModelOpen(false)}
+        onSelect={(modelId) => void selectModel(modelId)}
+      />
+      <OptionPicker
+        title="Select Thinking"
+        open={thinkingOpen}
+        items={[{ id: '__auto__', label: 'Auto' }, ...thinkingLevels.map((item) => ({ id: item, label: formatThinkingLevel(item) }))]}
+        selectedId={draft.provider.modelVariant ?? '__auto__'}
+        onClose={() => setThinkingOpen(false)}
+        onSelect={(value) => selectThinkingLevel(value === '__auto__' ? null : value)}
+      />
     </View>
   );
 }
