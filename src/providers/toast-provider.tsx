@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { Text, View } from 'react-native';
 
-import { cn } from '@/components/ui/cn';
+import { AppDesign } from '@/constants/design';
 import {
   enqueueToast,
   initialToastState,
@@ -111,8 +111,16 @@ function ToastHost({ entry }: { entry?: ToastEntry }) {
 
   return (
     <View pointerEvents="box-none" className="absolute inset-0 z-50 justify-end px-4 pb-6">
-      <View className={cn('rounded-xl border px-4 py-3 shadow-lg', toneContainer(entry.tone))}>
-        <Text className={cn('text-sm font-medium', toneText(entry.tone))}>{entry.text}</Text>
+      <View
+        className="px-4 py-3"
+        style={{
+          backgroundColor: toneContainer(entry.tone),
+          borderColor: AppDesign.color.ink,
+          borderWidth: AppDesign.border.solid,
+        }}>
+        <Text className="text-sm font-black uppercase tracking-wide" style={{ color: toneText(entry.tone) }}>
+          {entry.text}
+        </Text>
       </View>
     </View>
   );
@@ -120,32 +128,28 @@ function ToastHost({ entry }: { entry?: ToastEntry }) {
 
 function toneContainer(tone: ToastTone) {
   if (tone === 'success') {
-    return 'border-emerald-300 bg-emerald-50';
+    return AppDesign.color.blueSoft;
   }
 
   if (tone === 'warning') {
-    return 'border-amber-300 bg-amber-50';
+    return AppDesign.color.yellow;
   }
 
   if (tone === 'error') {
-    return 'border-red-300 bg-red-50';
+    return AppDesign.color.red;
   }
 
-  return 'border-slate-300 bg-slate-50';
+  return AppDesign.color.panel;
 }
 
 function toneText(tone: ToastTone) {
   if (tone === 'success') {
-    return 'text-emerald-800';
-  }
-
-  if (tone === 'warning') {
-    return 'text-amber-800';
+    return AppDesign.color.blue;
   }
 
   if (tone === 'error') {
-    return 'text-red-800';
+    return AppDesign.color.paper;
   }
 
-  return 'text-slate-800';
+  return AppDesign.color.ink;
 }

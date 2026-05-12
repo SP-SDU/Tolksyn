@@ -1,5 +1,6 @@
 import { AppError, providerHttpStatusToError } from '@/types/app-error';
 import { sanitizeUntrustedWebText, validateSafeHttpsUrl } from '@/services/web-safety';
+import { createAbortError, linkAbortSignal } from '@/utils/abort';
 
 const MAX_RESPONSE_SIZE = 5 * 1024 * 1024;
 
@@ -11,18 +12,18 @@ export type WebFetchResult = {
 
 export function createWebFetch({ fetch, proxyBaseUrl }: { fetch: typeof global.fetch; proxyBaseUrl?: string }) {
   return {
-    async fetch({ url, timeoutMs = 30_000 }: { url: string; timeoutMs?: number }): Promise<WebFetchResult> {
+    async fetch({ url, timeoutMs = 30_000, signal }: { url: string; timeoutMs?: number; signal?: AbortSignal }): Promise<WebFetchResult> {
       const safeUrl = validateSafeHttpsUrl(url, 'webfetch');
 
       const requestUrl = proxyBaseUrl ? `${proxyBaseUrl}?url=${encodeURIComponent(safeUrl)}` : safeUrl;
 
-      const controller = new AbortController();
-      const timeoutHandle = setTimeout(() => controller.abort(), Math.min(timeoutMs, 120_000));
+      const linked = linkAbortSignal(signal);
+      const timeoutHandle = setTimeout(() => linked.controller.abort(), Math.min(timeoutMs, 120_000));
 
       try {
         const response = await fetch(requestUrl, {
           method: 'GET',
-          signal: controller.signal,
+          signal: linked.signal,
           headers: {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36',
             Accept: 'text/markdown;q=1.0, text/x-markdown;q=0.9, text/plain;q=0.8, text/html;q=0.7, */*;q=0.1',
@@ -51,6 +52,10 @@ export function createWebFetch({ fetch, proxyBaseUrl }: { fetch: typeof global.f
           text: sanitizeUntrustedWebText(contentType.includes('text/html') ? htmlToText(text) : text),
         };
       } catch (error) {
+        if (signal?.aborted) {
+          throw createAbortError();
+        }
+
         if (error instanceof AppError) {
           throw error;
         }
@@ -62,6 +67,7 @@ export function createWebFetch({ fetch, proxyBaseUrl }: { fetch: typeof global.f
         throw error;
       } finally {
         clearTimeout(timeoutHandle);
+        linked.cleanup();
       }
     },
   };

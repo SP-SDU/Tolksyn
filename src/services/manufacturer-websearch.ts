@@ -5,6 +5,7 @@ import type { BarcodeHit, WebSearchEnrichment } from '@/utils/merge-extraction-r
 import { extractUrlsFromText, type ExaSearchInput } from '@/services/exa-websearch';
 import { sanitizeSearchQuery, sanitizeUntrustedWebText } from '@/services/web-safety';
 import type { WebFetchResult } from '@/services/webfetch';
+import { isAbortError, throwIfAborted } from '@/utils/abort';
 
 type ImageInput = {
   imageUri: string;
@@ -19,6 +20,7 @@ type EnrichmentInput = ImageInput & {
   barcodes: BarcodeHit[];
   auxiliaryText?: string;
   responseText?: string;
+  signal?: AbortSignal;
 };
 
 type WebSearchAttempt = WebSearchEnrichment['attempts'][number];
@@ -36,13 +38,14 @@ export function createManufacturerWebSearchEnricher({
 }: {
   settings: { getSettings(): Promise<AppSettings> };
   extractor: {
-    extract(input: ImageInput & { prompt?: string }): Promise<RemoteExtractionResult>;
+    extract(input: ImageInput & { prompt?: string; signal?: AbortSignal }): Promise<RemoteExtractionResult>;
   };
   webSearch: { search(input: ExaSearchInput): Promise<string> };
-  webFetch: { fetch(input: { url: string }): Promise<WebFetchResult> };
+  webFetch: { fetch(input: { url: string; signal?: AbortSignal }): Promise<WebFetchResult> };
 }) {
   return {
     async enrich(input: EnrichmentInput): Promise<{ structuredJson: StructuredItem; diagnostics: WebSearchEnrichment } | undefined> {
+      throwIfAborted(input.signal);
       if (!(await settings.getSettings()).webSearch.enabled) {
         return undefined;
       }
@@ -50,6 +53,7 @@ export function createManufacturerWebSearchEnricher({
       const startedAt = Date.now();
       const attempts: WebSearchAttempt[] = [];
       const planned = await planQueries({ extractor, input });
+      throwIfAborted(input.signal);
       attempts.push(planned.attempt);
       const queries = planned.queries;
       if (!queries.length) {
@@ -73,8 +77,9 @@ export function createManufacturerWebSearchEnricher({
 
       const searchResults = await Promise.all(
         queries.map(async (query) => {
+          throwIfAborted(input.signal);
           const safeQuery = sanitizeSearchQuery(query);
-          const output = sanitizeUntrustedWebText(await webSearch.search({ query: safeQuery }));
+          const output = sanitizeUntrustedWebText(await webSearch.search({ query: safeQuery, signal: input.signal }));
           attempts.push({
             type: 'exa_search',
             status: 'success',
@@ -88,7 +93,9 @@ export function createManufacturerWebSearchEnricher({
           };
         }),
       );
-      const sources = await fetchSources({ webFetch, attempts, urls: uniqueUrls(searchResults.flatMap((result) => result.urls)).slice(0, WEBSEARCH_LIMITS.maxFetchedPagesTotal) });
+      throwIfAborted(input.signal);
+      const sources = await fetchSources({ webFetch, attempts, signal: input.signal, urls: uniqueUrls(searchResults.flatMap((result) => result.urls)).slice(0, WEBSEARCH_LIMITS.maxFetchedPagesTotal) });
+      throwIfAborted(input.signal);
       const reconciliationPrompt = buildReconciliationPrompt(input.structuredJson, input.barcodes, searchResults, sources);
       const reconciled = await extractor.extract({
         imageUri: input.imageUri,
@@ -97,7 +104,9 @@ export function createManufacturerWebSearchEnricher({
         width: input.width,
         height: input.height,
         prompt: reconciliationPrompt,
+        signal: input.signal,
       });
+      throwIfAborted(input.signal);
       attempts.push({
         type: 'reconciliation',
         status: 'success',
@@ -134,11 +143,12 @@ async function planQueries({
   extractor,
   input,
 }: {
-  extractor: { extract(input: ImageInput & { prompt?: string }): Promise<RemoteExtractionResult> };
+  extractor: { extract(input: ImageInput & { prompt?: string; signal?: AbortSignal }): Promise<RemoteExtractionResult> };
   input: EnrichmentInput;
 }): Promise<{ queries: string[]; attempt: WebSearchAttempt }> {
   const prompt = buildQueryPlanningPrompt(input.structuredJson, input.barcodes, input.auxiliaryText, input.responseText);
   try {
+    throwIfAborted(input.signal);
     const planned = await extractor.extract({
       imageUri: input.imageUri,
       imageBase64: input.imageBase64,
@@ -146,7 +156,9 @@ async function planQueries({
       width: input.width,
       height: input.height,
       prompt,
+      signal: input.signal,
     });
+    throwIfAborted(input.signal);
 
     return {
       queries: parseQueries(planned.responseText ?? planned.auxiliaryText).slice(0, WEBSEARCH_LIMITS.maxQueries),
@@ -158,6 +170,10 @@ async function planQueries({
       },
     };
   } catch (error) {
+    if (isAbortError(error) || input.signal?.aborted) {
+      throw error;
+    }
+
     return {
       queries: [],
       attempt: {
@@ -264,12 +280,15 @@ async function fetchSources({
   webFetch,
   attempts,
   urls,
+  signal,
 }: {
-  webFetch: { fetch(input: { url: string }): Promise<WebFetchResult> };
+  webFetch: { fetch(input: { url: string; signal?: AbortSignal }): Promise<WebFetchResult> };
   attempts: WebSearchAttempt[];
   urls: string[];
+  signal?: AbortSignal;
 }): Promise<WebFetchResult[]> {
-  const results = await Promise.allSettled(urls.map((url) => webFetch.fetch({ url })));
+  const results = await Promise.allSettled(urls.map((url) => webFetch.fetch({ url, signal })));
+  throwIfAborted(signal);
   results.forEach((result, index) => {
     const url = urls[index];
     if (result.status === 'fulfilled') {

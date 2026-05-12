@@ -19,6 +19,7 @@
     "nativewind-env.d.ts"
   ],
   "exclude": [
-    "opensrc"
+    "opensrc",
+    "temp"
   ]
 }

@@ -36,6 +36,7 @@ export type RemoteExtractionInput = {
   imageWidth?: number;
   imageHeight?: number;
   prompt?: string;
+  signal?: AbortSignal;
 };
 
 export type FetchLike = typeof fetch;

@@ -4,9 +4,10 @@ import { Copy } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Platform, ScrollView, Switch, Text, View } from 'react-native';
 
+import { AppHeader, BrutalFrame, FieldRow, StatusPill, StickyActionBar } from '@/components/ui/app-chrome';
 import { Button } from '@/components/ui/button';
 import { Input, LabeledInput } from '@/components/ui/input';
-import { Screen, ScreenTitle } from '@/components/ui/screen';
+import { Screen } from '@/components/ui/screen';
 import { Section } from '@/components/ui/section';
 import { useAppRuntime } from '@/providers/app-provider';
 import { useToast } from '@/providers/toast-provider';
@@ -415,11 +416,21 @@ export function SettingsScreen() {
   return (
     <View className="flex-1 bg-background">
       <Screen className="gap-4 pb-28">
-        <ScreenTitle title="Settings" subtitle="Review changes and apply when ready." />
+        <AppHeader eyebrow="Control" title="Settings" meta="Configure extraction, ingest, and local data." />
+
+        <BrutalFrame className="gap-2 bg-paper">
+          <View className="flex-row flex-wrap gap-2">
+            <StatusPill label={providerName} tone={supported ? 'success' : 'warning'} />
+            <StatusPill label={mode === 'oauth' ? (connected ? 'OAuth Connected' : 'OAuth Required') : 'API Key'} tone={mode === 'oauth' && !connected ? 'warning' : 'default'} />
+            {dirty ? <StatusPill label="Unsaved" tone="warning" /> : <StatusPill label="Saved" tone="info" />}
+          </View>
+          <FieldRow label="Model" value={modelName || 'None'} />
+          <FieldRow label="Ingest" value={draft.ingest.endpointUrl || 'Missing endpoint'} tone={draft.ingest.endpointUrl ? 'default' : 'warning'} />
+        </BrutalFrame>
 
         <Section title="Provider">
           <View className="flex-row items-center justify-between">
-            <Text className="text-sm font-semibold text-slate-700">Show experimental providers</Text>
+            <Text className="text-sm font-black uppercase tracking-wide text-foreground">Show experimental providers</Text>
             <Switch
               value={draft.provider.showExperimentalProviders}
               onValueChange={(value) => {
@@ -431,10 +442,10 @@ export function SettingsScreen() {
           </View>
 
           <View className="gap-1.5">
-            <Text className="text-sm font-semibold text-slate-700">Provider</Text>
+            <Text className="text-xs font-black uppercase tracking-wide text-foreground">Provider</Text>
             <Button
               variant="secondary"
-              className="items-start rounded-xl"
+              className="items-start"
               label={`${providerName} (${id})`}
               onPress={() => {
                 setProviderOpen((current) => !current);
@@ -443,7 +454,7 @@ export function SettingsScreen() {
               }}
             />
             {providerOpen ? (
-              <View className="max-h-56 gap-2 rounded-xl border border-border bg-background p-2">
+              <View className="max-h-56 gap-2 border-2 border-border bg-background p-2">
                 <Input value={query} placeholder="Search providers" onChangeText={setQuery} />
                 <ScrollView>
                   <View className="gap-2">
@@ -452,30 +463,30 @@ export function SettingsScreen() {
                         key={item.id}
                         variant={item.id === id ? 'primary' : 'secondary'}
                         size="sm"
-                        className="justify-start rounded-lg px-3"
+                        className="justify-start px-3"
                         textClassName="text-left text-sm"
                         label={`${item.name} (${item.id})`}
                         onPress={() => selectProvider(item.id)}
                       />
                     ))}
-                    {!list.length ? <Text className="px-1 text-xs text-slate-600">No providers match.</Text> : null}
+                    {!list.length ? <Text className="px-1 text-xs font-semibold text-muted">No providers match.</Text> : null}
                   </View>
                 </ScrollView>
               </View>
             ) : null}
           </View>
 
-          <Text className="text-xs text-slate-600">
+          <Text className="text-xs font-semibold uppercase tracking-wide text-muted">
             {supported
               ? 'Supported for extraction in this app.'
               : 'Configured providers are saved, but this provider is not yet supported for extraction.'}
           </Text>
 
           <View className="gap-1.5">
-            <Text className="text-sm font-semibold text-slate-700">Model</Text>
+            <Text className="text-xs font-black uppercase tracking-wide text-foreground">Model</Text>
             <Button
               variant="secondary"
-              className="items-start rounded-xl"
+              className="items-start"
               label={modelName || 'Select model'}
               onPress={() => {
                 setModelOpen((current) => !current);
@@ -484,7 +495,7 @@ export function SettingsScreen() {
               }}
             />
             {modelOpen ? (
-              <View className="max-h-56 gap-2 rounded-xl border border-border bg-background p-2">
+              <View className="max-h-56 gap-2 border-2 border-border bg-background p-2">
                 <ScrollView>
                   <View className="gap-2">
                     {models.map((item) => (
@@ -492,13 +503,13 @@ export function SettingsScreen() {
                         key={item.id}
                         variant={item.id === draft.provider.model ? 'primary' : 'secondary'}
                         size="sm"
-                        className="justify-start rounded-lg px-3"
+                        className="justify-start px-3"
                         textClassName="text-left text-sm"
                         label={`${item.name} (${item.id})`}
                         onPress={() => selectModel(item.id)}
                       />
                     ))}
-                    {!models.length ? <Text className="px-1 text-xs text-slate-600">No models available.</Text> : null}
+                    {!models.length ? <Text className="px-1 text-xs font-semibold text-muted">No models available.</Text> : null}
                   </View>
                 </ScrollView>
               </View>
@@ -507,10 +518,10 @@ export function SettingsScreen() {
 
           {thinkingLevels.length ? (
             <View className="gap-1.5">
-              <Text className="text-sm font-semibold text-slate-700">Thinking</Text>
+              <Text className="text-xs font-black uppercase tracking-wide text-foreground">Thinking</Text>
               <Button
                 variant="secondary"
-                className="items-start rounded-xl"
+                className="items-start"
                 label={draft.provider.modelVariant ? formatThinkingLevel(draft.provider.modelVariant) : 'Auto'}
                 onPress={() => {
                   setThinkingOpen((current) => !current);
@@ -519,13 +530,13 @@ export function SettingsScreen() {
                 }}
               />
               {thinkingOpen ? (
-                <View className="max-h-56 gap-2 rounded-xl border border-border bg-background p-2">
+                <View className="max-h-56 gap-2 border-2 border-border bg-background p-2">
                   <ScrollView>
                     <View className="gap-2">
                       <Button
                         variant={draft.provider.modelVariant == null ? 'primary' : 'secondary'}
                         size="sm"
-                        className="justify-start rounded-lg px-3"
+                        className="justify-start px-3"
                         textClassName="text-left text-sm"
                         label="Auto"
                         onPress={() => selectThinkingLevel(null)}
@@ -535,7 +546,7 @@ export function SettingsScreen() {
                           key={item}
                           variant={draft.provider.modelVariant === item ? 'primary' : 'secondary'}
                           size="sm"
-                          className="justify-start rounded-lg px-3"
+                          className="justify-start px-3"
                           textClassName="text-left text-sm"
                           label={formatThinkingLevel(item)}
                           onPress={() => selectThinkingLevel(item)}
@@ -575,7 +586,7 @@ export function SettingsScreen() {
                   key={item}
                   variant={mode === item ? 'primary' : 'secondary'}
                   size="sm"
-                  className="flex-1 rounded-xl"
+                  className="flex-1"
                   label={item === 'api' ? 'API Key' : 'OAuth'}
                   onPress={() => setMode(item)}
                 />
@@ -586,46 +597,48 @@ export function SettingsScreen() {
           {mode === 'api' ? (
             <LabeledInput label="API Key" secureTextEntry value={key} onChangeText={setApiKey} />
           ) : (
-            <View className="gap-2 rounded-xl border border-border bg-background p-3">
-              <Text className="text-sm font-semibold text-slate-700">OAuth</Text>
-              <Text className="text-xs text-slate-600">
-                Go to the verification URL, enter the code, then complete authorization.
+            <View className="gap-3 border-2 border-border bg-paper p-3">
+              <View className="flex-row flex-wrap items-center gap-2">
+                <Text className="text-sm font-black uppercase tracking-wide text-foreground">OAuth</Text>
+                {connected ? <StatusPill label="Connected" tone="success" /> : <StatusPill label="Not Connected" tone="warning" />}
+              </View>
+              <Text className="text-xs font-semibold uppercase tracking-wide text-muted">
+                Starting OAuth opens a blocking browser/custom tab. Complete provider authorization, return here, then press Complete OAuth.
               </Text>
 
               {oauth.flow ? (
                 <>
                   <View className="gap-1.5">
-                    <Text className="text-sm font-semibold text-slate-700">Verification URL</Text>
+                    <Text className="text-xs font-black uppercase tracking-wide text-foreground">Verification URL</Text>
                     <View className="flex-row items-center gap-2">
                       <Input value={oauth.flow.url} editable={false} className="flex-1" />
                       <Button
                         variant="secondary"
                         size="sm"
-                        className="h-11 w-11 rounded-xl px-0"
+                        className="h-12 w-12 px-0"
                         onPress={() => copy(oauth.flow?.url ?? '')}>
-                        <Copy size={18} color="#0f172a" />
+                        <Copy size={18} color="#1a1a1a" />
                       </Button>
                     </View>
                   </View>
 
                   <View className="gap-1.5">
-                    <Text className="text-sm font-semibold text-slate-700">Code</Text>
+                    <Text className="text-xs font-black uppercase tracking-wide text-foreground">Code</Text>
                     <View className="flex-row items-center gap-2">
                       <Input value={oauth.flow.code} editable={false} className="flex-1" />
                       <Button
                         variant="secondary"
                         size="sm"
-                        className="h-11 w-11 rounded-xl px-0"
+                        className="h-12 w-12 px-0"
                         onPress={() => copy(oauth.flow?.code ?? '')}>
-                        <Copy size={18} color="#0f172a" />
+                        <Copy size={18} color="#1a1a1a" />
                       </Button>
                     </View>
                   </View>
                 </>
               ) : null}
 
-              {connected ? <Text className="text-xs text-emerald-700">Connected.</Text> : null}
-              {oauth.status ? <Text className="text-xs text-slate-600">{oauth.status}</Text> : null}
+              {oauth.status ? <Text className="text-xs font-semibold text-muted">{oauth.status}</Text> : null}
 
               <View className="flex-row gap-2">
                 <Button
@@ -670,7 +683,7 @@ export function SettingsScreen() {
 
         <Section title="Barcode">
           <View className="flex-row items-center justify-between">
-            <Text className="text-sm font-semibold text-slate-700">Enable local barcode scan</Text>
+            <Text className="text-sm font-black uppercase tracking-wide text-foreground">Enable local barcode scan</Text>
             <Switch
               value={draft.barcode.enabled}
               onValueChange={(value) => {
@@ -681,7 +694,7 @@ export function SettingsScreen() {
             />
           </View>
           <View className="gap-1.5">
-            <Text className="text-sm font-semibold text-slate-700">Allowed types (comma-separated)</Text>
+            <Text className="text-xs font-black uppercase tracking-wide text-foreground">Allowed types (comma-separated)</Text>
             <Input
               value={draft.barcode.allowedTypes.join(', ')}
               onChangeText={(value) => {
@@ -697,11 +710,11 @@ export function SettingsScreen() {
         </Section>
 
         <Section title="Websearch">
-          <View className="gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3">
+          <View className="gap-2 border-2 border-border bg-caution p-3">
             <View className="flex-row items-center justify-between gap-3">
               <View className="flex-1 gap-1">
-                <Text className="text-sm font-semibold text-amber-900">Manufacturer web search</Text>
-                <Text className="text-xs text-amber-800">
+                <Text className="text-sm font-black uppercase tracking-wide text-foreground">Manufacturer web search</Text>
+                <Text className="text-xs font-semibold uppercase tracking-wide text-foreground">
                   Experimental. Uses Exa AI to generate search queries, fetch source pages, and ask the VLM to reconcile manufacturer/product data.
                 </Text>
               </View>
@@ -718,13 +731,11 @@ export function SettingsScreen() {
         </Section>
 
         <Section title="App Data">
-          <Text className="text-sm text-slate-600">
+          <Text className="text-sm font-semibold text-muted">
             Reset this app on this device by clearing local history, queue, settings, tokens, and provider cache.
           </Text>
           <Button
-            variant="secondary"
-            className="rounded-xl border-red-200 bg-red-50"
-            textClassName="text-red-700"
+            variant="caution"
             label={clearing ? 'Clearing…' : 'Clear Local Data'}
             disabled={clearing || saving || oauth.busy}
             onPress={clearLocalData}
@@ -733,24 +744,24 @@ export function SettingsScreen() {
       </Screen>
 
       {dirty ? (
-        <View className="absolute bottom-0 left-0 right-0 border-t border-border bg-background/95 px-4 pb-5 pt-3">
-          {applyHint ? <Text className="mb-2 text-xs text-slate-600">{applyHint}</Text> : null}
+        <StickyActionBar className="absolute bottom-0 left-0 right-0">
+          {applyHint ? <Text className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">{applyHint}</Text> : null}
           <View className="flex-row gap-2">
             <Button
               variant="secondary"
-              className="flex-1 rounded-2xl"
+              className="flex-1"
               label="Cancel"
               disabled={saving}
               onPress={cancel}
             />
             <Button
-              className="flex-1 rounded-2xl"
+              className="flex-1"
               disabled={saving || !valid}
               label={saving ? 'Applying…' : 'Apply'}
               onPress={() => apply()}
             />
           </View>
-        </View>
+        </StickyActionBar>
       ) : null}
     </View>
   );

@@ -7,6 +7,7 @@ import type {
 } from '@/api/providers/remote-extraction-types';
 import { AppError } from '@/types/app-error';
 import { emptyStructuredItem } from '@/types/item-schema';
+import { isAbortError, throwIfAborted } from '@/utils/abort';
 
 const MAX_EXTRACTION_ATTEMPTS = 3;
 
@@ -25,10 +26,12 @@ export async function extractWithRetries({
 
   for (let index = 1; index <= MAX_EXTRACTION_ATTEMPTS; index += 1) {
     try {
+      throwIfAborted(input.signal);
       const result = await extract({
         ...input,
         prompt,
       });
+      throwIfAborted(input.signal);
       attempts.push({
         attempt: index,
         prompt,
@@ -43,6 +46,10 @@ export async function extractWithRetries({
         },
       };
     } catch (error) {
+      if (isAbortError(error) || input.signal?.aborted) {
+        throw error;
+      }
+
       const code = error instanceof AppError ? error.code : 'internal';
       const message = providerErrorMessage(error);
       attempts.push({

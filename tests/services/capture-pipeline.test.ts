@@ -315,4 +315,106 @@ describe('processImage', () => {
     );
     expect(markFailed).toHaveBeenCalledWith('attempt-json-error', 'Unterminated string in JSON at position 28');
   });
+
+  test('stops before creating an attempt when cancelled during image persistence', async () => {
+    const controller = new AbortController();
+    const create = jest.fn().mockResolvedValue(undefined);
+    const saveExtractionResult = jest.fn().mockResolvedValue(undefined);
+
+    const promise = processImage({
+      source: 'camera',
+      inputUri: 'file://input.jpg',
+      signal: controller.signal,
+      now: () => 123,
+      createAttemptId: () => 'attempt-cancel-before-create',
+      imageStore: {
+        persistImage: jest.fn().mockImplementation(async () => {
+          controller.abort();
+
+          return {
+            imageUri: 'file://stored.jpg',
+            thumbnailUri: 'file://thumb.jpg',
+            imageBase64: 'abc',
+            mimeType: 'image/jpeg',
+            width: 1200,
+            height: 900,
+          };
+        }),
+      },
+      attempts: {
+        create,
+        saveExtractionResult,
+      },
+      barcodeDetector: {
+        detect: jest.fn().mockResolvedValue([]),
+      },
+      extractor: {
+        extract: jest.fn().mockResolvedValue({
+          structuredJson: emptyStructuredItem(),
+          barcodes: [],
+          metadata: {
+            provider: 'remote_openai_compatible',
+            durationMs: 1000,
+            imageWidth: 1200,
+            imageHeight: 900,
+          },
+        }),
+      },
+    });
+
+    await expect(promise).rejects.toMatchObject({ name: 'AbortError' });
+    expect(create).not.toHaveBeenCalled();
+    expect(saveExtractionResult).not.toHaveBeenCalled();
+  });
+
+  test('deletes a partial attempt and skips saving output when cancelled after creation', async () => {
+    const controller = new AbortController();
+    const deleteById = jest.fn().mockResolvedValue(undefined);
+    const saveExtractionResult = jest.fn().mockResolvedValue(undefined);
+
+    const promise = processImage({
+      source: 'gallery',
+      inputUri: 'file://input.jpg',
+      signal: controller.signal,
+      now: () => 123,
+      createAttemptId: () => 'attempt-cancel-after-create',
+      imageStore: {
+        persistImage: jest.fn().mockResolvedValue({
+          imageUri: 'file://stored.jpg',
+          thumbnailUri: 'file://thumb.jpg',
+          imageBase64: 'abc',
+          mimeType: 'image/jpeg',
+          width: 1200,
+          height: 900,
+        }),
+      },
+      attempts: {
+        create: jest.fn().mockResolvedValue(undefined),
+        saveExtractionResult,
+        deleteById,
+      },
+      barcodeDetector: {
+        detect: jest.fn().mockImplementation(async () => {
+          controller.abort();
+          throw new DOMException('Aborted', 'AbortError');
+        }),
+      },
+      extractor: {
+        extract: jest.fn().mockResolvedValue({
+          structuredJson: emptyStructuredItem(),
+          barcodes: [],
+          metadata: {
+            provider: 'remote_openai_compatible',
+            durationMs: 1000,
+            imageWidth: 1200,
+            imageHeight: 900,
+          },
+        }),
+      },
+    });
+
+    await expect(promise).rejects.toMatchObject({ name: 'AbortError' });
+    expect(saveExtractionResult).not.toHaveBeenCalled();
+    expect(deleteById).toHaveBeenCalledWith('attempt-cancel-after-create');
+  });
 });
