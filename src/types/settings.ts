@@ -19,7 +19,6 @@ export type ProviderAuthMap = Record<string, ProviderAuth | undefined>;
 export type AppSettings = {
   provider: {
     id: string;
-    endpointUrl: string;
     model: string;
     modelVariant: string | null;
     timeoutMs: number;
@@ -44,7 +43,6 @@ export function defaultSettings(): AppSettings {
   return {
     provider: {
       id: 'openai',
-      endpointUrl: 'https://chatgpt.com/backend-api/codex/responses',
       model: 'gpt-5.3-codex',
       modelVariant: null,
       timeoutMs: 6000,

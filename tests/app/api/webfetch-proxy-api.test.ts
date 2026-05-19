@@ -34,8 +34,9 @@ describe('webfetch proxy api route', () => {
   });
 
   test('rejects oversized upstream responses', async () => {
+    const body = 'x'.repeat(5 * 1024 * 1024 + 1);
     jest.spyOn(global, 'fetch').mockResolvedValue(
-      new Response('', {
+      new Response(body, {
         status: 200,
         headers: { 'Content-Length': String(5 * 1024 * 1024 + 1) },
       }),

@@ -63,7 +63,6 @@ describe('settings repository', () => {
     await repo.saveSettings({
       provider: {
         id: 'openai',
-        endpointUrl: ' https://api.openai.com/v1/chat/completions ',
         model: ' gpt-4.1-mini ',
         modelVariant: null,
         timeoutMs: 7000,
@@ -111,7 +110,6 @@ describe('settings repository', () => {
     expect(storedAuth).toContain('google-key');
 
     const next = await repo.getSettings();
-    expect(next.provider.endpointUrl).toBe('https://api.openai.com/v1/chat/completions');
     expect(next.provider.model).toBe('gpt-4.1-mini');
     expect(next.provider.showExperimentalProviders).toBe(true);
     expect(next.webSearch.enabled).toBe(true);

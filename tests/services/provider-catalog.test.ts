@@ -39,7 +39,6 @@ describe('provider catalog', () => {
     const defaults = await catalog.defaultsFor('openai');
 
     expect(defaults).toEqual({
-      endpointUrl: 'https://api.openai.com/v1/chat/completions',
       model: 'gpt-5',
     });
   });
@@ -74,7 +73,6 @@ describe('provider catalog', () => {
     const defaults = await catalog.defaultsFor('openai', 'oauth');
 
     expect(defaults).toEqual({
-      endpointUrl: 'https://chatgpt.com/backend-api/codex/responses',
       model: 'gpt-5.3-codex',
     });
   });
@@ -94,7 +92,7 @@ describe('provider catalog', () => {
 
     const defaults = await catalog.defaultsFor('openai', 'oauth');
 
-    expect(defaults.endpointUrl).toBe('https://chatgpt.com/backend-api/codex/responses');
+    expect(defaults.model).toBe('gpt-4.1-mini');
   });
 
   test('drops gpt-4.1 models and keeps newer OpenAI models', async () => {
@@ -221,6 +219,279 @@ describe('provider catalog', () => {
     } finally {
       (globalThis as { window?: unknown }).window = originalWindow;
     }
+  });
+
+  test('includes gpt-5 base models in oauth mode', async () => {
+    const secrets = createSecretStore();
+    const fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        openai: {
+          id: 'openai',
+          name: 'OpenAI',
+          api: 'https://api.openai.com/v1/chat/completions',
+          models: {
+            'gpt-5.5': {
+              id: 'gpt-5.5',
+              name: 'GPT-5.5',
+              release_date: '2026-04-01',
+              reasoning: true,
+            },
+            'gpt-5.4': {
+              id: 'gpt-5.4',
+              name: 'GPT-5.4',
+              release_date: '2026-03-01',
+              reasoning: true,
+            },
+          },
+        },
+      }),
+    });
+
+    const catalog = createProviderCatalog({
+      secrets,
+      fetch: fetch as any,
+      now: () => 1_000,
+    });
+
+    const models = await catalog.modelOptions('openai', 'oauth');
+
+    expect(models.some((m) => m.id === 'gpt-5.5')).toBe(true);
+    expect(models.some((m) => m.id === 'gpt-5.4')).toBe(true);
+  });
+
+  test('includes codex models in oauth mode', async () => {
+    const secrets = createSecretStore();
+    const fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        openai: {
+          id: 'openai',
+          name: 'OpenAI',
+          api: 'https://api.openai.com/v1/chat/completions',
+          models: {
+            'gpt-5.3-codex': {
+              id: 'gpt-5.3-codex',
+              name: 'GPT-5.3 Codex',
+              release_date: '2026-02-01',
+              reasoning: true,
+            },
+            'gpt-5.2-codex': {
+              id: 'gpt-5.2-codex',
+              name: 'GPT-5.2 Codex',
+              release_date: '2025-12-01',
+              reasoning: true,
+            },
+          },
+        },
+      }),
+    });
+
+    const catalog = createProviderCatalog({
+      secrets,
+      fetch: fetch as any,
+      now: () => 1_000,
+    });
+
+    const models = await catalog.modelOptions('openai', 'oauth');
+
+    expect(models.some((m) => m.id === 'gpt-5.3-codex')).toBe(true);
+    expect(models.some((m) => m.id === 'gpt-5.2-codex')).toBe(true);
+  });
+
+  test('includes mini models in oauth mode', async () => {
+    const secrets = createSecretStore();
+    const fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        openai: {
+          id: 'openai',
+          name: 'OpenAI',
+          api: 'https://api.openai.com/v1/chat/completions',
+          models: {
+            'gpt-5.4-mini': {
+              id: 'gpt-5.4-mini',
+              name: 'GPT-5.4 Mini',
+              release_date: '2026-03-01',
+              reasoning: true,
+            },
+            'gpt-5-mini': {
+              id: 'gpt-5-mini',
+              name: 'GPT-5 Mini',
+              release_date: '2025-08-01',
+              reasoning: true,
+            },
+          },
+        },
+      }),
+    });
+
+    const catalog = createProviderCatalog({
+      secrets,
+      fetch: fetch as any,
+      now: () => 1_000,
+    });
+
+    const models = await catalog.modelOptions('openai', 'oauth');
+
+    expect(models.some((m) => m.id === 'gpt-5.4-mini')).toBe(true);
+    expect(models.some((m) => m.id === 'gpt-5-mini')).toBe(true);
+  });
+
+  test('includes codex-mini and codex-max variants in oauth mode', async () => {
+    const secrets = createSecretStore();
+    const fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        openai: {
+          id: 'openai',
+          name: 'OpenAI',
+          api: 'https://api.openai.com/v1/chat/completions',
+          models: {
+            'gpt-5.1-codex-mini': {
+              id: 'gpt-5.1-codex-mini',
+              name: 'GPT-5.1 Codex Mini',
+              release_date: '2025-11-01',
+              reasoning: true,
+            },
+            'gpt-5.1-codex-max': {
+              id: 'gpt-5.1-codex-max',
+              name: 'GPT-5.1 Codex Max',
+              release_date: '2025-12-01',
+              reasoning: true,
+            },
+          },
+        },
+      }),
+    });
+
+    const catalog = createProviderCatalog({
+      secrets,
+      fetch: fetch as any,
+      now: () => 1_000,
+    });
+
+    const models = await catalog.modelOptions('openai', 'oauth');
+
+    expect(models.some((m) => m.id === 'gpt-5.1-codex-mini')).toBe(true);
+    expect(models.some((m) => m.id === 'gpt-5.1-codex-max')).toBe(true);
+  });
+
+  test('excludes gpt-4 models from oauth mode', async () => {
+    const secrets = createSecretStore();
+    const fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        openai: {
+          id: 'openai',
+          name: 'OpenAI',
+          api: 'https://api.openai.com/v1/chat/completions',
+          models: {
+            'gpt-4.1': {
+              id: 'gpt-4.1',
+              name: 'GPT-4.1',
+              release_date: '2025-04-01',
+              reasoning: true,
+            },
+            'gpt-4o': {
+              id: 'gpt-4o',
+              name: 'GPT-4o',
+              release_date: '2024-05-01',
+              reasoning: false,
+            },
+          },
+        },
+      }),
+    });
+
+    const catalog = createProviderCatalog({
+      secrets,
+      fetch: fetch as any,
+      now: () => 1_000,
+    });
+
+    const models = await catalog.modelOptions('openai', 'oauth');
+
+    expect(models.some((m) => m.id === 'gpt-4.1')).toBe(false);
+    expect(models.some((m) => m.id === 'gpt-4o')).toBe(false);
+  });
+
+  test('excludes chat models from oauth mode', async () => {
+    const secrets = createSecretStore();
+    const fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        openai: {
+          id: 'openai',
+          name: 'OpenAI',
+          api: 'https://api.openai.com/v1/chat/completions',
+          models: {
+            'gpt-5-chat': {
+              id: 'gpt-5-chat',
+              name: 'GPT-5 Chat',
+              release_date: '2026-01-01',
+              reasoning: true,
+            },
+            'gpt-5.1-chat': {
+              id: 'gpt-5.1-chat',
+              name: 'GPT-5.1 Chat',
+              release_date: '2025-11-01',
+              reasoning: true,
+            },
+          },
+        },
+      }),
+    });
+
+    const catalog = createProviderCatalog({
+      secrets,
+      fetch: fetch as any,
+      now: () => 1_000,
+    });
+
+    const models = await catalog.modelOptions('openai', 'oauth');
+
+    expect(models.some((m) => m.id === 'gpt-5-chat')).toBe(false);
+    expect(models.some((m) => m.id === 'gpt-5.1-chat')).toBe(false);
+  });
+
+  test('excludes image models from oauth mode', async () => {
+    const secrets = createSecretStore();
+    const fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        openai: {
+          id: 'openai',
+          name: 'OpenAI',
+          api: 'https://api.openai.com/v1/chat/completions',
+          models: {
+            'gpt-5-image': {
+              id: 'gpt-5-image',
+              name: 'GPT-5 Image',
+              release_date: '2026-01-01',
+              reasoning: true,
+            },
+            'sora': {
+              id: 'sora',
+              name: 'Sora',
+              release_date: '2026-01-01',
+              reasoning: false,
+            },
+          },
+        },
+      }),
+    });
+
+    const catalog = createProviderCatalog({
+      secrets,
+      fetch: fetch as any,
+      now: () => 1_000,
+    });
+
+    const models = await catalog.modelOptions('openai', 'oauth');
+
+    expect(models.some((m) => m.id === 'gpt-5-image')).toBe(false);
+    expect(models.some((m) => m.id === 'sora')).toBe(false);
   });
 });
 

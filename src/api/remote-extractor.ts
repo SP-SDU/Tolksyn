@@ -1,21 +1,29 @@
-import { createGeminiExtractor } from '@/api/providers/gemini-extractor';
-import { createGitHubCopilotExtractor } from '@/api/providers/github-copilot-extractor';
-import { createOpenAICodexExtractor } from '@/api/providers/openai-codex-extractor';
-import { createOpenAICompatibleExtractor } from '@/api/providers/openai-compatible-extractor';
+import { createAnthropic } from '@ai-sdk/anthropic';
+import { createGoogleGenerativeAI } from '@ai-sdk/google';
+import { createOpenAI } from '@ai-sdk/openai';
+import { generateText } from 'ai';
+import { createGitHubCopilot } from 'github-copilot-oauth';
+import { createOpenAIOAuth, deriveAccountId } from 'openai-codex-oauth';
+
+import { buildExtractionPrompt } from '@/api/providers/extraction-prompt';
+import { normalizeRemoteError, parseProviderJsonEnvelope } from '@/api/providers/remote-extraction-shared';
 import { extractWithRetries } from '@/services/extraction-retry';
 import { createProviderCatalog } from '@/services/provider-catalog';
 import { AppError } from '@/types/app-error';
-import type { AppSettings } from '@/types/settings';
+import type { AppSettings, ProviderAuth } from '@/types/settings';
+
+type LanguageModelFactory = (model: string) => Parameters<typeof generateText>[0]['model'];
+
+const API_PROVIDER_FACTORIES: Record<string, (credential: string) => LanguageModelFactory> = {
+  openai: (apiKey) => createOpenAI({ apiKey }),
+  google: (apiKey) => createGoogleGenerativeAI({ apiKey }),
+  anthropic: (apiKey) => createAnthropic({ apiKey }),
+};
 
 export function createRemoteExtractor(settingsRepository: {
   getSettings(): Promise<AppSettings>;
   providerCatalog?: ReturnType<typeof createProviderCatalog>;
 }) {
-  const openaiCompatible = createOpenAICompatibleExtractor({ fetch });
-  const codex = createOpenAICodexExtractor({ fetch });
-  const copilot = createGitHubCopilotExtractor({ fetch });
-  const gemini = createGeminiExtractor({ fetch });
-
   return {
     async extract(input: {
       imageUri: string;
@@ -31,7 +39,7 @@ export function createRemoteExtractor(settingsRepository: {
       const mode = settings.provider.authModeByProvider[id] ?? 'api';
       const supported = settingsRepository.providerCatalog
         ? await settingsRepository.providerCatalog.supportsImage(id, settings.provider.model, mode)
-        : ['openai', 'google', 'github-copilot'].includes(id);
+        : ['openai', 'google', 'anthropic', 'github-copilot'].includes(id);
       if (!supported) {
         throw new AppError(
           'unsupported',
@@ -66,75 +74,11 @@ export function createRemoteExtractor(settingsRepository: {
         credential = auth.access;
       }
 
-      if (id === 'google') {
-        return extractWithRetries({
-          fallbackProvider: 'remote_gemini',
-          input: {
-            endpointUrl: settings.provider.endpointUrl,
-            apiKey: credential,
-            model: settings.provider.model,
-            imageBase64: input.imageBase64,
-            mimeType: input.mimeType,
-            timeoutMs: settings.provider.timeoutMs,
-            imageWidth: input.width,
-            imageHeight: input.height,
-            prompt: input.prompt,
-            signal: input.signal,
-          },
-          extract: (payload) => gemini.extract(payload),
-        });
-      }
+      const modelFactory = resolveModelFactory({ providerId: id, mode, credential, auth });
 
-      if (id === 'openai' && mode === 'oauth' && settings.provider.endpointUrl.includes('chatgpt.com/backend-api/codex/responses')) {
-        return extractWithRetries({
-          fallbackProvider: 'remote_openai_codex',
-          input: {
-            endpointUrl: settings.provider.endpointUrl,
-            apiKey: '',
-            model: settings.provider.model,
-            imageBase64: input.imageBase64,
-            mimeType: input.mimeType,
-            timeoutMs: settings.provider.timeoutMs,
-            imageWidth: input.width,
-            imageHeight: input.height,
-            prompt: input.prompt,
-            signal: input.signal,
-          },
-          extract: (payload) =>
-            codex.extract({
-              ...payload,
-              oauth: auth as Extract<typeof auth, { type: 'oauth' }>,
-            }),
-        });
-      }
-
-      if (id === 'github-copilot' && mode === 'oauth') {
-        return extractWithRetries({
-          fallbackProvider: 'remote_github_copilot',
-          input: {
-            endpointUrl: settings.provider.endpointUrl,
-            apiKey: '',
-            model: settings.provider.model,
-            imageBase64: input.imageBase64,
-            mimeType: input.mimeType,
-            timeoutMs: settings.provider.timeoutMs,
-            imageWidth: input.width,
-            imageHeight: input.height,
-            prompt: input.prompt,
-            signal: input.signal,
-          },
-          extract: (payload) =>
-            copilot.extract({
-              ...payload,
-              oauth: auth as Extract<typeof auth, { type: 'oauth' }>,
-            }),
-        });
-      }
-
-      return extractWithRetries({
-        fallbackProvider: 'remote_openai_compatible',
+return extractWithRetries({
+        fallbackProvider: 'remote_ai_sdk',
         input: {
-          endpointUrl: settings.provider.endpointUrl,
           apiKey: credential,
           model: settings.provider.model,
           imageBase64: input.imageBase64,
@@ -145,8 +89,88 @@ export function createRemoteExtractor(settingsRepository: {
           prompt: input.prompt,
           signal: input.signal,
         },
-        extract: (payload) => openaiCompatible.extract(payload),
+        extract: async (payload) => {
+          try {
+            const startedAt = Date.now();
+            const prompt = payload.prompt ?? buildExtractionPrompt();
+            const response = await generateText({
+              model: modelFactory(payload.model),
+              messages: [
+                {
+                  role: 'user',
+                  content: [
+                    { type: 'text', text: prompt },
+                    { type: 'file', data: payload.imageBase64, mediaType: payload.mimeType },
+                  ],
+                },
+              ],
+              abortSignal: payload.signal,
+              maxRetries: 0,
+            });
+            const parsed = parseProviderJsonEnvelope(response.text);
+
+            return {
+              structuredJson: parsed.structuredJson,
+              barcodes: [],
+              auxiliaryText: parsed.auxiliaryText,
+              responseText: response.text,
+              metadata: {
+                provider: 'remote_ai_sdk' as const,
+                durationMs: Math.max(1, Date.now() - startedAt),
+                imageWidth: payload.imageWidth ?? 0,
+                imageHeight: payload.imageHeight ?? 0,
+              },
+            };
+          } catch (error) {
+            throw normalizeRemoteError(error);
+          }
+        },
       });
     },
   };
+}
+
+function resolveModelFactory({
+  providerId,
+  mode,
+  credential,
+  auth,
+}: {
+  providerId: string;
+  mode: 'api' | 'oauth';
+  credential: string;
+  auth: ProviderAuth | undefined;
+}): LanguageModelFactory {
+  if (mode === 'api') {
+    const createProvider = API_PROVIDER_FACTORIES[providerId];
+    if (!createProvider) {
+      throw new AppError('unsupported', `Provider "${providerId}" is listed by the catalog but is not enabled in Tolksyn's AI SDK adapter set.`);
+    }
+
+    return createProvider(credential);
+  }
+
+  if (providerId === 'openai' && auth?.type === 'oauth') {
+    return createOpenAIOAuth({
+      tokens: {
+        accessToken: auth.access,
+        refreshToken: auth.refresh || undefined,
+        expiresAt: auth.expires || undefined,
+        accountId: auth.accountId ?? deriveAccountId(auth.access),
+      },
+      originator: 'tolksyn',
+    });
+  }
+
+  if (providerId === 'github-copilot' && auth?.type === 'oauth') {
+    return createGitHubCopilot({
+      tokens: {
+        githubToken: auth.refresh || auth.access,
+        enterpriseUrl: auth.enterpriseUrl,
+      },
+      enterpriseUrl: auth.enterpriseUrl,
+    });
+  }
+
+  throw new AppError('unsupported', `OAuth is not enabled for provider "${providerId}".`);
 }

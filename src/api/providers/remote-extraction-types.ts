@@ -12,7 +12,8 @@ export type RemoteExtractionProvider =
   | 'remote_openai_compatible'
   | 'remote_gemini'
   | 'remote_openai_codex'
-  | 'remote_github_copilot';
+  | 'remote_github_copilot'
+  | 'remote_ai_sdk';
 
 export type RemoteExtractionResult = {
   structuredJson: StructuredItem;
@@ -34,7 +35,6 @@ export type RemoteExtractionResult = {
 };
 
 export type RemoteExtractionInput = {
-  endpointUrl: string;
   apiKey: string;
   model: string;
   imageBase64: string;
