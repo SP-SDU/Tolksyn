@@ -2,6 +2,7 @@ import { useDrizzleStudio } from 'expo-drizzle-studio-plugin';
 import * as ImagePicker from 'expo-image-picker';
 import * as Network from 'expo-network';
 import { useSQLiteContext } from 'expo-sqlite';
+import { createAgentQueryCrawl } from 'agent-query-crawl';
 import { createContext, startTransition, useContext, useEffect, useMemo } from 'react';
 import { Platform } from 'react-native';
 
@@ -17,9 +18,7 @@ import { createBarcodeDetector } from '@/services/barcode-detector';
 import { processImage } from '@/services/capture-pipeline';
 import { importFromGallery } from '@/services/gallery-import';
 import { createImageStore } from '@/services/image-store';
-import { createExaWebSearch } from '@/services/exa-websearch';
 import { createManufacturerWebSearchEnricher } from '@/services/manufacturer-websearch';
-import { createWebFetch } from '@/services/webfetch';
 import { createProviderCatalog } from '@/services/provider-catalog';
 import { createProviderOAuth } from '@/services/provider-oauth';
 import { drainQueue } from '@/services/queue-worker';
@@ -81,13 +80,19 @@ function createRuntime(sqlite: Parameters<typeof createDb>[0]) {
   const barcodeDetector = createBarcodeDetector();
   const imageStore = createImageStore();
   const extractor = createRemoteExtractor(settings);
-  const webSearch = createExaWebSearch({ fetch });
-  const webFetch = createWebFetch({ fetch, proxyBaseUrl: Platform.OS === 'web' ? '/api/proxy/webfetch' : undefined });
+  const queryCrawl = createAgentQueryCrawl({
+    fetch,
+    search: {
+      proxyBaseUrl: Platform.OS === 'web' ? '/api/proxy/exa/mcp' : undefined,
+    },
+    webFetch: {
+      proxyBaseUrl: Platform.OS === 'web' ? '/api/proxy/webfetch' : undefined,
+    },
+  });
   const webSearchEnricher = createManufacturerWebSearchEnricher({
     settings,
     extractor,
-    webSearch,
-    webFetch,
+    queryCrawl,
   });
   const oauth = createProviderOAuth({ fetch });
   const transport = createIngestTransport(settings);

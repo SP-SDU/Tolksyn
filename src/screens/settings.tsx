@@ -138,7 +138,7 @@ export function SettingsScreen() {
   const dirty = useMemo(() => JSON.stringify(saved) !== JSON.stringify(draft), [saved, draft]);
 
   const valid = useMemo(() => {
-    if (!draft.provider.endpointUrl.trim() || !draft.provider.model.trim() || draft.provider.timeoutMs <= 0) {
+    if (!draft.provider.model.trim() || draft.provider.timeoutMs <= 0) {
       return false;
     }
 
@@ -163,9 +163,6 @@ export function SettingsScreen() {
       return null;
     }
 
-    if (!draft.provider.endpointUrl.trim()) {
-      return 'Provider endpoint is required.';
-    }
     if (!draft.provider.model.trim()) {
       return 'Model is required.';
     }
@@ -186,7 +183,7 @@ export function SettingsScreen() {
     }
 
     return null;
-  }, [connected, dirty, draft.ingest.apiKey, draft.ingest.endpointUrl, draft.provider.endpointUrl, draft.provider.model, draft.provider.timeoutMs, key, mode]);
+  }, [connected, dirty, draft.ingest.apiKey, draft.ingest.endpointUrl, draft.provider.model, draft.provider.timeoutMs, key, mode]);
 
   async function apply(next?: AppSettings) {
     const payload = next ?? draft;
@@ -271,7 +268,6 @@ export function SettingsScreen() {
       const defaults = await runtime.providerCatalog.defaultsFor(nextId, nextMode);
       const nextDraft = cloneSettings(draft);
       nextDraft.provider.id = nextId;
-      nextDraft.provider.endpointUrl = defaults.endpointUrl;
       nextDraft.provider.model = defaults.model;
       nextDraft.provider.modelVariant = null;
       nextDraft.provider.authModeByProvider[nextId] = nextMode;
@@ -292,7 +288,6 @@ export function SettingsScreen() {
 
     try {
       const defaults = await runtime.providerCatalog.defaultsFor(id, next);
-      nextDraft.provider.endpointUrl = defaults.endpointUrl;
       const options = await runtime.providerCatalog.modelOptions(id, next);
       if (!options.some((item) => item.id === nextDraft.provider.model)) {
         nextDraft.provider.model = defaults.model;
@@ -489,15 +484,6 @@ export function SettingsScreen() {
             </View>
           ) : null}
 
-          <LabeledInput
-            label="Endpoint URL"
-            value={draft.provider.endpointUrl}
-            onChangeText={(value) => {
-              const next = cloneSettings(draft);
-              next.provider.endpointUrl = value;
-              setDraft(next);
-            }}
-          />
           <LabeledInput
             label="Timeout (ms)"
             keyboardType="number-pad"
@@ -734,7 +720,6 @@ function normalizeForSave(settings: AppSettings): AppSettings {
     ...settings,
     provider: {
       ...settings.provider,
-      endpointUrl: settings.provider.endpointUrl.trim(),
       model: settings.provider.model.trim(),
       modelVariant: settings.provider.modelVariant?.trim() || null,
       auth: {

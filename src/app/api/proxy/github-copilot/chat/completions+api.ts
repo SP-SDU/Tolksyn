@@ -1,5 +1,5 @@
-import { proxyCopilotPost } from '@/api/proxy/github-copilot-shared';
+import { createGitHubCopilotProxy } from 'github-copilot-oauth/proxy';
 
 export async function POST(request: Request): Promise<Response> {
-  return proxyCopilotPost(request, 'chat/completions');
+  return createGitHubCopilotProxy({ fetch }).chatCompletions(request);
 }

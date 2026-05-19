@@ -25,7 +25,6 @@ describe('extractWithRetries', () => {
     const result = await extractWithRetries({
       fallbackProvider: 'remote_openai_compatible',
       input: {
-        endpointUrl: 'https://example.com',
         apiKey: 'k',
         model: 'm',
         imageBase64: 'abc',
@@ -46,7 +45,6 @@ describe('extractWithRetries', () => {
     const result = await extractWithRetries({
       fallbackProvider: 'remote_gemini',
       input: {
-        endpointUrl: 'https://example.com',
         apiKey: 'k',
         model: 'm',
         imageBase64: 'abc',
@@ -81,7 +79,6 @@ describe('extractWithRetries', () => {
     await extractWithRetries({
       fallbackProvider: 'remote_openai_compatible',
       input: {
-        endpointUrl: 'https://example.com',
         apiKey: 'k',
         model: 'm',
         imageBase64: 'abc',
@@ -111,7 +108,6 @@ describe('extractWithRetries', () => {
       extractWithRetries({
         fallbackProvider: 'remote_openai_compatible',
         input: {
-          endpointUrl: 'https://example.com',
           apiKey: 'k',
           model: 'm',
           imageBase64: 'abc',

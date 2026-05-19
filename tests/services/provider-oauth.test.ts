@@ -28,6 +28,7 @@ describe('provider oauth', () => {
         json: async () => ({
           refresh_token: 'refresh-token',
           access_token: 'access-token',
+          id_token: jwtWithAccount('account-123'),
           expires_in: 3600,
         }),
       });
@@ -45,6 +46,7 @@ describe('provider oauth', () => {
       refresh: 'refresh-token',
       access: 'access-token',
       expires: 3_601_000,
+      accountId: 'account-123',
     });
     expect(sleep).toHaveBeenCalled();
   });
@@ -191,4 +193,14 @@ function restoreEnv(key: string, value: string | undefined): void {
   }
 
   process.env[key] = value;
+}
+
+function jwtWithAccount(accountId: string): string {
+  const payload = Buffer.from(JSON.stringify({
+    'https://api.openai.com/auth': {
+      chatgpt_account_id: accountId,
+    },
+  })).toString('base64url');
+
+  return `header.${payload}.signature`;
 }

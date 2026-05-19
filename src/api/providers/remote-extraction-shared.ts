@@ -3,15 +3,6 @@ import { emptyStructuredItem, validateStructuredItem } from '@/types/item-schema
 
 const MIN_EXTRACTION_TIMEOUT_MS = 120_000;
 
-export function ensureHttps(endpointUrl: string): URL {
-  const url = new URL(endpointUrl);
-  if (url.protocol !== 'https:') {
-    throw new AppError('unsupported', 'Remote extraction endpoints must use HTTPS.');
-  }
-
-  return url;
-}
-
 export function normalizeRemoteError(error: unknown): AppError {
   if (error instanceof AppError) {
     return error;

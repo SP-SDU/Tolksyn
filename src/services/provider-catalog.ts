@@ -1,12 +1,12 @@
 import { Platform } from 'react-native';
-
-import type { SecretStore } from '@/repositories/settings-repository';
 import {
   copilotBase,
   copilotModelHeaders,
-  exchangeCopilotAccessToken,
+  exchangeGitHubCopilotToken,
   normalizeEnterpriseDomain,
-} from '@/api/providers/github-copilot-shared';
+} from 'github-copilot-oauth';
+
+import type { SecretStore } from '@/repositories/settings-repository';
 
 export type ProviderAuthMode = 'api' | 'oauth';
 
@@ -54,18 +54,6 @@ const CACHE_KEY = 'tolksyn.settings.provider_catalog';
 const WEB_CACHE_KEY = 'tolksyn.settings.provider_catalog.web';
 const PROVIDER_AUTH_SECRET_KEY = 'tolksyn.secret.provider_auth';
 const TTL_MS = 1000 * 60 * 5;
-const OPENAI_CODEX_ENDPOINT = 'https://chatgpt.com/backend-api/codex/responses';
-
-const OPENAI_OAUTH_MODELS = new Set([
-  'gpt-5.1-codex',
-  'gpt-5.1-codex-max',
-  'gpt-5.1-codex-mini',
-  'gpt-5.2',
-  'gpt-5.2-codex',
-  'gpt-5.3-codex',
-  'gpt-5.4',
-  'gpt-5.4-mini',
-]);
 
 const AUTH_METHODS: Record<string, ProviderAuthMode[]> = {
   openai: ['api', 'oauth'],
@@ -74,23 +62,19 @@ const AUTH_METHODS: Record<string, ProviderAuthMode[]> = {
 
 const DEFAULT_PROVIDER_IDS = new Set(['openai', 'google', 'anthropic', 'github-copilot']);
 
-const SUPPORTED_EXTRACTION_PROVIDER_IDS = new Set(['openai', 'google', 'github-copilot']);
+const SUPPORTED_EXTRACTION_PROVIDER_IDS = new Set(['openai', 'google', 'anthropic', 'github-copilot']);
 
 const FALLBACK_DEFAULTS = {
   openai: {
-    endpointUrl: 'https://api.openai.com/v1/chat/completions',
     model: 'gpt-4.1-mini',
   },
   anthropic: {
-    endpointUrl: 'https://api.anthropic.com/v1/messages',
     model: 'claude-sonnet-4-0',
   },
   google: {
-    endpointUrl: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent',
     model: 'gemini-2.0-flash',
   },
   'github-copilot': {
-    endpointUrl: 'https://api.githubcopilot.com/chat/completions',
     model: 'gpt-4.1',
   },
 } as const;
@@ -154,22 +138,13 @@ const FALLBACK_PROVIDERS: ProviderItem[] = [
   },
 ];
 
-function defaults(providerId: string): { endpointUrl: string; model: string } {
-  const value = (FALLBACK_DEFAULTS as Record<string, { endpointUrl: string; model: string } | undefined>)[providerId];
+function defaults(providerId: string): { model: string } {
+  const value = (FALLBACK_DEFAULTS as Record<string, { model: string } | undefined>)[providerId];
   if (value) {
     return value;
   }
 
   return FALLBACK_DEFAULTS.openai;
-}
-
-function fallbackEndpoint(providerId: string, mode?: ProviderAuthMode): string {
-  const base = defaults(providerId).endpointUrl;
-  if (providerId === 'openai' && mode === 'oauth') {
-    return OPENAI_CODEX_ENDPOINT;
-  }
-
-  return base;
 }
 
 function authMethods(providerId: string): ProviderAuthMode[] {
@@ -293,11 +268,23 @@ function compareModels(providerId: string, left: ProviderModel, right: ProviderM
 }
 
 function isOpenAIOAuthModel(modelId: string): boolean {
-  if (OPENAI_OAUTH_MODELS.has(modelId)) {
-    return true;
+  const id = modelId.toLowerCase();
+
+  if (!id.startsWith('gpt-')) {
+    return false;
   }
 
-  return modelId.includes('codex');
+  const versionPart = id.slice(4);
+  const versionNumber = parseInt(versionPart.split('-')[0], 10);
+  if (isNaN(versionNumber) || versionNumber < 5) {
+    return false;
+  }
+
+  if (id.includes('chat') || id.includes('image')) {
+    return false;
+  }
+
+  return true;
 }
 
 function filterModels(providerId: string, mode: ProviderAuthMode | undefined, models: ProviderModel[]): ProviderModel[] {
@@ -456,7 +443,6 @@ export function createProviderCatalog({
 
     return {
       ...item,
-      api: mode === 'oauth' && providerId === 'openai' ? OPENAI_CODEX_ENDPOINT : item.api,
       models: filtered,
     };
   }
@@ -498,19 +484,17 @@ export function createProviderCatalog({
   async function defaultsFor(
     providerId: string,
     mode?: ProviderAuthMode,
-  ): Promise<{ endpointUrl: string; model: string }> {
+  ): Promise<{ model: string }> {
     const fallback = defaults(providerId);
     const item = await provider(providerId, mode);
     if (!item) {
       return {
-        endpointUrl: fallbackEndpoint(providerId, mode),
         model: fallback.model,
       };
     }
 
     const model = item.models[0]?.id ?? fallback.model;
     return {
-      endpointUrl: item.api ?? fallback.endpointUrl,
       model,
     };
   }
@@ -565,9 +549,9 @@ async function copilotModelsRequest(
     };
   }
 
-  const exchanged = await exchangeCopilotAccessToken({
+  const exchanged = await exchangeGitHubCopilotToken({
     fetch: fetcher,
-    refreshToken,
+    githubToken: refreshToken,
     enterpriseUrl,
   });
 

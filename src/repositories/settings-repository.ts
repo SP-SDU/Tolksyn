@@ -15,7 +15,6 @@ const INGEST_SECRET_KEY = 'tolksyn.secret.ingest_api_key';
 
 type PersistedProvider = {
   id: string;
-  endpointUrl: string;
   model: string;
   modelVariant?: string | null;
   timeoutMs: number;
@@ -82,7 +81,6 @@ export function createSettingsRepository({
       return {
         provider: {
           id,
-          endpointUrl: persisted.provider.endpointUrl,
           model: persisted.provider.model,
           modelVariant: persisted.provider.modelVariant ?? null,
           timeoutMs: persisted.provider.timeoutMs,
@@ -109,7 +107,6 @@ export function createSettingsRepository({
       const persisted: PersistedSettings = {
         provider: {
           id,
-          endpointUrl: settings.provider.endpointUrl.trim(),
           model: settings.provider.model.trim(),
           modelVariant: settings.provider.modelVariant,
           timeoutMs: settings.provider.timeoutMs,
@@ -200,7 +197,6 @@ async function parsePersisted(
   const migrated: PersistedSettings = {
       provider: {
         id,
-        endpointUrl: raw.provider?.endpointUrl ?? providerDefaults.endpointUrl,
         model: raw.provider?.model ?? providerDefaults.model,
         modelVariant: raw.provider?.modelVariant ?? defaults.provider.modelVariant,
         timeoutMs: raw.provider?.timeoutMs ?? defaults.provider.timeoutMs,
@@ -247,7 +243,6 @@ function fromDefaults(): PersistedSettings {
   return {
     provider: {
       id: defaults.provider.id,
-      endpointUrl: defaults.provider.endpointUrl,
       model: defaults.provider.model,
       modelVariant: defaults.provider.modelVariant,
       timeoutMs: defaults.provider.timeoutMs,

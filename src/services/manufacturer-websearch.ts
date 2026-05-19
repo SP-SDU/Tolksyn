@@ -1,10 +1,8 @@
 import type { RemoteExtractionResult } from '@/api/providers/remote-extraction-types';
+import { sanitizeUntrustedWebText, type AgentQueryCrawlInput, type AgentQueryCrawlResult, type WebFetchResult } from 'agent-query-crawl';
 import type { AppSettings } from '@/types/settings';
 import type { StructuredItem } from '@/types/item-schema';
 import type { BarcodeHit, WebSearchEnrichment } from '@/utils/merge-extraction-result';
-import { extractUrlsFromText, type ExaSearchInput } from '@/services/exa-websearch';
-import { sanitizeSearchQuery, sanitizeUntrustedWebText } from '@/services/web-safety';
-import type { WebFetchResult } from '@/services/webfetch';
 import { isAbortError, throwIfAborted } from '@/utils/abort';
 
 type ImageInput = {
@@ -33,15 +31,13 @@ const WEBSEARCH_LIMITS = {
 export function createManufacturerWebSearchEnricher({
   settings,
   extractor,
-  webSearch,
-  webFetch,
+  queryCrawl,
 }: {
   settings: { getSettings(): Promise<AppSettings> };
   extractor: {
     extract(input: ImageInput & { prompt?: string; signal?: AbortSignal }): Promise<RemoteExtractionResult>;
   };
-  webSearch: { search(input: ExaSearchInput): Promise<string> };
-  webFetch: { fetch(input: { url: string; signal?: AbortSignal }): Promise<WebFetchResult> };
+  queryCrawl: { query(input: AgentQueryCrawlInput): Promise<AgentQueryCrawlResult> };
 }) {
   return {
     async enrich(input: EnrichmentInput): Promise<{ structuredJson: StructuredItem; diagnostics: WebSearchEnrichment } | undefined> {
@@ -75,26 +71,7 @@ export function createManufacturerWebSearchEnricher({
         };
       }
 
-      const searchResults = await Promise.all(
-        queries.map(async (query) => {
-          throwIfAborted(input.signal);
-          const safeQuery = sanitizeSearchQuery(query);
-          const output = sanitizeUntrustedWebText(await webSearch.search({ query: safeQuery, signal: input.signal }));
-          attempts.push({
-            type: 'exa_search',
-            status: 'success',
-            query: safeQuery,
-            responseText: output,
-          });
-          return {
-            query: safeQuery,
-            output,
-            urls: extractUrlsFromText(output),
-          };
-        }),
-      );
-      throwIfAborted(input.signal);
-      const sources = await fetchSources({ webFetch, attempts, signal: input.signal, urls: uniqueUrls(searchResults.flatMap((result) => result.urls)).slice(0, WEBSEARCH_LIMITS.maxFetchedPagesTotal) });
+      const { searchResults, sources } = await crawlQueries({ queryCrawl, attempts, queries, signal: input.signal });
       throwIfAborted(input.signal);
       const reconciliationPrompt = buildReconciliationPrompt(input.structuredJson, input.barcodes, searchResults, sources);
       const reconciled = await extractor.extract({
@@ -137,6 +114,66 @@ export function createManufacturerWebSearchEnricher({
       };
     },
   };
+}
+
+async function crawlQueries({
+  queryCrawl,
+  attempts,
+  queries,
+  signal,
+}: {
+  queryCrawl: { query(input: AgentQueryCrawlInput): Promise<AgentQueryCrawlResult> };
+  attempts: WebSearchAttempt[];
+  queries: string[];
+  signal?: AbortSignal;
+}): Promise<{
+  searchResults: { query: string; output: string; urls: string[] }[];
+  sources: WebFetchResult[];
+}> {
+  const searchResults: { query: string; output: string; urls: string[] }[] = [];
+  const sources: WebFetchResult[] = [];
+
+  for (const query of queries) {
+    throwIfAborted(signal);
+    const remainingPages = WEBSEARCH_LIMITS.maxFetchedPagesTotal - sources.length;
+    const result = await queryCrawl.query({
+      query,
+      limit: Math.max(1, remainingPages),
+      crawl: {
+        enabled: remainingPages > 0,
+        maxPages: Math.max(0, remainingPages),
+      },
+      signal,
+    });
+    const output = sanitizeUntrustedWebText(result.resultsText);
+    attempts.push({
+      type: 'exa_search',
+      status: 'success',
+      query: result.query,
+      responseText: output,
+    });
+    searchResults.push({
+      query: result.query,
+      output,
+      urls: result.urls,
+    });
+
+    for (const source of result.sources.slice(0, remainingPages)) {
+      const sanitizedSource = {
+        ...source,
+        text: sanitizeUntrustedWebText(source.text),
+      };
+      sources.push(sanitizedSource);
+      attempts.push({
+        type: 'webfetch',
+        status: 'success',
+        url: sanitizedSource.url,
+        excerpt: excerpt(sanitizedSource.text),
+      });
+    }
+  }
+
+  return { searchResults, sources };
 }
 
 async function planQueries({
@@ -276,42 +313,6 @@ function changedStructuredFields(before: StructuredItem, after: StructuredItem):
     }));
 }
 
-async function fetchSources({
-  webFetch,
-  attempts,
-  urls,
-  signal,
-}: {
-  webFetch: { fetch(input: { url: string; signal?: AbortSignal }): Promise<WebFetchResult> };
-  attempts: WebSearchAttempt[];
-  urls: string[];
-  signal?: AbortSignal;
-}): Promise<WebFetchResult[]> {
-  const results = await Promise.allSettled(urls.map((url) => webFetch.fetch({ url, signal })));
-  throwIfAborted(signal);
-  results.forEach((result, index) => {
-    const url = urls[index];
-    if (result.status === 'fulfilled') {
-      attempts.push({
-        type: 'webfetch',
-        status: 'success',
-        url,
-        excerpt: excerpt(result.value.text),
-      });
-      return;
-    }
-
-    attempts.push({
-      type: 'webfetch',
-      status: 'failed',
-      url,
-      error: result.reason instanceof Error ? result.reason.message : String(result.reason),
-    });
-  });
-
-  return results.flatMap((result) => (result.status === 'fulfilled' ? [result.value] : []));
-}
-
 function parseReconciliationDiagnostics(value: string | undefined): Pick<WebSearchEnrichment, 'fieldChanges' | 'conflicts'> {
   if (!value) {
     return { fieldChanges: [], conflicts: [] };
@@ -390,10 +391,6 @@ function normalizeFieldValue(value: unknown): string | number | null {
   }
 
   return String(value);
-}
-
-function uniqueUrls(urls: string[]): string[] {
-  return [...new Set(urls)];
 }
 
 function excerpt(text: string): string {
