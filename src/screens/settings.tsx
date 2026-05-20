@@ -425,6 +425,7 @@ export function SettingsScreen() {
           <View className="flex-row items-center justify-between">
             <Text className="text-sm font-black uppercase tracking-wide text-foreground">Show experimental providers</Text>
             <Switch
+              accessibilityLabel="Show experimental providers"
               value={draft.provider.showExperimentalProviders}
               onValueChange={(value) => {
                 const next = cloneSettings(draft);
@@ -527,9 +528,10 @@ export function SettingsScreen() {
                   <View className="gap-1.5">
                     <Text className="text-xs font-black uppercase tracking-wide text-foreground">Verification URL</Text>
                     <View className="flex-row items-center gap-2">
-                      <Input value={oauth.flow.url} editable={false} className="flex-1" />
+                      <Input value={oauth.flow.url} editable={false} accessibilityLabel="OAuth verification URL" className="flex-1" />
                       <CopyButton
                         value={oauth.flow?.url ?? ''}
+                        accessibilityLabel="Copy verification URL"
                         variant="secondary"
                         size="sm"
                         className="h-12 w-12 px-0"
@@ -542,9 +544,10 @@ export function SettingsScreen() {
                   <View className="gap-1.5">
                     <Text className="text-xs font-black uppercase tracking-wide text-foreground">Code</Text>
                     <View className="flex-row items-center gap-2">
-                      <Input value={oauth.flow.code} editable={false} className="flex-1" />
+                      <Input value={oauth.flow.code} editable={false} accessibilityLabel="OAuth verification code" className="flex-1" />
                       <CopyButton
                         value={oauth.flow?.code ?? ''}
+                        accessibilityLabel="Copy OAuth verification code"
                         variant="secondary"
                         size="sm"
                         className="h-12 w-12 px-0"
@@ -603,6 +606,7 @@ export function SettingsScreen() {
           <View className="flex-row items-center justify-between">
             <Text className="text-sm font-black uppercase tracking-wide text-foreground">Enable local barcode scan</Text>
             <Switch
+              accessibilityLabel="Enable local barcode scan"
               value={draft.barcode.enabled}
               onValueChange={(value) => {
                 const next = cloneSettings(draft);
@@ -614,6 +618,7 @@ export function SettingsScreen() {
           <View className="gap-1.5">
             <Text className="text-xs font-black uppercase tracking-wide text-foreground">Allowed types (comma-separated)</Text>
             <Input
+              accessibilityLabel="Allowed barcode types"
               value={draft.barcode.allowedTypes.join(', ')}
               onChangeText={(value) => {
                 const next = cloneSettings(draft);
@@ -637,6 +642,7 @@ export function SettingsScreen() {
                 </Text>
               </View>
               <Switch
+                accessibilityLabel="Enable manufacturer web search"
                 value={draft.webSearch.enabled}
                 onValueChange={(value) => {
                   const next = cloneSettings(draft);

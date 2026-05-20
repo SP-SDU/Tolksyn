@@ -10,7 +10,7 @@ export function Section({
 }: ViewProps & { title: string; className?: string }) {
   return (
     <View {...props} className={cn('gap-4 border-2 border-border bg-card p-4', className)}>
-      <Text className="text-lg font-black uppercase tracking-wide text-foreground">{title}</Text>
+      <Text role="heading" accessibilityRole="header" className="text-lg font-black uppercase tracking-wide text-foreground">{title}</Text>
       {children}
     </View>
   );

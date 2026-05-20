@@ -8,8 +8,8 @@ export const RuntimeLimits = {
   maxBarcodeImageBytes: 5 * 1024 * 1024,
   maxExtractionAttempts: 3,
   historyLimit: 20,
-  normalizedImageWidth: 1600,
-  thumbnailImageWidth: 320,
+  normalizedImageWidth: 1200,
+  thumbnailImageWidth: 240,
 } as const;
 
 export const ToastDurations = {

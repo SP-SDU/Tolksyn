@@ -201,14 +201,15 @@ export function CaptureScreen() {
       <View className="relative flex-1 overflow-hidden border-4 border-border bg-black">
         {processingImageUri ? (
           <>
-            <ImagePreview uri={processingImageUri} className="h-full w-full bg-imageBase" contentFit="cover" />
+            <ImagePreview uri={processingImageUri} accessibilityLabel="Image being processed" className="h-full w-full bg-imageBase" contentFit="cover" />
             {isProcessing ? <ScanAnimation /> : null}
           </>
         ) : permission?.granted ? (
-          <BarcodeCamera
-            ref={cameraRef}
-            style={styles.camera}
-            facing="back"
+            <BarcodeCamera
+              ref={cameraRef}
+              style={styles.camera}
+              accessibilityLabel="Live camera preview for product label capture"
+              facing="back"
             barcodeTypes={SUPPORTED_BARCODE_TYPES}
             onBarcodeScanned={(event) => {
               setLiveBarcodes((current) => {

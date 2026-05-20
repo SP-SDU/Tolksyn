@@ -158,6 +158,7 @@ export function ConfirmScreen({ attemptId }: { attemptId: string }) {
         <View className="gap-3">
           <ImagePreview
             uri={currentAttempt.imageUri}
+            accessibilityLabel={`Captured product label image for attempt ${currentAttempt.id}`}
             className="h-[220px] w-full border-4 border-border bg-imageBase"
             contentFit="cover"
           />
@@ -184,6 +185,7 @@ export function ConfirmScreen({ attemptId }: { attemptId: string }) {
             <Text className="text-xs font-black uppercase tracking-wide text-foreground">{formatLabel(key)}</Text>
             <Input
               multiline
+              accessibilityLabel={formatLabel(key)}
               value={value == null ? '' : String(value)}
               onChangeText={(nextValue) =>
                 setDraft((current) => {

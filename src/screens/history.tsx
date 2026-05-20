@@ -41,9 +41,10 @@ export function HistoryScreen() {
         <Pressable
           key={attempt.id}
           accessibilityRole="button"
+          accessibilityLabel={`Open attempt ${attempt.id}, ${attempt.status}, captured from ${attempt.source}`}
           onPress={() => router.push({ pathname: '/confirm/[attemptId]', params: { attemptId: attempt.id } })}>
           <View className="flex-row items-stretch gap-3 border-2 border-border bg-card p-3">
-            <ImagePreview uri={attempt.thumbnailUri} className="h-[78px] w-[78px] border-2 border-border bg-imageBase" />
+            <ImagePreview uri={attempt.thumbnailUri} accessibilityLabel={`Thumbnail for attempt ${attempt.id}`} className="h-[78px] w-[78px] border-2 border-border bg-imageBase" />
             <View className="flex-1 gap-1">
               <View className="flex-row flex-wrap gap-2">
                 <StatusPill label={attempt.status} tone={attempt.status.endsWith('_failed') ? 'danger' : 'default'} />

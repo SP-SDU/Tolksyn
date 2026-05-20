@@ -28,14 +28,18 @@ export function OptionPicker({
   onSelect: (id: string) => void;
 }) {
   return (
-    <Modal visible={open} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable className="flex-1 justify-end bg-black/40" onPress={onClose}>
-        <Pressable className="max-h-[78%] gap-3 border-4 border-border bg-background p-4" onPress={(event) => event.stopPropagation()}>
+    <Modal visible={open} transparent animationType="fade" onRequestClose={onClose} accessibilityViewIsModal>
+      <Pressable className="flex-1 justify-end bg-black/40" accessibilityLabel={`Dismiss ${title}`} onPress={onClose}>
+        <Pressable
+          role="dialog"
+          accessibilityLabel={title}
+          className="max-h-[78%] gap-3 border-4 border-border bg-background p-4"
+          onPress={(event) => event.stopPropagation()}>
           <View className="flex-row items-center justify-between gap-3">
-            <Text className="text-xl font-black uppercase tracking-tight text-foreground">{title}</Text>
-            <Button variant="secondary" size="sm" label="Close" onPress={onClose} />
+            <Text role="heading" className="text-xl font-black uppercase tracking-tight text-foreground">{title}</Text>
+            <Button variant="secondary" size="sm" label="Close" accessibilityLabel={`Close ${title}`} onPress={onClose} />
           </View>
-          {query != null && onQueryChange ? <Input value={query} placeholder="Search" onChangeText={onQueryChange} /> : null}
+          {query != null && onQueryChange ? <Input value={query} placeholder="Search" accessibilityLabel={`Search ${title}`} onChangeText={onQueryChange} /> : null}
           <FlatList
             keyboardShouldPersistTaps="handled"
             data={items}
@@ -49,6 +53,8 @@ export function OptionPicker({
                 className="justify-start px-3"
                 textClassName="text-left text-sm"
                 label={item.label}
+                accessibilityLabel={item.id === selectedId ? `Selected: ${item.label}` : item.label}
+                accessibilityState={{ selected: item.id === selectedId }}
                 onPress={() => onSelect(item.id)}
               />
             )}

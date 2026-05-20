@@ -5,6 +5,7 @@ import { ActivityIndicator, View } from 'react-native';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useMigrations } from 'drizzle-orm/expo-sqlite/migrator';
 import { Stack } from 'expo-router';
+import Head from 'expo-router/head';
 import { StatusBar } from 'expo-status-bar';
 import { SQLiteProvider, useSQLiteContext } from 'expo-sqlite';
 import 'react-native-reanimated';
@@ -56,10 +57,12 @@ function RootLayoutWithDatabase() {
     <AppRuntimeProvider>
       <ToastProvider>
         <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-          <Stack>
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            <Stack.Screen name="confirm/[attemptId]" options={{ title: 'Confirm & Edit' }} />
-          </Stack>
+          <Head.Provider>
+            <Stack>
+              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+              <Stack.Screen name="confirm/[attemptId]" options={{ title: 'Confirm & Edit' }} />
+            </Stack>
+          </Head.Provider>
           <StatusBar style="auto" />
         </ThemeProvider>
       </ToastProvider>

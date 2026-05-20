@@ -19,7 +19,7 @@ export function AppHeader({
       <View className="flex-row items-start justify-between gap-4">
         <View className="min-w-0 flex-1">
           {eyebrow ? <Text className="text-xs font-black uppercase tracking-[2px] text-muted">{eyebrow}</Text> : null}
-          <Text className="mt-1 text-4xl font-black uppercase leading-10 text-foreground">{title}</Text>
+          <Text role="heading" accessibilityRole="header" className="mt-1 text-4xl font-black uppercase leading-10 text-foreground">{title}</Text>
           {meta ? <Text className="mt-2 text-sm font-semibold uppercase tracking-wide text-muted">{meta}</Text> : null}
         </View>
         {action ? <View className="shrink-0">{action}</View> : null}
@@ -59,7 +59,7 @@ export function StatusPill({
   className?: string;
 }) {
   return (
-    <View className={cn('self-start border-2 border-border px-2 py-1', toneBackground[tone], className)}>
+    <View role="status" className={cn('self-start border-2 border-border px-2 py-1', toneBackground[tone], className)}>
       <Text className="text-xs font-black uppercase tracking-wide text-foreground">{label}</Text>
     </View>
   );

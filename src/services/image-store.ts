@@ -13,15 +13,15 @@ export function createImageStore() {
       width: number;
       height: number;
     }> {
-      const normalized = await renderImage(inputUri, RuntimeLimits.normalizedImageWidth);
-      const thumbnail = await renderImage(normalized.uri, RuntimeLimits.thumbnailImageWidth);
+      const normalized = await renderImage(inputUri, RuntimeLimits.normalizedImageWidth, 0.78, true);
+      const thumbnail = await renderImage(normalized.uri, RuntimeLimits.thumbnailImageWidth, 0.68, false);
 
       if (Platform.OS === 'web') {
         return {
           imageUri: normalized.uri,
           thumbnailUri: thumbnail.uri,
           imageBase64: normalized.base64,
-          mimeType: 'image/jpeg',
+          mimeType: 'image/webp',
           width: normalized.width,
           height: normalized.height,
         };
@@ -30,8 +30,8 @@ export function createImageStore() {
       const imagesDirectory = new Directory(Paths.document, 'tolksyn', 'images') as any;
       imagesDirectory.create({ idempotent: true, intermediates: true });
 
-      const imageFile = new File(imagesDirectory, `${attemptId}.jpg`) as any;
-      const thumbnailFile = new File(imagesDirectory, `${attemptId}.thumb.jpg`) as any;
+      const imageFile = new File(imagesDirectory, `${attemptId}.webp`) as any;
+      const thumbnailFile = new File(imagesDirectory, `${attemptId}.thumb.webp`) as any;
 
       (new File(normalized.uri) as any).copy(imageFile);
       (new File(thumbnail.uri) as any).copy(thumbnailFile);
@@ -40,7 +40,7 @@ export function createImageStore() {
         imageUri: imageFile.uri,
         thumbnailUri: thumbnailFile.uri,
         imageBase64: normalized.base64,
-        mimeType: 'image/jpeg',
+        mimeType: 'image/webp',
         width: normalized.width,
         height: normalized.height,
       };
@@ -48,7 +48,7 @@ export function createImageStore() {
   };
 }
 
-async function renderImage(inputUri: string, maxWidth: number): Promise<{
+async function renderImage(inputUri: string, maxWidth: number, compress: number, base64: boolean): Promise<{
   uri: string;
   base64: string;
   width: number;
@@ -58,9 +58,9 @@ async function renderImage(inputUri: string, maxWidth: number): Promise<{
     inputUri,
     [{ resize: { width: maxWidth } }],
     {
-      base64: true,
-      compress: 0.85,
-      format: ImageManipulator.SaveFormat.JPEG,
+      base64,
+      compress,
+      format: ImageManipulator.SaveFormat.WEBP,
     },
   );
 

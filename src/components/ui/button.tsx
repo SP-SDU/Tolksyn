@@ -88,6 +88,7 @@ export function Button({
   style,
   onPressIn,
   onPressOut,
+  accessibilityState,
   ...props
 }: ButtonProps) {
   const [pressed, setPressed] = useState(false);
@@ -137,7 +138,8 @@ export function Button({
         onPressOut?.(event);
       }}
       accessibilityRole="button"
-      accessibilityState={{ disabled: Boolean(disabled) }}
+      accessibilityLabel={props.accessibilityLabel ?? label}
+      accessibilityState={{ ...accessibilityState, disabled: Boolean(disabled) }}
       className={cn(buttonVariants({ variant, size }), className)}
       style={[
         {

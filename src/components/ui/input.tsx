@@ -19,6 +19,7 @@ export function LabeledInput({
   label,
   className,
   labelClassName,
+  accessibilityLabel,
   ...props
 }: TextInputProps & {
   label: string;
@@ -28,7 +29,7 @@ export function LabeledInput({
   return (
     <View className="gap-1.5">
       <Text className={cn('text-xs font-black uppercase tracking-wide text-foreground', labelClassName)}>{label}</Text>
-      <Input {...props} className={className} />
+      <Input {...props} accessibilityLabel={accessibilityLabel ?? label} className={className} />
     </View>
   );
 }

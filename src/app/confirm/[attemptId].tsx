@@ -1,4 +1,5 @@
 import { Redirect, useLocalSearchParams } from 'expo-router';
+import Head from 'expo-router/head';
 
 import { ConfirmScreen } from '@/screens/confirm';
 
@@ -10,5 +11,13 @@ export default function ConfirmRoute() {
     return <Redirect href="/" />;
   }
 
-  return <ConfirmScreen attemptId={attemptId} />;
+  return (
+    <>
+      <Head>
+        <title>Tolksyn Verify</title>
+        <meta name="description" content="Verify and edit Tolksyn extraction results before submitting them." />
+      </Head>
+      <ConfirmScreen attemptId={attemptId} />
+    </>
+  );
 }

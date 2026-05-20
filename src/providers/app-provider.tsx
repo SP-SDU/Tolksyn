@@ -2,12 +2,11 @@ import { useDrizzleStudio } from 'expo-drizzle-studio-plugin';
 import * as ImagePicker from 'expo-image-picker';
 import * as Network from 'expo-network';
 import { useSQLiteContext } from 'expo-sqlite';
-import { createAgentQueryCrawl } from 'agent-query-crawl';
+import type { AgentQueryCrawlInput, AgentQueryCrawlResult } from 'agent-query-crawl';
 import { createContext, startTransition, useContext, useEffect, useMemo } from 'react';
 import { Platform } from 'react-native';
 
 import { createIngestTransport } from '@/api/ingest-transport';
-import { createRemoteExtractor } from '@/api/remote-extractor';
 import { createDb } from '@/db/client';
 import { attemptsTable, queueItemsTable, settingsTable } from '@/db/schema';
 import { clearWebKeys, secureSecretStore } from '@/db/secure-store';
@@ -26,6 +25,8 @@ import { createSubmissionService } from '@/services/submission-service';
 import { buildIdempotencyKey } from '@/utils/idempotency';
 import type { BarcodeHit } from '@/utils/merge-extraction-result';
 import { computeRetryDelayMs } from '@/utils/retry-policy';
+
+type RemoteExtractor = ReturnType<typeof import('@/api/remote-extractor')['createRemoteExtractor']>;
 
 const AppRuntimeContext = createContext<ReturnType<typeof createRuntime> | null>(null);
 
@@ -79,16 +80,35 @@ function createRuntime(sqlite: Parameters<typeof createDb>[0]) {
   });
   const barcodeDetector = createBarcodeDetector();
   const imageStore = createImageStore();
-  const extractor = createRemoteExtractor(settings);
-  const queryCrawl = createAgentQueryCrawl({
-    fetch,
-    search: {
-      proxyBaseUrl: Platform.OS === 'web' ? '/api/proxy/exa/mcp' : undefined,
+  let loadedExtractor: RemoteExtractor | null = null;
+  let loadedQueryCrawl: Promise<{ query(input: AgentQueryCrawlInput): Promise<AgentQueryCrawlResult> }> | null = null;
+  const extractor: RemoteExtractor = {
+    async extract(input) {
+      if (!loadedExtractor) {
+        const { createRemoteExtractor } = await import('@/api/remote-extractor');
+        loadedExtractor = createRemoteExtractor(settings);
+      }
+
+      return loadedExtractor.extract(input);
     },
-    webFetch: {
-      proxyBaseUrl: Platform.OS === 'web' ? '/api/proxy/webfetch' : undefined,
+  };
+  const queryCrawl = {
+    async query(input: AgentQueryCrawlInput) {
+      loadedQueryCrawl ??= import('agent-query-crawl').then(({ createAgentQueryCrawl }) =>
+        createAgentQueryCrawl({
+          fetch,
+          search: {
+            proxyBaseUrl: Platform.OS === 'web' ? '/api/proxy/exa/mcp' : undefined,
+          },
+          webFetch: {
+            proxyBaseUrl: Platform.OS === 'web' ? '/api/proxy/webfetch' : undefined,
+          },
+        }),
+      );
+
+      return (await loadedQueryCrawl).query(input);
     },
-  });
+  };
   const webSearchEnricher = createManufacturerWebSearchEnricher({
     settings,
     extractor,

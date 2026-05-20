@@ -6,7 +6,7 @@ export const AppDesign = {
     panelMuted: '#e2ddd4',
     imageBase: '#d6d1c9',
     yellow: '#ffcc00',
-    red: '#e63b2e',
+    red: '#cf2f25',
     blue: '#0055ff',
     blueSoft: '#d6e3ff',
     mutedInk: '#5f5a52',
