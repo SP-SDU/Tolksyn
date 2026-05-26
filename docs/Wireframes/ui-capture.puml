@@ -1,5 +1,4 @@
-@startuml UI Capture Screen
-salt
+@startsalt UI Capture Screen
 {
   Capture Screen
   [ Settings ]     [ Gallery ]
@@ -7,4 +6,4 @@ salt
   [ Capture Button ]
   [ History Thumbnail ]
 }
-@enduml
+@endsalt

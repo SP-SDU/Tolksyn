@@ -1,0 +1,39 @@
+@startuml local-persistence-model
+!theme plain
+title Tolksyn - Local Persistence Model
+
+entity "attempts" as Attempts {
+  id
+  image_uri
+  thumbnail_uri
+  status
+  draft_json
+  accepted_revision
+  extraction_result_json
+  error_code
+}
+
+entity "queue_items" as QueueItems {
+  id
+  sequence
+  status
+  payload_json
+  idempotency_key
+  attempt_id
+  attempt_revision
+  retry_count
+}
+
+entity "settings" as Settings {
+  key
+  value_json
+}
+
+entity "secure store" as SecureStore {
+  provider credentials
+  ingest credentials
+}
+
+Attempts ||--o{ QueueItems : accepted payloads
+Settings .. SecureStore : secret references
+@enduml

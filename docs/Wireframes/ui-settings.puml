@@ -1,5 +1,4 @@
-@startuml UI Settings Screen
-salt
+@startsalt UI Settings Screen
 {
   Settings
   == Provider ==
@@ -7,7 +6,6 @@ salt
   [ Base URL ]
   [ API Key ]
   [ Model ]
-  [ Mode: local_vl | remote_vl ]
 
   == Ingest ==
   [ Ingest URL ]
@@ -27,4 +25,4 @@ salt
   == Diagnostics ==
   [ Export Diagnostics Bundle ]
 }
-@enduml
+@endsalt

@@ -4,7 +4,11 @@
 skinparam componentStyle rectangle
 skinparam nodesep 60
 skinparam ranksep 80
-skinparam padding 6
+<style>
+component {
+  Padding 6
+}
+</style>
 skinparam ArrowFontSize 11
 
 title Tolksyn – Component Diagram
@@ -13,7 +17,7 @@ actor "Staff / Admin" as User
 
 package "Mobile App (Expo / React Native)" {
 
-  package "UI Layer" {
+  package "UI / Screens" {
     together {
       [Capture Screen] as CaptureScreen
       [Confirm & Edit Screen] as ConfirmScreen
@@ -24,113 +28,72 @@ package "Mobile App (Expo / React Native)" {
     }
   }
 
-  package "Feature Logic" {
+  package "Services" {
     together {
-      [Capture Controller] as CaptureCtrl
-      [Extraction ViewModel] as ExtractionVM
-      [Confirm ViewModel] as ConfirmVM
+      [Capture Pipeline] as CapturePipeline
+      [Remote Extractor] as RemoteExtractor
     }
     together {
-      [History ViewModel] as HistoryVM
-      [Settings ViewModel] as SettingsVM
+      [Submission Service] as SubmissionService
+      [Queue Worker] as QueueWorker
     }
+    [Barcode Detector] as BarcodeDetector
   }
 
-  package "Extraction Pipeline" {
-    [Preprocessor] as Preprocessor
-    together {
-      [Provider Router] as ProviderRouter
-      [Barcode Detector] as BarcodeDetector
-    }
-    [Result Merger] as Merger
-    [Validator] as Validator
-  }
-
-  package "Provider Adapters" {
-    [Local VL Adapter\n(llama.rn / NuExtract)] as LocalVL
-    [Remote VL Adapter\n(OpenAI-compatible / Gemini)] as RemoteVL
-  }
-
-  package "Ingest" {
-    [Ingest Client] as IngestClient
-    [Offline Queue] as OfflineQueue
-    [Queue Worker] as QueueWorker
-  }
-
-  package "Storage & Security" {
+  package "Repositories & Persistence" {
     together {
       [Attempt Repository] as AttemptRepo
-      [Image Store] as ImageStore
+      [Queue Repository] as QueueRepo
     }
     together {
-      [Secure Credential Store\n(OS Keychain / Keystore)] as SecureStore
-      [Provider Config Store] as ProviderConfig
+      [Image Store] as ImageStore
+      [SQLite / Drizzle] as Database
     }
+    [Secure Store] as SecureStore
+    [Settings Repository] as SettingsRepo
   }
 
-  package "Native Bridges" {
-    [Camera Module] as Camera
-    [Gallery Module] as Gallery
-    [Filesystem Module] as Filesystem
+  package "Platform Bridges" {
+    [Camera & Image Picker] as DeviceMedia
+    [File System] as Filesystem
   }
 }
 
 cloud "External Services" {
-  [Remote VL Endpoint\n(OpenAI / Gemini)] as RemoteVLEndpoint
-  [Ingest Endpoint\n(Buy2Sell / Custom REST)] as IngestEndpoint
+  [AI Provider APIs\n(OpenAI, Google, etc.)] as RemoteVLEndpoint
+  [Ingest Endpoint\n(Configured API)] as IngestEndpoint
 }
 
 ' ── User interactions ─────────────────────────────────────
-User --> CaptureScreen : Capture /\nSelect image
-User --> ConfirmScreen : Review &\nEdit fields
+User --> CaptureScreen : Capture/Select
+User --> ConfirmScreen : Review/Edit
 User --> HistoryScreen : View attempts
-User --> SettingsScreen : Configure\nproviders
+User --> SettingsScreen : Configure providers
 
-' ── Screen → ViewModel ───────────────────────────────────
-CaptureScreen  --> CaptureCtrl
-ConfirmScreen  --> ConfirmVM
-HistoryScreen  --> HistoryVM
-SettingsScreen --> SettingsVM
+' ── UI to Services ────────────────────────────────────────
+CaptureScreen  --> CapturePipeline
+CaptureScreen  --> DeviceMedia
+ConfirmScreen  --> SubmissionService
+HistoryScreen  --> AttemptRepo
+SettingsScreen --> SettingsRepo
 
-' ── Capture flow ─────────────────────────────────────────
-CaptureCtrl --> Camera
-CaptureCtrl --> Gallery
-CaptureCtrl --> ImageStore
-CaptureCtrl --> Preprocessor
+' ── Service orchestrations ────────────────────────────────
+CapturePipeline --> BarcodeDetector
+CapturePipeline --> RemoteExtractor
+CapturePipeline --> AttemptRepo
+CapturePipeline --> ImageStore
 
-' ── Extraction pipeline ──────────────────────────────────
-Preprocessor --> ProviderRouter
-Preprocessor --> BarcodeDetector
-ProviderRouter --> LocalVL
-ProviderRouter --> RemoteVL
-LocalVL --> Merger
-RemoteVL --> Merger
-BarcodeDetector --> Merger
-Merger --> Validator
-Validator --> ExtractionVM
-ExtractionVM --> ConfirmVM
+SubmissionService --> IngestEndpoint : Online
+SubmissionService --> QueueRepo : Offline
+QueueWorker --> QueueRepo
+QueueWorker --> IngestEndpoint
 
-' ── Provider adapters → external ─────────────────────────
-RemoteVL --> RemoteVLEndpoint : HTTPS\n(image + schema)
+RemoteExtractor --> RemoteVLEndpoint : HTTPS
 
-' ── Confirm & ingest flow ────────────────────────────────
-ConfirmVM --> IngestClient : Accepted JSON
-IngestClient --> OfflineQueue : Device offline
-IngestClient --> IngestEndpoint : HTTPS + auth\n(online)
-OfflineQueue --> QueueWorker
-QueueWorker --> IngestEndpoint : HTTPS\n(idempotency key)
-
-' ── Storage interactions (labels kept short) ─────────────
-CaptureCtrl   --> AttemptRepo : Create attempt
-ExtractionVM  -[#grey]-> AttemptRepo : Save result
-ConfirmVM     -[#grey]-> AttemptRepo : Update status
-IngestClient  -[#grey]-> AttemptRepo : Mark sent /\nqueued / failed
-HistoryVM     --> AttemptRepo : Query last 20
-SettingsVM    --> ProviderConfig
-SettingsVM    --> SecureStore : Write API keys
-ProviderRouter --> ProviderConfig : Load provider
-RemoteVL      --> SecureStore : Read API key
-IngestClient  -[#grey]-> SecureStore : Read credentials
-ImageStore    --> Filesystem
+' ── Persistence layer ─────────────────────────────────────
+AttemptRepo --> Database
+QueueRepo --> Database
+SettingsRepo --> SecureStore
+ImageStore --> Filesystem
 
 @enduml

@@ -48,3 +48,25 @@ opensrc/
 
 # agent-browser
 dogfood-output/
+
+# local agent instructions
+.agents/
+AGENTS.md
+
+# LaTeX build artifacts
+*.aux
+*.bbl
+*.blg
+*.lof
+*.log
+*.lot
+*.out
+*.toc
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+
+# Utilities
+plantuml.jar
+*.atfi
+

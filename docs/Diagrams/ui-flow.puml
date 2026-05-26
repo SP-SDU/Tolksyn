@@ -1,0 +1,14 @@
+@startuml ui-flow
+!theme plain
+hide empty description
+title Tolksyn - User Interface Flow
+
+[*] --> Capture
+Capture --> Confirm : Capture or import image\nExtraction finishes
+Confirm --> Capture : Discard or sent/queued
+Confirm --> Confirm : Edit fields\nRetry extraction
+Capture --> History : Open recent attempts
+History --> Confirm : Open attempt details
+Capture --> Settings : Configure provider\ningest and options
+Settings --> Capture : Return to scanning
+@enduml

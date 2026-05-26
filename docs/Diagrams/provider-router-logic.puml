@@ -1,11 +1,9 @@
-@startuml Provider Router Logic
+@startuml provider-router-logic
 App -> Router : Image
 
-alt local_vl
-  Router -> LocalVL : Image → JSON
-else remote_vl
-  Router -> RemoteVL : Image → JSON
-end
+Router -> ProviderCatalog : Load configured provider/model
+ProviderCatalog -> Router : Image-capable model options
+Router -> RemoteVL : Image → JSON
 
 Router -> App : Structured Result
 @enduml

@@ -1,8 +1,7 @@
-@startuml UI History Screen
-salt
+@startsalt UI History Screen
 {
   History (Last 20)
-  [ Thumbnail | Timestamp | Status ]
-  [ Thumbnail | Timestamp | Status ]
+  [ Thumbnail : Timestamp : Status ]
+  [ Thumbnail : Timestamp : Status ]
 }
-@enduml
+@endsalt

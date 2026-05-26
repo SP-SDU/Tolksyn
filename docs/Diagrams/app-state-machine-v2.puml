@@ -1,11 +1,5 @@
-@startuml App State Machine v2
+@startuml app-state-machine-v2
 hide empty description
-
-skinparam state {
-  BackgroundColor palegreen
-  BorderColor darkgreen
-  FontName sans-serif
-}
 
 [*] --> Capture
 
@@ -30,16 +24,10 @@ state Processing {
     --
     
     state "VL Extraction" as VLExtract {
-      state route <<choice>>
-      [*] --> route
-      route --> LocalVL : local_vl
-      route --> RemoteVL : remote_vl
-      
-      LocalVL --> [*]
+      [*] --> CatalogCheck
+      CatalogCheck --> RemoteVL : image-capable model
       RemoteVL --> [*] : Success
-      RemoteVL --> FallbackRouting : Timeout/Fail
-      FallbackRouting --> LocalVL : Fallback Configured
-      FallbackRouting --> VLError : No Fallback
+      RemoteVL --> VLError : Timeout/Fail
       VLError --> [*]
     }
   }

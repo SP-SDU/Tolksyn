@@ -1,5 +1,4 @@
-@startuml UI Confirm & Edit Screen
-salt
+@startsalt UI Confirm & Edit Screen
 {
   Confirm & Edit
   [ Image Preview ]
@@ -7,4 +6,4 @@ salt
   [ Editable Barcode Fields ]
   [ Deny ] [ Try Again ] [ Accept ]
 }
-@enduml
+@endsalt

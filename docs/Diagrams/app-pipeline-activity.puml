@@ -1,4 +1,4 @@
-@startuml App Pipeline Activity
+@startuml app-pipeline-activity
 skinparam conditionStyle diamond
 skinparam defaultFontName sans-serif
 
@@ -24,26 +24,19 @@ partition "3. Parallel Extraction" {
     :Barcode Detection;
     :Decode Symbologies;
   fork again
-    :Vision-Language Router;
-    if (Mode?) then (local_vl)
-      :Local Inference\n(llama.rn);
-    else (remote_vl)
-      :Remote VL API Call;
-      if (Response?) then (Success)
-      else (Timeout/Error)
-        if (Fallback?) then (Configured)
-          :Local Inference\n(Fallback);
-        else (None)
-          :Extraction Error;
-        endif
-      endif
+    :Provider Catalog Lookup;
+    :Remote VL API Call;
+    if (Response?) then (Success)
+    else (Timeout/Error)
+      :Extraction Error;
     endif
   end merge
 }
 
 partition "4. Merge & Validate" {
-  :Deterministic Merge\n(Barcodes override VL);
-  :Normalize Values\n(Dates, Currencies);
+  :Optional Manufacturer Web Search;
+  :Deterministic Merge\n(Barcodes become evidence);
+  :Normalize Values;
   if (Schema Valid?) then (Yes)
   else (No)
     :Flag Invalid Fields;
