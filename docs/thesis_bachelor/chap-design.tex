@@ -1,0 +1,84 @@
+\chapter{Design}
+\label{chap:design}
+
+\section{Architectural Overview}
+
+The architecture keeps route files in \path{src/app} thin, screen implementations in \path{src/screens}, reusable components in \path{src/components}, services for business and integration logic, repositories for persistence, and API routes under \path{src/app/api}. This keeps the Expo Router file tree compatible with file-based routing while avoiding route-specific business logic.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.95\textwidth,height=0.68\textheight,keepaspectratio]{artifacts/component-diagram.png}
+  \caption{Application component structure. Routes and screens express user flow, while providers, services, repositories, and API modules handle runtime composition, persistence, extraction, and submission.}
+  \label{fig:component-diagram}
+\end{figure}
+
+\section{Capture-to-Ingest Pipeline}
+
+The central design is deterministic: preprocess, run barcode and vision-language extraction in parallel, merge, validate, confirm, then send. Barcode detection is local and independent from provider routing. The model provider only handles image-to-JSON extraction, while the merge policy appends barcode results into a dedicated enrichment field and avoids overwriting unrelated model fields.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.95\textwidth,height=0.68\textheight,keepaspectratio]{artifacts/app-pipeline-activity.png}
+  \caption{Capture-to-ingest pipeline. Image storage, barcode detection, extraction, merge, validation, review, submission, and queueing are represented as one end-to-end workflow.}
+  \label{fig:pipeline}
+\end{figure}
+
+The flow is: user captures or imports an image ImageStore normalizes the image and creates a thumbnail, AttemptRepository creates an attempt snapshot, barcode detection and remote extraction run in parallel, optional web-search enrichment adds manufacturer evidence, merge and validation produce a draft structured JSON object, the user edits and accepts the payload, and SubmissionService sends immediately or queues with an idempotency key.
+
+\section{Data Model}
+
+Each capture is represented as an attempt. Attempt records store image URIs, timestamps, status, draft JSON, accepted revision, extraction result, and error code. Queue items store serialized payloads, retry state, idempotency keys, and attempt revision. Settings store non-secret configuration, while provider and ingest secrets are routed through the secret store abstraction.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.95\textwidth,height=0.68\textheight,keepaspectratio]{artifacts/local-persistence-model.png}
+  \caption{Local persistence model. Attempts, queue items, settings, and secure secret storage form the local state needed for review and replay.}
+  \label{fig:persistence-model}
+\end{figure}
+
+\section{User Interface Design}
+
+The user interface is organized around four main surfaces: Capture, Confirm and Edit, History, and Settings. Capture is optimized for fast repeated scans. Confirm and Edit gives the operator visibility into structured fields, barcode evidence, and diagnostics. History provides traceability for recent attempts. Settings makes the app portable across providers and ingest environments.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.95\textwidth,height=0.68\textheight,keepaspectratio]{artifacts/ui-flow.png}
+  \caption{User interface flow across Capture, Confirm and Edit, History, and Settings.}
+  \label{fig:ui-flow}
+\end{figure}
+
+\section{Security and Privacy Design}
+
+The project requires secrets to be stored securely, HTTPS for remote calls, no telemetry by default, and diagnostics with secret redaction. Expo SecureStore encrypts and securely stores key-value pairs locally on Android and iOS, using Android Keystore-backed encrypted SharedPreferences and iOS Keychain services \cite{expo-securestore}. The production deployment should enforce HTTPS ingest endpoints and ensure that web deployments apply the same secret-handling policy appropriate to the browser environment.
+
+\section{Architecture Model}
+
+The design is compatible with the C4 model, which describes software architecture through hierarchical abstractions: software systems, containers, components, and code \cite{c4-model}. The project can be described as one software system containing a mobile and web application container, a local persistence container, and external model and ingest systems. Inside the application, components are represented by screens, providers, services, repositories, and API route handlers.
+
+\begin{table}[H]
+\centering
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{0.25\textwidth}XX}
+\toprule
+Component & Responsibility & Reason for separation \\
+\midrule
+Screen modules & Render workflow state and collect user decisions & Keeps route files thin and UI focused. \\
+App runtime provider & Composes database, settings, services, and queue worker & Central dependency wiring avoids scattered setup. \\
+Capture pipeline & Coordinates image storage, barcode, extraction, merge, and persistence & Makes the end-to-end workflow testable. \\
+Repositories & Read and write attempts, queue items, and settings & Isolates persistence details from business logic. \\
+API routes & Proxy provider and web-search calls for web runtime & Keeps browser constraints away from screens. \\
+\bottomrule
+\end{tabularx}
+\caption{Component responsibility model.}
+\label{tab:component-responsibility}
+\end{table}
+
+\section{State Model}
+
+Attempt state is explicit. A typical attempt moves from captured to ready for review, then to sent or queued after user acceptance. Failure states distinguish extraction failure from send failure, and discarded attempts remain auditable until retention pruning. This state model supports retry, history display, and queue replay without relying on transient UI state.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.95\textwidth,height=0.68\textheight,keepaspectratio]{artifacts/app-state-machine.png}
+  \caption{Attempt state model. Explicit statuses make retry, history, discard, queueing, and delivery behavior visible.}
+  \label{fig:state-model}
+\end{figure}

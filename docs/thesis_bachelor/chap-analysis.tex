@@ -1,0 +1,43 @@
+\chapter{Problem Analysis}
+\label{chap:analysis}
+
+\section{Current Workflow}
+
+The registration flow described in the external project brief depends on manual transfer from manufacturer labels into a registration system \cite{buy2sell-brief}. The same label may contain manufacturer name, product number, product text, version, EAN or UPC, country of origin, quantity, dimensions, weight, and technical identifiers. Manual entry is flexible but slow. It also creates inconsistent spelling, missed barcodes, and rework when the same manufacturer or product family appears repeatedly.
+
+\section{Technical Challenges}
+
+Product labels are not uniform. They vary by manufacturer, age, condition, placement, glare, font size, angle, and physical wear. Some labels include dense barcodes while others include only text. A robust system therefore cannot rely on a single recognition technique. The implementation combines local barcode detection with semantic vision-language extraction. Barcode detection is deterministic and provider-independent, while the vision-language provider interprets the broader label context and maps text into the JSON schema.
+
+\section{Human-in-the-Loop Requirement}
+
+The goal is not to remove the operator from the registration process. Some fields, such as condition or notes about scratches, require judgement. The Confirm and Edit step is therefore central to the design. AI output becomes a draft, not an unreviewed source of truth. This approach minimizes the risk of hallucinated or misread fields while still reducing repetitive typing.
+
+\section{Existing and Related Approaches}
+
+The original project idea mentions computer vision, OCR, barcode reading, and agentic AI \cite{buy2sell-brief}. The implemented architecture focuses on vision-language extraction rather than OCR-only processing. Modern multimodal models can interpret label images and produce structured outputs, while the AI SDK standardizes provider integration across supported model backends \cite{ai-sdk}. Web barcode support is available through the Barcode Detection API, although MDN marks it as limited and experimental, so the web implementation includes fallback package support \cite{barcode-detection-api}.
+
+Planning-phase research considered OCR and text-recognition approaches before the implementation settled on VLM-first extraction. OCR alone would still require a downstream language model or rule layer to map recognized text into the registration schema, resolve field names, normalize values, and leave unsupported fields empty. Since the project already needed model-based semantic mapping, a VLM-first implementation reduced the number of extraction stages while keeping deterministic barcode decoding separate. The planning sources justify the design direction.
+
+\section{Stakeholder Analysis}
+
+\begin{table}[H]
+\centering
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{0.24\textwidth}XX}
+\toprule
+Stakeholder & Need & System response \\
+\midrule
+Workshop registration staff & Fast capture and fewer repeated typing tasks & Camera-first workflow, draft extraction, editable confirmation. \\
+Inventory administration & Consistent structured fields for downstream systems & Versioned JSON schema, validation, required field mapping. \\
+IT / system owner & Configurable provider, endpoint, and credential handling & Settings screen, BYOK provider support, secure store abstraction. \\
+Business management & Reduced handling time and better resale throughput & Automation of label transcription with human acceptance. \\
+Future integration partner & Stable ingest contract and replay-safe delivery & Idempotency keys, queue persistence, schema metadata. \\
+\bottomrule
+\end{tabularx}
+\caption{Stakeholder needs and system response.}
+\label{tab:stakeholders}
+\end{table}
+
+\section{Field Complexity}
+
+The field list from the meeting notes includes SKU, manufacturer, product number, product text, product version, EAN or UPC, country of origin, packaging, condition, working condition, quantity, dimensions, HS code, item group, sending type, selling type, and notes \cite{meeting-notes}. Some fields are directly visible on labels, some are inferred from product context, and some should remain user-entered. The extraction flow handles this by exposing only answerable fields to extraction and leaving review-time correction to the operator.

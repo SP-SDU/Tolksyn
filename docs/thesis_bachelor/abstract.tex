@@ -1,0 +1,7 @@
+\chapter*{Abstract}
+
+Companies such as Buy2Sell register new and used industrial electronic equipment before resale. The current registration process requires staff to manually copy manufacturer, model, condition, origin, barcode, and technical data from physical labels into an internal system. Tolksyn addresses this problem with a mobile-first Expo application that captures or imports a product-label image, decodes visible barcodes locally, extracts structured fields through a configured vision-language provider, lets the user validate and correct the result, and sends a reviewed JSON payload to an ingest endpoint.
+
+The solution is implemented in TypeScript with React Native, Expo Router, Expo Camera, Expo ImagePicker, SQLite persistence, Drizzle ORM, Zod validation, provider adapters through the AI SDK, secure credential storage, and an offline send queue. The architecture keeps route files thin, separates screen logic from reusable services, and records each capture as an attempt. The test strategy covers repositories, extraction retries, provider configuration, queue replay, submission behavior, barcode detection, and schema validation.
+
+The resulting prototype demonstrates a practical workflow for reducing manual typing, improving consistency, and preserving human control over uncertain AI output. Future work can harden production deployment, evaluate local extraction feasibility, and integrate with a production registration backend.

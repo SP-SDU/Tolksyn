@@ -1,0 +1,99 @@
+\chapter{Implementation}
+\label{chap:implementation}
+
+\section{Application Runtime}
+
+The runtime design solves a coordination problem: screens need camera, storage, extraction, queue, settings, and submission behavior, but the screens should not construct those dependencies themselves. The application therefore uses Expo Router for navigation and \path{AppRuntimeProvider} in \path{src/providers/app-provider.tsx} as the composition root \cite{expo-router}.
+
+The provider creates the Drizzle database from the Expo SQLite context, constructs repositories, creates the provider catalog, image store, barcode detector, remote extractor, web-search enricher, ingest transport, submission service, and queue worker, then exposes the resulting runtime to screens \cite{drizzle,expo-sqlite}. Expo Camera supplies camera preview, photo capture, and barcode scanner support, while Expo ImagePicker provides the system UI for selecting existing images or taking a photo \cite{expo-camera,expo-imagepicker}.
+
+The practical effect is that \path{src/screens/capture.tsx} can call \path{runtime.processImage} without knowing whether barcode detection is native or web-specific, whether settings are stored in SQLite or secure storage, or how the queue worker is wired. The tradeoff is that runtime creation becomes a central integration point. If a dependency is wired incorrectly, several flows can fail together. This risk is why repository, service, and API-route tests are more valuable here than isolated screen tests.
+
+\section{Capture Pipeline}
+
+The capture pipeline converts a captured label image into a stored extraction attempt. In \path{src/services/capture-pipeline.ts}, \path{processImage} performs this conversion in a fixed order: create an attempt id, persist the normalized image, create an attempt record, run barcode detection and remote extraction concurrently, optionally run manufacturer web-search enrichment, merge the evidence, and save the resulting extraction record.
+
+The concurrency is deliberate. Barcode decoding and VLM extraction use the same persisted image but do not depend on each other, so \path{processImage} starts both with \path{Promise.all}. This reduces the time to the confirmation screen to approximately \path{max(barcode_time, extraction_time)} rather than \path{barcode_time + extraction_time}, assuming the device and network can run both tasks at the same time. The code also treats the two tasks differently when they fail. Barcode failure is logged and returns an empty list because missing barcode evidence should not block human review. Extraction failure becomes a fallback structured item with diagnostics because the confirmation screen still needs an attempt to display and a failure reason to explain.
+
+Abort handling is another important implementation detail. \path{processImage} checks the abort signal after persistence, attempt creation, barcode and extraction completion, enrichment, and before saving. If the user cancels after an attempt has been created, the catch block deletes the partial attempt through \path{attempts.deleteById}. This prevents abandoned records from polluting history while still allowing failed extraction attempts to remain visible when they are useful for diagnosis.
+
+\section{Barcode Detection}
+
+Barcode decoding is separated from VLM extraction because the two techniques have different reliability profiles. A barcode is a machine-readable symbol with a deterministic payload, whereas a VLM is a probabilistic text generator that may infer or format values incorrectly. The application therefore treats decoded barcodes as independent evidence rather than as text that the model must rediscover.
+
+On native platforms, \path{src/services/barcode-detector.ts} uses Expo Camera's \path{Camera.scanFromURLAsync} to scan the persisted image \cite{expo-camera}. On web, \path{src/services/barcode-detector.web.ts} first attempts the browser Barcode Detection API and falls back to the \path{barcode-detector} package when the native browser API is unavailable. The web implementation also limits image fetches with content-type, size, and timeout checks. MDN marks the Barcode Detection API as limited and experimental, so the fallback is needed for portability across browsers \cite{barcode-detection-api}.
+
+The merge rule in \path{src/utils/merge-extraction-result.ts} is conservative. \path{mergeExtractionResult} deduplicates barcodes by type and data, stores the first decoded value as primary, and suggests \path{eanOrUpc} only for barcode types that are semantically appropriate for retail identifiers. If multiple EAN/UPC candidates exist, it records a conflict instead of silently choosing one. This is a direct human-in-the-loop tradeoff: preserve evidence and let the user resolve ambiguity instead of hiding uncertainty in an automatic field overwrite.
+
+\section{Vision-Language Extraction}
+
+Vision-language extraction is used because the problem is not only text recognition. Industrial labels combine text, layout, abbreviations, model numbers, manufacturer names, and sometimes country or compliance information. The model therefore has to map visible label evidence into a registration schema, not merely transcribe characters. The implementation uses a remote, schema-constrained extraction step rather than a local OCR pipeline \cite{ai-sdk}.
+
+The prompt contract is defined in \path{src/api/providers/extraction-prompt.ts}. It requires one complete JSON object, with top-level keys \path{structured_json} and \path{auxiliary_text_optional}, and requires every schema field to appear exactly once. Unknown values must be null. This null policy is important: it converts missing evidence into explicit absence, which can be validated and reviewed, instead of encouraging the model to infer manual-only fields such as condition.
+
+The code does not rely on the model to be correct. \path{src/api/remote-extractor.ts} reads the selected provider and auth mode from settings, verifies image support through the provider catalog, and then calls the Vercel AI SDK \path{generateText} function with a single user message containing a text prompt and a file part containing the image base64 and media type. Provider retries are set to zero there so provider-level retry behavior does not hide malformed outputs from the application-level repair loop \cite{ai-sdk}.
+
+The response is parsed by \path{parseProviderJsonEnvelope} in \path{src/api/providers/remote-extraction-shared.ts}. The parser rejects empty text, malformed JSON, a missing \path{structured_json} object, and schema-invalid structured data. It then normalizes the optional auxiliary text. This makes the VLM boundary explicit: provider text is untrusted until JSON parsing and Zod validation succeed \cite{zod}. The limitation is that the app validates shape and types, not semantic truth. A schema-valid but wrong manufacturer name still requires user review or dataset-based accuracy evaluation.
+
+\section{Provider Catalog and Settings}
+
+Provider model metadata changes over time. Image-capable model lists change faster than the application should be released, but the app still needs safe defaults when metadata services are unavailable. The function \path{createProviderCatalog} in \path{src/services/provider-catalog.ts} fetches provider metadata, normalizes providers, filters deprecated models, checks image support, caches results for five minutes, and falls back to built-in defaults for OpenAI, Google, Anthropic, and GitHub Copilot.
+
+The catalog is not a generic model marketplace. \path{SUPPORTED_EXTRACTION_PROVIDER_IDS} restricts extraction to the providers for which the project has adapter code in \path{src/api/remote-extractor.ts}. A model may appear in a metadata service but still be unusable if the application does not know how to authenticate and call that provider through the AI SDK. The consequence is controlled configurability: users can change providers and models, but only inside the boundary the implementation can actually execute.
+
+Settings also carry a security tradeoff. Provider credentials and ingest keys are required for BYOK operation, but they must not be mixed with ordinary JSON settings. \path{src/repositories/settings-repository.ts} stores non-secret configuration separately from provider auth and ingest API material. This aligns with the SecureStore design in the architecture \cite{expo-securestore}, while still acknowledging a platform limitation: web environments cannot provide the same native Keychain/Keystore guarantees as iOS and Android.
+
+Manufacturer web-search enrichment is optional because it can conflict with label-derived evidence. In \path{src/services/manufacturer-websearch.ts}, the app first asks the extractor to plan at most three search queries, then uses a web-search dependency to query and fetch pages, then asks the extractor to reconcile those results with the original label extraction. The reconciliation prompt explicitly says that original label/image extraction and detected barcodes are primary evidence. Web evidence can fill null or ambiguous fields, but should not override label evidence without a conflict note.
+
+\section{Persistence}
+
+Persistence is used for two different reasons: traceability and recovery. An attempt records what happened during a capture, while a queue item records work that still has to be delivered. \path{src/db/schema.ts} defines attempts, queue items, and settings. \path{src/repositories/attempt-repository.ts}, \path{src/repositories/queue-repository.ts}, and \path{src/repositories/settings-repository.ts} hide the SQL details from services.
+
+The Drizzle and SQLite combination gives the application a typed database boundary while keeping the data local to the app \cite{drizzle,expo-sqlite}. This matters because the same repository methods can be tested without screens knowing about SQL statements, and because queue replay depends on stable ordering rather than transient React state.
+
+The attempt repository also implements retention. The project requirement keeps only the latest 20 attempts, and \path{RuntimeLimits.historyLimit} encodes that value. The reason is operational rather than theoretical: label images are large compared with structured JSON, so unlimited history would eventually conflict with the data minimization requirement. The limitation is that retention reduces local audit history. A production deployment would need a backend audit store if long-term traceability is required.
+
+\section{Validation and Schema}
+
+Validation is the boundary between model output and deterministic application state. \path{src/types/item-schema.ts} defines text fields such as manufacturer, product number, EAN or UPC, and country of origin, and numeric fields such as quantity, price, and dimensions. \path{normalizeStructuredItemInput} converts empty text to null, parses numeric-like strings to numbers when possible, and preserves invalid numeric text so validation can reject it. \path{validateStructuredItem} then reports numeric field errors and validates links before running the final Zod object schema \cite{zod}.
+
+This design is stricter than simply accepting any provider JSON but more flexible than requiring every field to be present in the provider response. \path{parseProviderJsonEnvelope} merges provider output with \path{emptyStructuredItem}, so missing schema fields become explicit nulls before validation. The consequence is that the confirmation screen can always reason over the same object shape. The tradeoff is that schema validation cannot prove that a value was visible on the label. It only proves that the value has an acceptable type and field name. Semantic correctness still depends on human review and future evaluation datasets.
+
+The retry mechanism in \path{src/services/extraction-retry.ts} is built around this validation boundary. It attempts extraction up to the configured maximum, currently three. Retryable failures are limited to schema violations, invalid responses, internal errors, and extraction-fallback errors. On the next attempt, the repair prompt adds the previous error and repeats the instruction to return one valid JSON object with no markdown or prose. After the last retry, the service returns an empty structured item with diagnostics. This preserves the user journey while making the failure visible instead of silently hiding it.
+
+\section{Submission and Offline Queue}
+
+Submission begins only after human acceptance because the accepted payload becomes the version that can leave the device. \path{src/services/submission-service.ts} builds around a submission payload containing the schema version, attempt id, accepted revision, structured JSON, barcode enrichment, optional auxiliary text, and metadata. The stable idempotency key is generated from attempt id and accepted revision through \path{src/utils/idempotency.ts}. This means the same accepted revision produces the same key across retries, while a later edited revision can produce a different key.
+
+The ingest transport in \path{src/api/ingest-transport.ts} classifies delivery outcomes before the queue sees them. Missing endpoint configuration and missing API keys are permanent errors because retrying will not fix them. HTTP 408, 429, and 5xx responses are retryable because they represent timeout, rate limiting, or server/network instability. Other 4xx-style failures become permanent invalid responses or auth failures. This classification matters because retrying permanent errors would consume battery and network while keeping a bad item at the head of the queue.
+
+Queue replay is intentionally FIFO. \path{drainQueue} in \path{src/services/queue-worker.ts} repeatedly calls \path{peekReady}, submits the head item, marks successes sent, marks permanent failures failed, and reschedules a retryable item with a later next attempt time. On a retryable failure it stops instead of skipping to later items. This preserves submission order, which is useful if the backend eventually treats attempts as a chronological registration stream.
+
+\section{Implementation File Map}
+
+\begin{table}[H]
+\centering
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{0.20\textwidth}XX}
+\toprule
+Area & Important files & Purpose \\
+\midrule
+Routes & \path{src/app/_layout.tsx}, \path{src/app/(tabs)}, \path{src/app/confirm/[attemptId].tsx} & Navigation, root providers, route-to-screen mapping. \\
+Screens & \path{src/screens/capture.tsx}, \path{confirm.tsx}, \path{history.tsx}, \path{settings.tsx} & User workflows and screen state. \\
+Extraction & \path{src/api/remote-extractor.ts}, \path{src/api/providers/*} & Prompt construction, provider calls, response parsing. \\
+Services & \path{src/services/capture-pipeline.ts}, \path{submission-service.ts}, \path{queue-worker.ts} & Business process orchestration. \\
+Persistence & \path{src/db/schema.ts}, \path{src/repositories/*}, \path{drizzle/*} & SQLite schema, migrations, repository interfaces. \\
+Types & \path{src/types/item-schema.ts}, \path{app-error.ts}, \path{settings.ts} & Shared contracts, validation, settings defaults. \\
+Tests & \path{tests/services}, \path{tests/repositories}, \path{tests/types}, \path{tests/components} & Risk-based automated checks. \\
+\bottomrule
+\end{tabularx}
+\caption{Implementation file map.}
+\label{tab:implementation-map}
+\end{table}
+
+\section{Dependency Observations}
+
+The dependency stack is intentionally concentrated around Expo, React, React Native, TypeScript, Drizzle, Zod, AI SDK provider packages, Jest, and React Native Testing Library. These dependencies are not interchangeable labels. Each one is used to enforce a boundary in the implementation.
+
+Expo provides the managed mobile runtime, camera, image picker, image manipulation, file storage, SQLite, and secure storage abstractions. Drizzle provides a typed SQL layer over Expo SQLite. Zod defines the runtime schema boundary, and the AI SDK provides the provider abstraction for image-capable language-model calls.
+
+This dependency choice has practical limitations. It keeps the app inside Expo managed workflow and avoids custom native model runtimes, which supports portability across iOS, Android, and web. It also means true local VLM execution is not implemented and should not be implied by the architecture. A production handover should document the required Node version, lockfile policy, and Expo SDK version because React Native and Expo testing dependencies are sensitive to runtime versions.

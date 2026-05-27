@@ -1,0 +1,58 @@
+\chapter{Requirements}
+\label{chap:requirements}
+
+\section{Requirements Elicitation}
+
+The requirements were elicited from three sources. First, the external project brief describes the business problem and the initial project request: scan product labels using a phone or camera, recognize text and barcodes, extract fields such as model, type, and manufacturer, and populate registration fields to reduce time and typing errors \cite{buy2sell-brief}. Second, the Buy2Sell meeting records how the team refined the scope around phone capture, multiple images for split labels, vision-language extraction, manufacturer lookup as a nice-to-have, previous-value suggestions, omission of label printing, and a simulated server POST \cite{meeting-notes}. Third, the requirements register formalizes those needs as the complete requirement set \cite{requirements-register}.
+
+\section{External Project Requirements}
+
+The original request from Buy2Sell is the external project baseline. The company explained that staff currently enter manufacturer, product type or model, item category, condition, and country of origin manually, even though many of those details already exist on product labels \cite{buy2sell-brief}. Their requested solution should scan a product label, recognize text and barcodes, extract relevant information such as model, type, and manufacturer, and populate the registration system without unnecessary manual input. These needs became the initial functional requirements for capture, barcode decoding, structured extraction, confirmation, and ingest.
+
+\section{Meeting Requirements}
+
+The in-person meeting narrowed and improved the requirement set. The company noted that competitors use multiple images on a turntable, so the prototype includes split-label support as a Should requirement. The meeting also clarified that a phone is a sensible capture device, that remote processing should be implemented first, that local processing can be considered later, and that the team should simulate a server by posting to a mock endpoint because production server access is unavailable \cite{meeting-notes}. The meeting also introduced quality-of-life requirements such as dropdown suggestions for previously entered manufacturers and a rule that only fields answerable from the label should be exposed to the model.
+
+\section{High-level Requirements}
+
+The table below is the high-level requirement table used in the main report. The complete requirements register is embedded in Appendix~\ref{app:evidence}.
+
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.10\textwidth}>{\raggedright\arraybackslash}p{0.38\textwidth}>{\raggedright\arraybackslash}p{0.12\textwidth}>{\raggedright\arraybackslash}p{0.30\textwidth}}
+\caption{High-level requirements based on project needs and meeting refinements.}\label{tab:high-level-requirements}\\
+\toprule
+ID & Requirement & Priority & Acceptance summary \\
+\midrule
+\endfirsthead
+\toprule
+ID & Requirement & Priority & Acceptance summary \\
+\midrule
+\endhead
+FR-001 & Capture a product-label image with the device camera. & Must & User can open capture view, take a photo, store the image, and start extraction. \\
+FR-002 & Import an existing label image. & Must & User can select an image, copy it into app storage, create an attempt, and start extraction. \\
+FR-003 & Attach multiple images to one item. & Should & User can attach two or more images and review one merged result. \\
+FR-006 & Decode visible barcodes. & Must & Supported barcodes return value and symbology. Missing barcodes do not block extraction. \\
+FR-008 & Extract structured data using a schema-driven vision-language provider. & Must & Provider output conforms to the internal extraction schema. \\
+FR-009 & Prevent unsupported field inference. & Must & Manual-only or absent fields remain blank rather than hallucinated. \\
+FR-012 & Require confirmation and editing before submission. & Must & User cannot submit without visiting confirmation. Edited values are final. \\
+FR-014 & Allow manual entry and correction. & Must & User can override required registration fields and add human-only information. \\
+FR-021 & Configure ingestion settings. & Must & POST endpoint and authentication settings persist across restarts. \\
+FR-022 & Submit confirmed payloads by HTTP POST. & Must & Two-hundred responses mark attempts sent. Failures are recorded and queued or left unsent. \\
+FR-023 & Queue accepted payloads offline. & Must & Failed or offline submissions are persisted and replayable. \\
+FR-025 & Show a recent history of attempts. & Must & History lists recent attempts with status, timestamps, images, payloads, and errors. \\
+NFR-002 & Reach confirmation quickly enough for workshop use. & Must & Target is confirmation within 6 seconds for at least 90 percent of attempts under reference conditions. \\
+KPI-001 & Measure extraction accuracy. & Must & Target is at least 85 percent correct pre-review extraction for mandatory fields on an agreed held-out set. \\
+KPI-002 & Define registration time-reduction evaluation target. & Should & Target for a timed operator study is at least 50 percent median time reduction compared with manual entry on the same label set. \\
+\bottomrule
+\end{longtable}
+
+\section{Requirement Register Format}
+
+The full register preserves these columns: ID, requirement description, category, priority, acceptance criteria, complexity, scope decision, test or verification method, and planned delivery phase. These columns make the requirements traceable from the business request through design, implementation, and validation.
+
+\section{Prioritization and Scope}
+
+Must requirements form the minimum viable prototype: image capture and import, barcode decoding, vision-language extraction, schema validation, confirmation, manual correction, provider settings, BYOK, secure storage, ingestion, offline queue, history, retention, export, mock server, target field set, platform support, performance, reliability, and security. Should requirements improve usefulness and robustness, such as preprocessing, multi-image support, confidence display, autocomplete from history, provider fallback, retry, metadata traceability, ground-truth quality, and timed operator comparison. Could requirements are desirable extensions such as provider benchmarking, confidence-focused UI, image or keyword search, and local vision-language experiments. Local vision-language processing was considered during planning but is not part of the current implementation because available edge-device performance, app size, cold-start cost, and Expo managed-workflow constraints make it a poor fit for this prototype.
+
+\section{Verification Strategy}
+
+The register links each requirement to a verification method. Functional requirements are checked with manual acceptance tests and integration tests. Technical requirements are checked with schema, normalization, mapping, repository, and provider tests. KPI requirements require evaluation datasets, per-field accuracy measurement, and time studies. Security requirements require code and configuration review and platform inspection. Transitional requirements are verified by deliverable review, demo execution, and handover completeness.
