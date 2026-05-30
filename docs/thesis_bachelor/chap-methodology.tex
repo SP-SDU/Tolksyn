@@ -5,7 +5,7 @@
 
 The project was carried out as an iterative software engineering project. The business problem was known from the start: Buy2Sell wanted to reduce manual registration work by scanning product labels and extracting useful registration data. The technical solution was uncertain. The team had to determine which fields could be extracted safely, how model output should be controlled, and how the application should behave when extraction or submission failed.
 
-\begin{figure}[htbp]
+\begin{figure}[H]
   \centering
   \includegraphics[width=0.9\textwidth,max height=0.58\textheight,keepaspectratio]{artifacts/unified-process-model.png}
   \caption{Unified Process-style lifecycle model showing time boxes and the change of focus over time.}
@@ -14,7 +14,7 @@ The project was carried out as an iterative software engineering project. The bu
 
 Figure~\ref{fig:unified-process} shows a Unified Process-style lifecycle model applied to the project's software development lifecycle. The model organized recurring disciplines such as requirements, design, implementation, validation, and documentation. The sprint workflow turned those disciplines into short implementation increments with concrete deliverables.
 
-\begin{table}[htbp]
+\begin{table}[H]
 \centering
 \begin{tabularx}{\textwidth}{P{0.20\textwidth}YY}
 \toprule
@@ -33,7 +33,7 @@ Human-in-the-loop design & AI output was treated as draft data requiring user re
 
 The work was divided into five practical phases. The phases were not strict handover points. Later implementation work still affected requirements and design, but the phase structure made the work easier to plan, implement, and document.
 
-\begin{table}[htbp]
+\begin{table}[H]
 \centering
 \begin{tabularx}{\textwidth}{P{0.15\textwidth}YYY}
 \toprule
@@ -53,7 +53,7 @@ Hardening & Is the prototype reliable enough to demonstrate? & Added settings, d
 
 Requirements were collected from the external project brief, the Buy2Sell meeting, and implementation findings. The requirements were then organized into functional requirements, non-functional requirements, and KPI targets.
 
-\begin{table}[htbp]
+\begin{table}[H]
 \centering
 \begin{tabularx}{\textwidth}{P{0.19\textwidth}YY}
 \toprule
@@ -71,7 +71,7 @@ Implementation findings & Provider output may be malformed, network delivery may
 
 Several decisions were made during development because of project constraints, technology constraints, and workflow risks.
 
-\begin{table}[htbp]
+\begin{table}[H]
 \centering
 \begin{tabularx}{\textwidth}{P{0.20\textwidth}P{0.23\textwidth}YP{0.18\textwidth}}
 \toprule
@@ -91,7 +91,7 @@ Use local queueing & Fail submission immediately on network error. & Workshop ne
 
 The development workflow followed the primary application loop. Each increment extended or hardened the path from image capture to reviewed payload submission.
 
-\begin{table}[htbp]
+\begin{table}[H]
 \centering
 \begin{tabularx}{\textwidth}{P{0.19\textwidth}YY}
 \toprule
@@ -113,7 +113,7 @@ Settings & Configure providers, endpoint, and credentials. & Settings repository
 
 Technology choices were made according to the prototype goals: cross-platform mobile support, camera access, local persistence, configurable remote extraction, and a reviewable JSON submission flow.
 
-\begin{table}[htbp]
+\begin{table}[H]
 \centering
 \begin{tabularx}{\textwidth}{P{0.20\textwidth}P{0.28\textwidth}Y}
 \toprule
@@ -137,7 +137,7 @@ The choice of Expo also introduced limitations. The managed workflow supports po
 
 The architecture was developed around separation of responsibilities. Route files were kept thin, screen modules handled user-facing workflow state, services coordinated business processes, repositories isolated persistence, and API modules handled provider and ingest communication.
 
-\begin{table}[htbp]
+\begin{table}[H]
 \centering
 \begin{tabularx}{\textwidth}{P{0.22\textwidth}YY}
 \toprule
@@ -160,7 +160,7 @@ The most important design principle was that AI output should not become authori
 
 Validation was divided into implementation validation, acceptance validation, and KPI evaluation.
 
-\begin{table}[htbp]
+\begin{table}[H]
 \centering
 \begin{tabularx}{\textwidth}{P{0.23\textwidth}YY}
 \toprule
