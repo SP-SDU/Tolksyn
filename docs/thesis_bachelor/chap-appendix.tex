@@ -4,18 +4,15 @@
 \section{Embedded Project Evidence}
 \label{app:evidence}
 
-The artifacts in Table~\ref{tab:evidence-artifacts} are embedded in the report as attachments where possible. The appendix excludes working-only research notes, the internal canonical specification, template documents, AVIF sample images, the larger image-test dataset, and PlantUML source files. The rendered diagrams are included because they are the report-ready versions of the diagram sources.
+The artifacts in Table~\ref{tab:evidence-artifacts} are embedded in the thesis as attachments where possible. The appendix excludes working-only research notes, the internal canonical specification, template documents, AVIF sample images, the larger image-test dataset, and PlantUML source files. The rendered diagrams are included because they are the thesis-ready versions of the diagram sources.
 
-\begin{longtable}{>{\raggedright\arraybackslash}p{0.26\textwidth}>{\raggedright\arraybackslash}p{0.20\textwidth}>{\raggedright\arraybackslash}p{0.36\textwidth}}
-\caption{Local project artifacts embedded as evidence.}\label{tab:evidence-artifacts}\\
+\begin{table}[htbp]
+\small
+\centering
+\begin{tabularx}{\textwidth}{P{0.26\textwidth}P{0.20\textwidth}Y}
 \toprule
 Artifact & Attachment & Evidence use \\
 \midrule
-\endfirsthead
-\toprule
-Artifact & Attachment & Evidence use \\
-\midrule
-\endhead
 Buy2Sell project overview & \attachfile[description={Buy2Sell project overview}]{artifacts/buy2sell-project-overview.pdf} & External project brief describing manual registration, label fields, OCR and barcode idea, and expected value. \\
 Project proposal & \attachfile[description={English SE BSc proposal}]{artifacts/english-se-bsc-rev2.pdf} & Proposal, tone reference, sprint framing, and planning references for OCR and text recognition options. \\
 Meeting notes & \attachfile[description={Meeting notes 2026-02-23}]{artifacts/meeting-notes-2026-02-23.pdf} & Notes from the project meeting, including scope, fields, multiple images, remote/local processing, and prototype goals. \\
@@ -24,10 +21,23 @@ Gantt chart & \attachfile[description={Gantt chart}]{artifacts/gantt-chart.pdf} 
 Figma design & \attachfile[description={Figma design}]{artifacts/figma-design.pdf} & Design artifact showing intended capture, validation, history, queue, and configuration surfaces. \\
 KPI evaluation results & \attachfile[description={Anonymized KPI evaluation results}]{artifacts/kpi-anonymized.pdf} & Anonymized per-image and per-field extraction correctness evidence for the Buy2Sell image evaluation. \\
 Expo app structure reference & \cite{expo-folder-structure} & Local architecture reference used when organizing screens, routes, and reusable code. \\
+\bottomrule
+\end{tabularx}
+\caption{Local project evidence artifacts, part 1.}
+\label{tab:evidence-artifacts}
+\end{table}
+
+\begin{table}[htbp]
+\small
+\centering
+\begin{tabularx}{\textwidth}{P{0.26\textwidth}P{0.20\textwidth}Y}
+\toprule
+Artifact & Attachment & Evidence use \\
+\midrule
 System context diagram & \attachfile[description={System context diagram}]{artifacts/system-context.png} & Rendered architecture figure used in Chapter~\ref{chap:introduction}. \\
 Component diagram & \attachfile[description={Component diagram}]{artifacts/component-diagram.png} & Rendered architecture figure used in Chapter~\ref{chap:design}. \\
 Capture pipeline diagram & \attachfile[description={Capture pipeline diagram}]{artifacts/app-pipeline-activity.png} & Rendered activity diagram for the capture-to-ingest workflow. \\
-Persistence diagram & \attachfile[description={Local persistence diagram}]{artifacts/local-persistence-model.png} & Rendered persistence model figure. \\
+Entity-relationship diagram & \attachfile[description={Local entity-relationship diagram}]{artifacts/local-persistence-model.png} & Rendered local data relationship figure. \\
 User-flow diagram & \attachfile[description={User-flow diagram}]{artifacts/ui-flow.png} & Rendered user-flow figure. \\
 State model diagram & \attachfile[description={Attempt state model diagram}]{artifacts/app-state-machine.png} & Rendered attempt state model. \\
 Extraction sequence diagram & \attachfile[description={Extraction sequence diagram}]{artifacts/extraction-pipeline-sequence.png} & Rendered extraction sequence diagram. \\
@@ -36,7 +46,9 @@ Domain model diagram & \attachfile[description={Domain model diagram}]{artifacts
 Ingest pipeline diagram & \attachfile[description={Ingest pipeline diagram}]{artifacts/ingest-pipeline-sequence.png} & Rendered ingest sequence diagram. \\
 Wireframes & \attachfile[description={Capture wireframe}]{artifacts/wireframe-capture.png} \attachfile[description={Confirm wireframe}]{artifacts/wireframe-confirm-edit.png} \attachfile[description={History wireframe}]{artifacts/wireframe-history.png} \attachfile[description={Settings wireframe}]{artifacts/wireframe-settings.png} & Rendered UI wireframes for the main application surfaces. \\
 \bottomrule
-\end{longtable}
+\end{tabularx}
+\caption{Local project evidence artifacts, part 2.}
+\end{table}
 
 \section{KPI Evaluation Evidence}
 \label{app:kpi-evidence}
@@ -48,7 +60,7 @@ The KPI evidence artifact contains anonymized image identifiers, scored field co
 
 The Lighthouse reports are embedded as attachments and included as appendix pages. They were captured against the web routes for Capture, Confirm, History, and Settings. Their performance scores should be interpreted as development-mode evidence, not production performance measurements.
 
-\begin{table}[H]
+\begin{table}[htbp]
 \centering
 \begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{0.25\textwidth}>{\raggedright\arraybackslash}p{0.25\textwidth}X}
 \toprule
@@ -66,7 +78,7 @@ Settings & \attachfile[description={Lighthouse Settings}]{artifacts/lighthouse-s
 
 \section{Glossary}
 
-\begin{table}[H]
+\begin{table}[htbp]
 \centering
 \begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{0.25\textwidth}X}
 \toprule
@@ -86,7 +98,7 @@ Idempotency key & Stable key derived from attempt identity to prevent duplicate 
 
 \section{Risk Register}
 
-\begin{table}[H]
+\begin{table}[htbp]
 \centering
 \begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{0.25\textwidth}XX}
 \toprule
@@ -136,18 +148,15 @@ The accepted ingest payload contains reviewed structured data, barcode enrichmen
 \section{Automated Test Inventory}
 \label{app:test-inventory}
 
-The validation chapter summarizes test areas. This appendix lists the automated test files present in the repository so the evidence can be traced from the report to concrete checks.
+The validation chapter summarizes test areas. This appendix lists the automated test files present in the repository so the evidence can be traced from the thesis to concrete checks.
 
-\begin{longtable}{>{\raggedright\arraybackslash}p{0.24\textwidth}>{\raggedright\arraybackslash}p{0.68\textwidth}}
-\caption{Automated test file inventory.}\label{tab:test-inventory}\\
+\begin{table}[htbp]
+\footnotesize
+\centering
+\begin{tabularx}{\textwidth}{P{0.22\textwidth}Y}
 \toprule
 Area & Test files \\
 \midrule
-\endfirsthead
-\toprule
-Area & Test files \\
-\midrule
-\endhead
 App and API routing & \path{tests/app/page-metadata.test.tsx}, \path{tests/app/api/route-files.test.ts}, \path{tests/app/api/webfetch-proxy-api.test.ts}, \path{tests/app/api/openai-codex-proxy-api.test.ts}, \path{tests/app/api/github-copilot-proxy-api.test.ts}, \path{tests/app/api/github-copilot-oauth-api.test.ts}, \path{tests/app/api/exa-mcp-proxy-api.test.ts} \\
 Remote extraction and ingest & \path{tests/api/remote-extractor.test.ts}, \path{tests/api/ingest-transport.test.ts}, \path{tests/api/providers/extraction-prompt.test.ts} \\
 Services & \path{tests/services/capture-pipeline.test.ts}, \path{tests/services/gallery-import.test.ts}, \path{tests/services/image-store.test.ts}, \path{tests/services/barcode-detector-web.test.ts}, \path{tests/services/provider-catalog.test.ts}, \path{tests/services/provider-oauth.test.ts}, \path{tests/services/extraction-retry.test.ts}, \path{tests/services/manufacturer-websearch.test.ts}, \path{tests/services/queue-worker.test.ts}, \path{tests/services/queue-replay.integration.test.ts}, \path{tests/services/submission-service.test.ts}, \path{tests/services/toast-state.test.ts} \\
@@ -155,11 +164,14 @@ Repositories and storage & \path{tests/repositories/attempt-repository.test.ts},
 Types and utilities & \path{tests/types/app-error.test.ts}, \path{tests/types/item-schema.test.ts}, \path{tests/types/provider-error-normalization.test.ts}, \path{tests/types/user-feedback.test.ts}, \path{tests/utils/idempotency.test.ts}, \path{tests/utils/merge-extraction-result.test.ts}, \path{tests/utils/retry-policy.test.ts} \\
 Components & \path{tests/components/accessibility.test.tsx}, \path{tests/components/button.test.tsx}, \path{tests/components/diagnostic-disclosure.test.tsx}, \path{tests/components/option-picker.test.tsx} \\
 \bottomrule
-\end{longtable}
+\end{tabularx}
+\caption{Automated test file inventory.}
+\label{tab:test-inventory}
+\end{table}
 
 \section{Included Evidence PDF Pages}
 
-The following pages include selected PDF artifacts directly in the report appendix in addition to the embedded file attachments.
+The following pages include selected PDF artifacts directly in the thesis appendix in addition to the embedded file attachments.
 
 \includepdf[pages=-,pagecommand={}]{artifacts/buy2sell-project-overview.pdf}
 \includepdf[pages=-,pagecommand={}]{artifacts/english-se-bsc-rev2.pdf}

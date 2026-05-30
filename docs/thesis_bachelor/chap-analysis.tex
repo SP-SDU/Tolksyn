@@ -13,15 +13,15 @@ Product labels are not uniform. They vary by manufacturer, age, condition, place
 
 The goal is not to remove the operator from the registration process. Some fields, such as condition or notes about scratches, require judgement. The Confirm and Edit step is therefore central to the design. AI output becomes a draft, not an unreviewed source of truth. This approach minimizes the risk of hallucinated or misread fields while still reducing repetitive typing.
 
-\section{Existing and Related Approaches}
+\section{Approach Selection}
 
-The original project idea mentions computer vision, OCR, barcode reading, and agentic AI \cite{buy2sell-brief}. The implemented architecture focuses on vision-language extraction rather than OCR-only processing. Modern multimodal models can interpret label images and produce structured outputs, while the AI SDK standardizes provider integration across supported model backends \cite{ai-sdk}. Web barcode support is available through the Barcode Detection API, although MDN marks it as limited and experimental, so the web implementation includes fallback package support \cite{barcode-detection-api}.
+The original project idea mentions computer vision, OCR, barcode reading, and agentic AI \cite{buy2sell-brief}. The selected approach combines deterministic barcode decoding with VLM-first schema mapping and human confirmation. Barcode scanning is reliable when a barcode is visible, but it cannot fill manufacturer, product text, country, quantity, or other label fields. OCR can transcribe text, but it still needs a rule layer or language-model layer to map recognized text into the registration schema, normalize values, and leave unsupported fields empty.
 
-Planning-phase research considered OCR and text-recognition approaches before the implementation settled on VLM-first extraction. OCR alone would still require a downstream language model or rule layer to map recognized text into the registration schema, resolve field names, normalize values, and leave unsupported fields empty. Since the project already needed model-based semantic mapping, a VLM-first implementation reduced the number of extraction stages while keeping deterministic barcode decoding separate. The planning sources justify the design direction.
+The implementation therefore focuses on vision-language extraction rather than OCR-only processing. Modern multimodal models can interpret label images and produce structured outputs, while the AI SDK standardizes provider integration across supported model backends \cite{ai-sdk}. Web barcode support is available through the Barcode Detection API, although MDN marks it as limited and experimental, so the web implementation includes fallback package support \cite{barcode-detection-api}. The result is a hybrid workflow: deterministic barcode evidence is merged separately, probabilistic VLM output is validated against the schema, and the operator confirms the final payload before submission.
 
 \section{Stakeholder Analysis}
 
-\begin{table}[H]
+\begin{table}[htbp]
 \centering
 \begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{0.24\textwidth}XX}
 \toprule

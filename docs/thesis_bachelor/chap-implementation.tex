@@ -27,7 +27,7 @@ The merge rule in \path{src/utils/merge-extraction-result.ts} is conservative. \
 
 \section{Vision-Language Extraction}
 
-Vision-language extraction is used because the problem is not only text recognition. Industrial labels combine text, layout, abbreviations, model numbers, manufacturer names, and sometimes country or compliance information. The model therefore has to map visible label evidence into a registration schema, not merely transcribe characters. The implementation uses a remote, schema-constrained extraction step rather than a local OCR pipeline \cite{ai-sdk}.
+The extraction boundary implements the distinction described in Chapter~\ref{chap:background}: the app needs structured registration fields, not only transcribed text. The implementation therefore uses a remote, schema-constrained vision-language extraction step rather than a local OCR pipeline \cite{ai-sdk}.
 
 The prompt contract is defined in \path{src/api/providers/extraction-prompt.ts}. It requires one complete JSON object, with top-level keys \path{structured_json} and \path{auxiliary_text_optional}, and requires every schema field to appear exactly once. Unknown values must be null. This null policy is important: it converts missing evidence into explicit absence, which can be validated and reviewed, instead of encouraging the model to infer manual-only fields such as condition.
 
@@ -43,7 +43,13 @@ The catalog is not a generic model marketplace. \path{SUPPORTED_EXTRACTION_PROVI
 
 Settings also carry a security tradeoff. Provider credentials and ingest keys are required for BYOK operation, but they must not be mixed with ordinary JSON settings. \path{src/repositories/settings-repository.ts} stores non-secret configuration separately from provider auth and ingest API material. This aligns with the SecureStore design in the architecture \cite{expo-securestore}, while still acknowledging a platform limitation: web environments cannot provide the same native Keychain/Keystore guarantees as iOS and Android.
 
-Manufacturer web-search enrichment is optional because it can conflict with label-derived evidence. In \path{src/services/manufacturer-websearch.ts}, the app first asks the extractor to plan at most three search queries, then uses a web-search dependency to query and fetch pages, then asks the extractor to reconcile those results with the original label extraction. The reconciliation prompt explicitly says that original label/image extraction and detected barcodes are primary evidence. Web evidence can fill null or ambiguous fields, but should not override label evidence without a conflict note.
+\section{Manufacturer Web Search}
+
+Manufacturer web-search enrichment is optional because external web evidence can conflict with label-derived evidence. The feature is implemented in \path{src/services/manufacturer-websearch.ts} with the project dependency \path{agent-query-crawl}. The runtime composition in \path{src/providers/app-provider.tsx} dynamically loads \path{createAgentQueryCrawl} only when the feature is used and configures web proxy routes for Exa search and page fetching through \path{src/app/api/proxy/exa/mcp+api.ts} and \path{src/app/api/proxy/webfetch+api.ts}.
+
+The enrichment flow has two model-controlled steps around one deterministic crawl step. First, the extractor plans at most three search queries from the current structured JSON, barcode evidence, auxiliary text, and raw model response. Second, \path{agent-query-crawl} executes those queries and fetches at most six source pages in total. Third, the extractor reconciles the fetched evidence with the original extraction. The service sanitizes untrusted web text before reconciliation and records diagnostics for query planning, search, page fetches, field changes, and conflicts.
+
+The reconciliation prompt gives priority to the original label/image extraction and decoded barcodes. Web evidence may fill null or ambiguous fields, or corroborate a correction, but it should not override label evidence without a conflict note. This keeps the web-search package as an enrichment aid rather than a second source of truth. The tests in \path{tests/services/manufacturer-websearch.test.ts} cover query planning, passing queries to \path{agent-query-crawl}, reconciliation, skipped searches when no queries are returned, and the shared crawl-page limit.
 
 \section{Persistence}
 
@@ -53,7 +59,7 @@ The Drizzle and SQLite combination gives the application a typed database bounda
 
 The attempt repository also implements retention. The project requirement keeps only the latest 20 attempts, and \path{RuntimeLimits.historyLimit} encodes that value. The reason is operational rather than theoretical: label images are large compared with structured JSON, so unlimited history would eventually conflict with the data minimization requirement. The limitation is that retention reduces local audit history. A production deployment would need a backend audit store if long-term traceability is required.
 
-\section{Validation and Schema}
+\section{Schema Validation}
 
 Validation is the boundary between model output and deterministic application state. \path{src/types/item-schema.ts} defines text fields such as manufacturer, product number, EAN or UPC, and country of origin, and numeric fields such as quantity, price, and dimensions. \path{normalizeStructuredItemInput} converts empty text to null, parses numeric-like strings to numbers when possible, and preserves invalid numeric text so validation can reject it. \path{validateStructuredItem} then reports numeric field errors and validates links before running the final Zod object schema \cite{zod}.
 
@@ -71,7 +77,7 @@ Queue replay is intentionally FIFO. \path{drainQueue} in \path{src/services/queu
 
 \section{Implementation File Map}
 
-\begin{table}[H]
+\begin{table}[htbp]
 \centering
 \begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{0.20\textwidth}XX}
 \toprule
@@ -89,11 +95,3 @@ Tests & \path{tests/services}, \path{tests/repositories}, \path{tests/types}, \p
 \caption{Implementation file map.}
 \label{tab:implementation-map}
 \end{table}
-
-\section{Dependency Observations}
-
-The dependency stack is intentionally concentrated around Expo, React, React Native, TypeScript, Drizzle, Zod, AI SDK provider packages, Jest, and React Native Testing Library. These dependencies are not interchangeable labels. Each one is used to enforce a boundary in the implementation.
-
-Expo provides the managed mobile runtime, camera, image picker, image manipulation, file storage, SQLite, and secure storage abstractions. Drizzle provides a typed SQL layer over Expo SQLite. Zod defines the runtime schema boundary, and the AI SDK provides the provider abstraction for image-capable language-model calls.
-
-This dependency choice has practical limitations. It keeps the app inside Expo managed workflow and avoids custom native model runtimes, which supports portability across iOS, Android, and web. It also means true local VLM execution is not implemented and should not be implied by the architecture. A production handover should document the required Node version, lockfile policy, and Expo SDK version because React Native and Expo testing dependencies are sensitive to runtime versions.

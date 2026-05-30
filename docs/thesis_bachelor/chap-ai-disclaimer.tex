@@ -1,0 +1,23 @@
+\chapter*{AI Assistance Disclaimer}
+\addcontentsline{toc}{chapter}{AI Assistance Disclaimer}
+
+This thesis applies AI to a software engineering problem, and AI tools were also used as supporting tools during parts of the work. The thesis text, implementation decisions, evaluation method, and conclusions remain our own work. AI output was treated as assistance that required review, not as an authority for requirements, architecture, implementation, validation, or conclusions.
+
+\begin{table}[htbp]
+\footnotesize
+\centering
+\begin{tabularx}{\textwidth}{P{0.20\textwidth}P{0.23\textwidth}YY}
+\toprule
+\textbf{Use} & \textbf{Tools} & \textbf{Method} & \textbf{Control} \\
+\midrule
+Writing correction & Grammarly, GPT-5.5 & Grammar, spelling, proofreading, clearer phrasing, and structure suggestions for the thesis. & The authors reviewed and selected the final wording. \\
+Development review & GPT-5.5, RabbitMQ & Corrective review after implementation: targeted questions, refactoring-risk discussion, and pull-request review suggestions. & The authors wrote, selected, tested, and integrated the code. Suggestions were rejected unless they matched project requirements and passed source review, tests, type checking, and linting. \\
+Runtime extraction & GPT-5.5, GPT-5.3-codex, Gemini-3.1 lite & Manual testing inside Tolksyn by selecting models in the application settings and scanning product-label images. & Model output was parsed, schema-validated, inspected in the app, and treated as draft data requiring human confirmation. \\
+\bottomrule
+\end{tabularx}
+\caption{AI assistance uses and control mechanisms.}
+\end{table}
+
+AI-detection tools may flag parts of a thesis even when AI was used only for correction or support. This can happen because grammar correction, proofreading, repeated technical terminology, and formal academic style can make text more uniform. This disclaimer therefore records the method of use and the control mechanisms applied.
+
+The runtime use of vision-language models inside Tolksyn is separate from writing and development assistance. In the application, provider output is draft product-label data. It is controlled through parsing, schema validation, diagnostics, and human confirmation before submission.
