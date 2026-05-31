@@ -11,7 +11,16 @@ The practical effect is that \path{src/screens/capture.tsx} can call \path{runti
 
 \section{Capture Pipeline}
 
-The capture pipeline converts a captured label image into a stored extraction attempt. In \path{src/services/capture-pipeline.ts}, \path{processImage} performs this conversion in a fixed order: create an attempt id, persist the normalized image, create an attempt record, run barcode detection and remote extraction concurrently, optionally run manufacturer web-search enrichment, merge the evidence, and save the resulting extraction record.
+As described in Chapter~\ref{chap:design}, the implementation keeps local barcode detection separate from provider-based vision-language extraction. The capture pipeline converts a captured label image into a stored extraction attempt. In \path{src/services/capture-pipeline.ts}, \path{processImage} performs this conversion in a fixed order:
+\begin{itemize}
+  \item create an attempt id,
+  \item persist the normalized image,
+  \item create an attempt record,
+  \item run barcode detection and remote extraction concurrently,
+  \item optionally run manufacturer web-search enrichment,
+  \item merge the evidence,
+  \item save the resulting extraction record.
+\end{itemize}
 
 The concurrency is deliberate. Barcode decoding and VLM extraction use the same persisted image but do not depend on each other, so \path{processImage} starts both with \path{Promise.all}. This reduces the time needed to reach the confirmation screen from \path{barcode_time + extraction_time} to \path{max(barcode_time, extraction_time)}, assuming the device and network can execute barcode detection and label extraction concurrently. The code also treats the two tasks differently when they fail. Barcode failure is logged and returns an empty list because missing barcode evidence should not block human review. Extraction failure becomes a fallback structured item with diagnostics because the confirmation screen still needs an attempt to display and a failure reason to explain.
 
@@ -23,7 +32,7 @@ Barcode decoding is separated from VLM extraction because the two techniques hav
 
 On native platforms, \path{src/services/barcode-detector.ts} uses Expo Camera's \path{Camera.scanFromURLAsync} to scan the persisted image \cite{expo-camera}. On web, \path{src/services/barcode-detector.web.ts} first tries the browser Barcode Detection API and falls back to the \path{barcode-detector} package when the native browser API is unavailable. The web implementation also limits image fetches with content-type, size, and timeout checks. MDN marks the Barcode Detection API as limited and experimental, so the fallback is needed for portability across browsers \cite{barcode-detection-api}.
 
-The merge rule in \path{src/utils/merge-extraction-result.ts} is conservative. \path{mergeExtractionResult} deduplicates barcodes by type and data, stores the first decoded value as primary, and suggests \path{eanOrUpc} only for barcode types that are semantically appropriate for retail identifiers. If multiple EAN/UPC candidates exist, it records a conflict instead of silently choosing one. This is a direct human-in-the-loop tradeoff: preserve evidence and let the user resolve ambiguity instead of hiding uncertainty in an automatic field overwrite.
+The merge rule in \path{src/utils/merge-extraction-result.ts} is conservative and deterministic. \path{mergeExtractionResult} deduplicates barcodes by type and data, stores the first decoded value as primary evidence, and suggests \path{eanOrUpc} only for barcode types that are semantically appropriate for retail identifiers. It does not automatically overwrite unrelated structured fields with barcode text. If multiple EAN/UPC candidates exist, it records a conflict instead of silently choosing one. This is a direct human-in-the-loop tradeoff: preserve evidence and let the user resolve ambiguity instead of hiding uncertainty in an automatic field overwrite.
 
 \section{Vision-Language Extraction}
 
@@ -41,7 +50,7 @@ Provider model metadata changes over time. Image-capable model lists change fast
 
 The catalog is not a generic model marketplace. \path{SUPPORTED_EXTRACTION_PROVIDER_IDS} restricts extraction to the providers for which the project has adapter code in \path{src/api/remote-extractor.ts}. A model may appear in a metadata service but still be unusable if the application does not know how to authenticate and call that provider through the AI SDK. The consequence is controlled configurability: users can change providers and models, but only inside the boundary the implementation can actually execute.
 
-Settings also carry a security tradeoff. Provider credentials and ingest keys are required for BYOK operation, but they must not be mixed with ordinary JSON settings. \path{src/repositories/settings-repository.ts} stores non-secret configuration separately from provider auth and ingest API material. This aligns with the SecureStore design in the architecture \cite{expo-securestore}, while still acknowledging a platform limitation: web environments cannot provide the same native Keychain/Keystore guarantees as iOS and Android.
+Settings also carry a security tradeoff. Provider credentials and ingest keys are required for BYOK operation (Table~\ref{tab:glossary}), but they must not be mixed with ordinary JSON settings. \path{src/repositories/settings-repository.ts} stores non-secret configuration separately from provider auth and ingest API material. This aligns with the SecureStore design in the architecture \cite{expo-securestore}, while still acknowledging a platform limitation: web environments cannot provide the same native Keychain/Keystore guarantees as iOS and Android.
 
 \section{Manufacturer Web Search}
 

@@ -3,7 +3,7 @@
 
 \section{Requirements Elicitation}
 
-The requirements were elicited from three sources. First, the external project brief describes the business problem and the initial project request: scan product labels using a phone or camera, recognize text and barcodes, extract fields such as model, type, and manufacturer, and populate registration fields to reduce time and typing errors \cite{buy2sell-brief}. Second, the Buy2Sell meeting records how the team refined the scope around phone capture, multiple images for split labels, vision-language extraction, manufacturer lookup as a nice-to-have, previous-value suggestions, omission of label printing, and a simulated server POST \cite{meeting-notes}. Third, the requirements register formalizes those needs as the complete requirement set \cite{requirements-register}.
+The requirements were elicited from three sources. First, the external project brief describes the business problem and the initial project request: scan product labels using a phone or camera, recognize text and barcodes, extract fields such as model, type, and manufacturer, and populate registration fields to reduce time and typing errors \cite{buy2sell-brief}. Second, the Buy2Sell meeting refined the scope toward phone capture, support for multiple images in split-label cases, vision-language extraction, a simulated server POST, and previous-value suggestions. Manufacturer web lookup was discussed as a desirable but non-core extension \cite{meeting-notes}. Third, the requirements register formalizes those needs as the complete requirement set \cite{requirements-register}.
 
 \section{External Project Requirements}
 
@@ -15,7 +15,7 @@ The in-person meeting narrowed and improved the requirement set. The company not
 
 \section{High-Level Requirements}
 
-The table below is the high-level requirement table used in the main thesis. The complete requirements register is embedded in Appendix~\ref{app:evidence}.
+Table~\ref{tab:high-level-requirements} lists the high-level requirements used in the main thesis. The complete requirements register is embedded in Appendix~\ref{app:evidence}.
 
 \begin{table}[htbp]
 \small
@@ -63,7 +63,7 @@ The full register preserves these columns: ID, requirement description, category
 
 \section{Prioritization and Scope}
 
-Must requirements form the minimum viable prototype: image capture and import, barcode decoding, vision-language extraction, schema validation, confirmation, manual correction, provider settings, BYOK, secure storage, ingestion, offline queue, history, retention, export, mock server, target field set, platform support, performance, reliability, and security. Should requirements improve usefulness and robustness, such as preprocessing, multi-image support, confidence display, autocomplete from history, provider fallback, retry, metadata traceability, ground-truth quality, and timed operator comparison. Could requirements are desirable extensions such as provider benchmarking, confidence-focused UI, image or keyword search, and local vision-language experiments. Local vision-language processing was considered during planning but is not part of the current implementation because available edge-device performance, app size, cold-start cost, and Expo managed-workflow constraints make it a poor fit for this prototype.
+Prioritization follows the MoSCoW method (Table~\ref{tab:glossary}). Must requirements form the minimum viable prototype: image capture and import, barcode decoding, vision-language extraction, schema validation, confirmation, manual correction, provider settings, BYOK (Table~\ref{tab:glossary}), secure storage, ingestion, offline queue, history, retention, export, mock server, target field set, platform support, performance, reliability, and security. Should requirements improve usefulness and robustness, such as preprocessing, multi-image support, confidence display, autocomplete from history, provider fallback, retry, metadata traceability, ground-truth quality, and timed operator comparison. Could requirements are desirable extensions such as provider benchmarking, confidence-focused UI, image or keyword search, and local vision-language experiments. Local vision-language processing was considered during planning but is not part of the current implementation because available edge-device performance, app size, cold-start cost, and Expo managed-workflow constraints make it a poor fit for this prototype.
 
 \section{Verification Strategy}
 

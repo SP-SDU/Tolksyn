@@ -3,7 +3,7 @@
 
 \section{Mobile Application Platform}
 
-The prototype is built as a React Native application. React Native enables native mobile interfaces using JavaScript and React concepts \cite{react-native}. Expo, an open-source framework built on top of React Native, was selected because the project needs camera access, image import, SQLite persistence, secure storage, and web support without introducing native modules or custom development clients. Expo Router provides file-based routing for React Native and web applications, which matches the required Capture, Confirm and Edit, History, and Settings screens \cite{expo-router}.
+The prototype is built as a React Native application. React Native enables native mobile interfaces using JavaScript and React concepts \cite{react-native}. Expo Router provides file-based routing for React Native and web applications, which matches the required Capture, Confirm and Edit, History, and Settings screens \cite{expo-router}. The rationale and constraints behind choosing Expo managed workflow are documented in Chapter~\ref{chap:methodology}, Section~\ref{sec:technology-selection}.
 
 \section{Existing Solutions}
 
@@ -23,14 +23,10 @@ Planning still considered OCR and text-recognition approaches. CRNN represents n
 
 \section{Persistence, Offline Operation, and Secure Settings}
 
-The mobile workflow has to survive common workshop conditions: unstable connectivity, repeated captures, and configuration changes. Local persistence is therefore part of the technical background, not only an implementation detail. Expo SQLite provides local storage on Expo-supported platforms \cite{expo-sqlite}, while Drizzle provides a typed SQL layer used by the repositories \cite{drizzle}. This supports attempt history, queued submissions, and settings persistence without depending on a production backend during the prototype phase.
+The mobile workflow has to survive common workshop conditions: unstable connectivity, repeated captures, and configuration changes. Local persistence is therefore part of the technical background, not only an implementation detail. Expo SQLite provides local storage on Expo-supported platforms \cite{expo-sqlite}, while Drizzle ORM provides a typed SQL layer used by the repositories \cite{drizzle} (Table~\ref{tab:glossary}). This supports attempt history, queued submissions, and settings persistence without depending on a production backend during the prototype phase.
 
 Security is also part of the architecture boundary. The prototype uses a bring-your-own-key model for provider and ingest credentials, so secrets must be separated from ordinary settings. Expo SecureStore provides native secure key-value storage on iOS and Android \cite{expo-securestore}. Web deployments cannot provide identical Keychain or Keystore guarantees, so the implementation and future-work sections treat browser secret handling as a limitation rather than assuming native-equivalent protection.
 
 \section{Architecture Documentation}
 
 The project uses C4-style architecture modelling, where the system is described through increasingly detailed views such as context, containers, components, and code \cite{c4-model}. The diagrams in this thesis are generated from PlantUML sources and rendered for inclusion in the thesis. Only the rendered diagram assets are included in the appendix and final thesis. The PlantUML source files remain project working files.
-
-\section{Platform Constraints}
-
-The Expo managed workflow shaped the implementation. It supports portability across iOS, Android, and web, but it also discourages custom native model runtimes. For that reason, local vision-language inference remains future work. The current prototype prioritizes a reliable remote provider boundary, local persistence, human review, and replay-safe submission.

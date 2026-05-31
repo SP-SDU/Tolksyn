@@ -15,11 +15,13 @@ The goal is not to remove the operator from the registration process. Some field
 
 \section{Approach Selection}
 
-The original project idea mentions computer vision, OCR, barcode reading, and agentic AI \cite{buy2sell-brief}. The selected approach combines deterministic barcode decoding with VLM-first schema mapping and human confirmation. Barcode scanning is reliable when a barcode is visible, but it cannot fill manufacturer, product text, country, quantity, or other label fields. OCR can transcribe text, but it still needs a rule layer or language-model layer to map recognized text into the registration schema, normalize values, and leave unsupported fields empty.
+The original project idea mentions computer vision, OCR, barcode reading, and agentic AI \cite{buy2sell-brief}. The selected approach combines deterministic barcode decoding with VLM-first schema mapping and human confirmation (Table~\ref{tab:glossary}). Barcode scanning is reliable when a barcode is visible, but it cannot fill manufacturer, product text, country, quantity, or other label fields. OCR can transcribe text, but it still needs a rule layer or language-model layer to map recognized text into the registration schema, normalize values, and leave unsupported fields empty.
 
 The implementation therefore focuses on vision-language extraction rather than OCR-only processing. Modern multimodal models can interpret label images and produce structured outputs, while the AI SDK standardizes provider integration across supported model backends \cite{ai-sdk}. Web barcode support is available through the Barcode Detection API, although MDN marks it as limited and experimental, so the web implementation includes fallback package support \cite{barcode-detection-api}. The result is a hybrid workflow: deterministic barcode evidence is merged separately, probabilistic VLM output is validated against the schema, and the operator confirms the final payload before submission.
 
 \section{Stakeholder Analysis}
+
+Table~\ref{tab:stakeholders} identifies each stakeholder group's needs and the corresponding system response.
 
 \begin{table}[htbp]
 \centering
@@ -40,4 +42,4 @@ Future integration partner & Stable ingest contract and replay-safe delivery & I
 
 \section{Field Complexity}
 
-The field list from the meeting notes includes SKU, manufacturer, product number, product text, product version, EAN or UPC, country of origin, packaging, condition, working condition, quantity, dimensions, HS code, item group, sending type, selling type, and notes \cite{meeting-notes}. Some fields are directly visible on labels, some are inferred from product context, and some should remain user-entered. The extraction flow handles this by exposing only answerable fields to extraction and leaving review-time correction to the operator.
+The field list from the meeting notes includes SKU, manufacturer, product number, product text, product version, EAN or UPC, country of origin, packaging, condition, working condition, quantity, dimensions, HS code, item group, sending type, selling type, and notes \cite{meeting-notes}. Some fields are directly visible on labels, some are inferred from product context, and some should remain user-entered. The extraction flow handles this by exposing only answerable fields to extraction and leaving review-time correction to the operator. The persistence implications of this separation are reflected in the local data model shown in Figure~\ref{fig:persistence-model}.

@@ -23,15 +23,17 @@ Figure~\ref{fig:unified-process} shows a Unified Process-style lifecycle model a
 Unified Process-style lifecycle & Used as an overall SDLC planning model with overlapping disciplines. & Requirements, design, implementation, and validation had to evolve together. \\
 Sprint workflow & Used to divide the work into short increments. & The prototype needed frequent integration and adjustment as technical risks became visible. \\
 Risk-driven development & High-risk workflow boundaries were implemented early. & Capture, extraction, validation, review, and submission had to work together. \\
-Human-in-the-loop design & AI output was treated as draft data requiring user review. & Product labels may be incomplete, ambiguous, damaged, or visually unclear. \\
 \bottomrule
 \end{tabularx}
 \caption{Methodological approach used in the project.}
+\label{tab:method-approach}
 \end{table}
+
+Table~\ref{tab:method-approach} summarizes the methodological elements and why they were chosen. In this thesis, Unified Process-style (Table~\ref{tab:glossary}) means an iterative process where requirements, design, implementation, and testing overlap rather than run as one-way handovers.
 
 \section{Project Phases}
 
-The work was divided into five practical phases. The phases were not strict handover points. Later implementation work still affected requirements and design, but the phase structure made the work easier to plan, implement, and document.
+The work was divided into five practical phases. The phases were not strict handover points. Later implementation work still affected requirements and design, but the phase structure made the work easier to plan, implement, and document. Table~\ref{tab:project-phases} lists the phase outputs.
 
 \begin{table}[H]
 \centering
@@ -41,17 +43,18 @@ The work was divided into five practical phases. The phases were not strict hand
 \midrule
 Discovery & What problem should the prototype solve? & Analysed the project brief, meeting notes, label fields, and workflow constraints. & Scope, field list, initial requirements. \\
 Foundation & Can the app support the basic workflow? & Created Expo project structure, routing, local storage, and capture/import flow. & Running app skeleton with persisted attempts. \\
-Extraction & Can label evidence become structured data? & Added barcode detection, provider-based vision-language extraction, prompt contract, parsing, and schema validation. & Draft structured JSON from label images. \\
+Extraction & Can label evidence become structured data? & Added barcode detection, provider-based vision-language extraction, prompt contract, parsing, and schema validation. & Draft AI-generated structured JSON from label images. \\
 Review and ingest & Can the user safely accept and send data? & Added Confirm and Edit screen, accepted payloads, HTTP submission, idempotency, and offline queue. & Reviewed payload submission flow. \\
 Hardening & Is the prototype reliable enough to demonstrate? & Added settings, diagnostics, retry behavior, automated tests, and documentation. & Testable prototype and thesis evidence. \\
 \bottomrule
 \end{tabularx}
 \caption{Project phases and outputs.}
+\label{tab:project-phases}
 \end{table}
 
 \section{Requirements Elicitation and Refinement}
 
-Requirements were collected from the external project brief, the Buy2Sell meeting, and implementation findings. The requirements were then organized into functional requirements, non-functional requirements, and KPI targets.
+Requirements were collected from the external project brief, the Buy2Sell meeting, and implementation findings. The requirements were then organized into functional requirements, non-functional requirements, and KPI targets, as shown in Table~\ref{tab:requirement-sources}.
 
 \begin{table}[H]
 \centering
@@ -65,6 +68,7 @@ Implementation findings & Provider output may be malformed, network delivery may
 \bottomrule
 \end{tabularx}
 \caption{Requirement sources and their effect on the prototype.}
+\label{tab:requirement-sources}
 \end{table}
 
 \section{Key Engineering Decisions}
@@ -77,7 +81,7 @@ Several decisions were made during development because of project constraints, t
 \toprule
 \textbf{Decision} & \textbf{Alternatives considered} & \textbf{Reason} & \textbf{Consequence} \\
 \midrule
-Use Expo managed workflow & React Native, custom native modules. & Faster cross-platform development and access to camera, image picker, SQLite, and secure storage. & Local VLM execution was excluded from the prototype. \\
+Use Expo managed workflow & Bare React Native, custom native modules. & Faster cross-platform development and access to camera, image picker, SQLite, and secure storage. & Local VLM execution was excluded from the prototype. \\
 Use VLM-first extraction & OCR-only pipeline, OCR plus rules, OCR plus LLM. & The system needed field mapping, not only text transcription. & Provider output had to be validated and reviewed. \\
 Keep barcode decoding separate & Let the VLM read barcodes from the image. & Barcode values are deterministic evidence when decoded successfully. & Barcodes are merged conservatively into the result. \\
 Require human confirmation & Fully automatic submission. & Some fields are ambiguous or require operator judgement. & Submission only happens after user acceptance. \\
@@ -85,7 +89,10 @@ Use local queueing & Cancel submission on network error. & Workshop network and 
 \bottomrule
 \end{tabularx}
 \caption{Key engineering decisions and consequences.}
+\label{tab:key-decisions}
 \end{table}
+
+In Table~\ref{tab:key-decisions}, deterministic merge means that extracted values are combined using fixed rules: barcode evidence is deduplicated, preserved in enrichment fields, and used to suggest \path{eanOrUpc} only for compatible barcode types. Ambiguous barcode candidates are recorded as conflicts instead of silently overwriting structured fields.
 
 \section{Development Workflow}
 
@@ -107,9 +114,11 @@ Settings & Configure providers, endpoint, and credentials. & Settings repository
 \bottomrule
 \end{tabularx}
 \caption{Development increments and validation methods.}
+\label{tab:development-increments}
 \end{table}
 
 \section{Technology Selection}
+\label{sec:technology-selection}
 
 Technology choices were made according to the prototype goals: cross-platform mobile support, camera access, local persistence, configurable remote extraction, and a reviewable JSON submission flow.
 
@@ -122,39 +131,19 @@ Technology choices were made according to the prototype goals: cross-platform mo
 Mobile runtime & Expo and React Native & Cross-platform mobile implementation with web support and managed access to device features. \\
 Routing & Expo Router & File-based navigation that matched the application screens. \\
 Language & TypeScript & Static checking for structured data and service boundaries. \\
-Persistence & Expo SQLite and Drizzle & Local storage for attempts, settings, queue items, and typed database access. \\
+Persistence & Expo SQLite and Drizzle ORM & Local storage for attempts, settings, queue items, and typed database access through an ORM layer. \\
 Validation & Zod & Runtime validation of model output and internal payloads. \\
 AI integration & AI SDK provider adapters & Common abstraction for provider-based vision-language extraction. \\
 Testing & Jest and React Native Testing Library & Automated validation of services, repositories, utilities, and selected UI behavior. \\
 \bottomrule
 \end{tabularx}
 \caption{Technology choices and rationale.}
+\label{tab:technology-selection}
 \end{table}
 
-The choice of Expo also introduced limitations. The managed workflow supports portability and fast development, but it makes custom native model runtimes difficult. For that reason, local vision-language inference was treated as future work rather than part of the prototype.
+Table~\ref{tab:technology-selection} also reflects a key tradeoff: Expo managed workflow supports portability and fast development, but it makes custom native model runtimes difficult. For that reason, local vision-language inference was treated as future work rather than part of the prototype.
 
-\section{Architecture and Design Method}
-
-The architecture was developed around separation of responsibilities. Route files were kept thin, screen modules handled user-facing workflow state, services coordinated business processes, repositories isolated persistence, and API modules handled provider and ingest communication.
-
-\begin{table}[H]
-\centering
-\begin{tabularx}{\textwidth}{P{0.22\textwidth}YY}
-\toprule
-\textbf{Layer or module type} & \textbf{Responsibility} & \textbf{Reason} \\
-\midrule
-Routes & Map URLs and tabs to screens. & Keeps Expo Router files small and navigation-focused. \\
-Screens & Render workflow state and collect user decisions. & Keeps UI behavior separate from persistence and integration logic. \\
-Services & Coordinate capture, extraction, submission, and queue replay. & Makes workflow behavior testable outside the UI. \\
-Repositories & Read and write attempts, queue items, and settings. & Isolates persistence details from business logic. \\
-API modules & Handle provider calls, proxy routes, and ingest transport. & Keeps external communication behind explicit boundaries. \\
-Types and schemas & Define structured item and payload contracts. & Makes model output and internal data validation consistent. \\
-\bottomrule
-\end{tabularx}
-\caption{Architecture responsibility model.}
-\end{table}
-
-The most important design principle was that AI output should not become authoritative without review. Barcode decoding, schema validation, deterministic merge rules, diagnostics, and human confirmation were therefore used as control points around the probabilistic extraction step.
+Drizzle ORM (Table~\ref{tab:glossary}) was selected to keep SQLite access typed and centralized in repository code, instead of spreading handwritten SQL across screens and services.
 
 \section{Validation Strategy}
 
@@ -172,6 +161,7 @@ KPI evaluation & Measure extraction accuracy and define separate timing targets.
 \bottomrule
 \end{tabularx}
 \caption{Validation levels used in the project.}
+\label{tab:validation-levels}
 \end{table}
 
 Automated tests validate the implemented workflow under expected and failure conditions. Extraction accuracy is handled separately in Chapter~\ref{chap:validation} because it requires real label images, reviewed ground truth, and semantic comparison. Registration time reduction is also separate because it depends on operator behavior, correction speed, and manual-entry baseline measurements.

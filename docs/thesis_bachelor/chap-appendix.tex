@@ -37,7 +37,7 @@ Artifact & Attachment & Evidence use \\
 System context diagram & \attachfile[description={System context diagram}]{artifacts/system-context.png} & Rendered architecture figure used in Chapter~\ref{chap:introduction}. \\
 Component diagram & \attachfile[description={Component diagram}]{artifacts/component-diagram.png} & Rendered architecture figure used in Chapter~\ref{chap:design}. \\
 Capture pipeline diagram & \attachfile[description={Capture pipeline diagram}]{artifacts/app-pipeline-activity.png} & Rendered activity diagram for the capture-to-ingest workflow. \\
-Entity-relationship diagram & \attachfile[description={Local entity-relationship diagram}]{artifacts/local-persistence-model.png} & Rendered local data relationship figure. \\
+Data model diagram & \attachfile[description={Local data model diagram}]{artifacts/local-persistence-model.png} & Rendered local data model figure. \\
 User-flow diagram & \attachfile[description={User-flow diagram}]{artifacts/ui-flow.png} & Rendered user-flow figure. \\
 State model diagram & \attachfile[description={Attempt state model diagram}]{artifacts/app-state-machine.png} & Rendered attempt state model. \\
 Extraction sequence diagram & \attachfile[description={Extraction sequence diagram}]{artifacts/extraction-pipeline-sequence.png} & Rendered extraction sequence diagram. \\
@@ -85,8 +85,15 @@ Settings & \attachfile[description={Lighthouse Settings}]{artifacts/lighthouse-s
 Term & Definition \\
 \midrule
 Attempt & A single capture-to-send execution record with status, metadata, and outputs. \\
+Ingest & The receiving endpoint and process that accepts reviewed JSON payloads from the app. \\
 Provider & A configured vision-language backend used for extraction. \\
+BYOK & Bring your own key. The operator configures provider and ingest credentials for the deployment context. \\
 Mode & The execution mode selected for extraction, such as remote vision-language extraction or future local vision-language extraction. \\
+Unified Process & An iterative lifecycle with overlapping disciplines (requirements, design, implementation, validation) rather than one-way phase handovers. \\
+MoSCoW & Requirement-priority method using Must, Should, Could, and Won't categories. \\
+ORM & Object-Relational Mapping. A typed layer that maps relational tables and queries to application-level code constructs. \\
+Drizzle ORM & The ORM used in this project to model SQLite tables and queries in typed TypeScript repository code. \\
+VLM & Vision-language model used to map label images to structured JSON fields. \\
 Schema version & Version identifier for the structured JSON contract. \\
 Offline queue & Persistent FIFO queue of accepted payloads waiting for network delivery. \\
 Idempotency key & Stable key derived from attempt identity to prevent duplicate ingest effects. \\
@@ -145,8 +152,8 @@ The accepted ingest payload contains reviewed structured data, barcode enrichmen
 }
 \end{lstlisting}
 
-\section{Automated Test Inventory}
-\label{app:test-inventory}
+\section{Automated Tests List}
+\label{app:automated-tests}
 
 The validation chapter summarizes test areas. This appendix lists the automated test files present in the repository so the evidence can be traced from the thesis to concrete checks.
 
@@ -165,8 +172,8 @@ Types and utilities & \path{tests/types/app-error.test.ts}, \path{tests/types/it
 Components & \path{tests/components/accessibility.test.tsx}, \path{tests/components/button.test.tsx}, \path{tests/components/diagnostic-disclosure.test.tsx}, \path{tests/components/option-picker.test.tsx} \\
 \bottomrule
 \end{tabularx}
-\caption{Automated test file inventory.}
-\label{tab:test-inventory}
+\caption{Automated tests list.}
+\label{tab:automated-tests}
 \end{table}
 
 \section{Included Evidence PDF Pages}
