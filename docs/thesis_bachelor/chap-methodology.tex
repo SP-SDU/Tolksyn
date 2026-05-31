@@ -77,11 +77,11 @@ Several decisions were made during development because of project constraints, t
 \toprule
 \textbf{Decision} & \textbf{Alternatives considered} & \textbf{Reason} & \textbf{Consequence} \\
 \midrule
-Use Expo managed workflow & Native React Native, custom native modules. & Faster cross-platform development and access to camera, image picker, SQLite, and secure storage. & Local VLM execution was excluded from the prototype. \\
+Use Expo managed workflow & React Native, custom native modules. & Faster cross-platform development and access to camera, image picker, SQLite, and secure storage. & Local VLM execution was excluded from the prototype. \\
 Use VLM-first extraction & OCR-only pipeline, OCR plus rules, OCR plus LLM. & The system needed field mapping, not only text transcription. & Provider output had to be validated and reviewed. \\
 Keep barcode decoding separate & Let the VLM read barcodes from the image. & Barcode values are deterministic evidence when decoded successfully. & Barcodes are merged conservatively into the result. \\
 Require human confirmation & Fully automatic submission. & Some fields are ambiguous or require operator judgement. & Submission only happens after user acceptance. \\
-Use local queueing & Fail submission immediately on network error. & Workshop network and endpoint availability may vary. & Accepted payloads can be replayed later. \\
+Use local queueing & Cancel submission on network error. & Workshop network and endpoint availability may vary. & Accepted payloads can be replayed later. \\
 \bottomrule
 \end{tabularx}
 \caption{Key engineering decisions and consequences.}
