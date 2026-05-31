@@ -11,7 +11,7 @@ The original request from Buy2Sell is the external project baseline. The company
 
 \section{Meeting Requirements}
 
-The in-person meeting narrowed and improved the requirement set. The company noted that competitors use multiple images on a turntable, so split-label support was recorded as a planned Should requirement rather than as the demonstrated core flow. The meeting also clarified that a phone is a sensible capture device, that remote processing should be implemented first, that local processing can be considered later, and that the team should simulate a server by posting to a mock endpoint because production server access is unavailable \cite{meeting-notes}. The meeting also introduced quality-of-life requirements such as dropdown suggestions for previously entered manufacturers and a rule that only fields answerable from the label should be exposed to the model.
+The in-person meeting narrowed and improved the requirement set. The company noted that competitors use multiple images on a turntable, so the prototype includes split-label support as a Should requirement. The meeting also clarified that a phone is a sensible capture device, that remote processing should be implemented first, that local processing can be considered later, and that the team should simulate a server by posting to a mock endpoint because production server access is unavailable \cite{meeting-notes}. The meeting also introduced quality-of-life requirements such as dropdown suggestions for previously entered manufacturers and a rule that only fields answerable from the label should be exposed to the model.
 
 \section{High-Level Requirements}
 
@@ -26,7 +26,7 @@ ID & Requirement & Priority & Acceptance summary \\
 \midrule
 FR-001 & Capture a product-label image with the device camera. & Must & User can open capture view, take a photo, store the image, and start extraction. \\
 FR-002 & Import an existing label image. & Must & User can select an image, copy it into app storage, create an attempt, and start extraction. \\
-FR-003 & Attach multiple images to one item. & Should & Planned extension: user can attach two or more images and review one merged result. \\
+FR-003 & Attach multiple images to one item. & Should & User can attach two or more images and review one merged result. \\
 FR-006 & Decode visible barcodes. & Must & Supported barcodes return value and symbology. Missing barcodes do not block extraction. \\
 FR-008 & Extract structured data using a schema-driven vision-language provider. & Must & Provider output conforms to the internal extraction schema. \\
 FR-009 & Prevent unsupported field inference. & Must & Manual-only or absent fields remain blank rather than hallucinated. \\
