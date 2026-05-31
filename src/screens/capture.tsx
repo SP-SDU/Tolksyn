@@ -1,26 +1,40 @@
-import { useCameraPermissions } from 'expo-camera';
-import { useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
-import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useCameraPermissions } from "expo-camera";
+import { useRouter } from "expo-router";
+import { useEffect, useRef, useState } from "react";
+import {
+  Alert,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 
-import { BarcodeCamera, type BarcodeCameraHandle } from '@/components/barcode-camera';
-import { ImagePreview } from '@/components/image-preview';
-import { ScanAnimation } from '@/components/scan-animation';
-import { AppHeader, BrutalFrame, StatusPill } from '@/components/ui/app-chrome';
-import { Button } from '@/components/ui/button';
-import { ScreenView } from '@/components/ui/screen';
-import { SUPPORTED_BARCODE_TYPES } from '@/constants/barcode';
-import { ToastDurations } from '@/constants/runtime';
-import { usePendingImages } from '@/hooks/use-pending-images';
-import { useAppRuntime } from '@/providers/app-provider';
-import { useToast } from '@/providers/toast-provider';
-import { getErrorMessage } from '@/types/app-error';
-import { isAbortError } from '@/utils/abort';
-import type { BarcodeHit } from '@/utils/merge-extraction-result';
+import {
+  BarcodeCamera,
+  type BarcodeCameraHandle,
+} from "@/components/barcode-camera";
+import { ImagePreview } from "@/components/image-preview";
+import { ScanAnimation } from "@/components/scan-animation";
+import { AppHeader, BrutalFrame, StatusPill } from "@/components/ui/app-chrome";
+import { Button } from "@/components/ui/button";
+import { ScreenView } from "@/components/ui/screen";
+import { SUPPORTED_BARCODE_TYPES } from "@/constants/barcode";
+import { ToastDurations } from "@/constants/runtime";
+import { usePendingImages } from "@/hooks/use-pending-images";
+import { useAppRuntime } from "@/providers/app-provider";
+import { useToast } from "@/providers/toast-provider";
+import { getErrorMessage } from "@/types/app-error";
+import { isAbortError } from "@/utils/abort";
+import type { BarcodeHit } from "@/utils/merge-extraction-result";
 
-type PipelineStage = 'idle' | 'running' | 'done' | 'failed';
+type PipelineStage = "idle" | "running" | "done" | "failed";
 
-function isSameCapturedImage(a: string | null | undefined, b: string | null | undefined): boolean {
+function isSameCapturedImage(
+  a: string | null | undefined,
+  b: string | null | undefined,
+): boolean {
   if (!a || !b) return false;
   return a === b;
 }
@@ -33,7 +47,9 @@ export function CaptureScreen() {
   const abortControllerRef = useRef<AbortController | null>(null);
   const [permission, requestPermission] = useCameraPermissions();
   const [isProcessing, setIsProcessing] = useState(false);
-  const [processingImageUris, setProcessingImageUris] = useState<string[] | null>(null);
+  const [processingImageUris, setProcessingImageUris] = useState<
+    string[] | null
+  >(null);
   const {
     pendingImages,
     addCameraImage,
@@ -44,10 +60,12 @@ export function CaptureScreen() {
     getLastCameraImage,
     getProcessingInput,
   } = usePendingImages();
-  const [barcodeState, setBarcodeState] = useState<PipelineStage>('idle');
-  const [extractionState, setExtractionState] = useState<PipelineStage>('idle');
-  const [websearchState, setWebsearchState] = useState<PipelineStage>('idle');
-  const [activeStageStartedAt, setActiveStageStartedAt] = useState<number | null>(null);
+  const [barcodeState, setBarcodeState] = useState<PipelineStage>("idle");
+  const [extractionState, setExtractionState] = useState<PipelineStage>("idle");
+  const [websearchState, setWebsearchState] = useState<PipelineStage>("idle");
+  const [activeStageStartedAt, setActiveStageStartedAt] = useState<
+    number | null
+  >(null);
   const [elapsedSec, setElapsedSec] = useState(0);
   const [liveBarcodes, setLiveBarcodes] = useState<BarcodeHit[]>([]);
 
@@ -58,7 +76,9 @@ export function CaptureScreen() {
     }
 
     const update = () => {
-      setElapsedSec(Math.max(0, Math.floor((Date.now() - activeStageStartedAt) / 1000)));
+      setElapsedSec(
+        Math.max(0, Math.floor((Date.now() - activeStageStartedAt) / 1000)),
+      );
     };
 
     update();
@@ -78,9 +98,13 @@ export function CaptureScreen() {
 
       addGalleryImages(uris);
     } catch (error) {
-      const message = getErrorMessage(error, 'Unable to import image.');
-      toast.show({ text: message, tone: 'error', durationMs: ToastDurations.errorMs });
-      Alert.alert('Import failed', message);
+      const message = getErrorMessage(error, "Unable to import image.");
+      toast.show({
+        text: message,
+        tone: "error",
+        durationMs: ToastDurations.errorMs,
+      });
+      Alert.alert("Import failed", message);
     }
   }
 
@@ -88,8 +112,15 @@ export function CaptureScreen() {
     if (!permission?.granted) {
       const result = await requestPermission();
       if (!result.granted) {
-        toast.show({ text: 'Camera permission is required.', tone: 'warning', durationMs: ToastDurations.warningMs });
-        Alert.alert('Permission required', 'Camera access is required to capture images.');
+        toast.show({
+          text: "Camera permission is required.",
+          tone: "warning",
+          durationMs: ToastDurations.warningMs,
+        });
+        Alert.alert(
+          "Permission required",
+          "Camera access is required to capture images.",
+        );
         return;
       }
     }
@@ -101,16 +132,16 @@ export function CaptureScreen() {
       }
 
       const capturedUri =
-        Platform.OS === 'web' && !picture.uri.startsWith('data:')
-          ? `${picture.uri}${picture.uri.includes('?') ? '&' : '?'}captureId=${Date.now()}-${Math.random().toString(36).slice(2)}`
+        Platform.OS === "web" && !picture.uri.startsWith("data:")
+          ? `${picture.uri}${picture.uri.includes("?") ? "&" : "?"}captureId=${Date.now()}-${Math.random().toString(36).slice(2)}`
           : picture.uri;
 
       const lastCameraImage = getLastCameraImage();
 
       if (isSameCapturedImage(lastCameraImage?.uri, capturedUri)) {
         toast.show({
-          text: 'The camera returned the same image. Move the camera or wait a moment, then try again.',
-          tone: 'warning',
+          text: "The camera returned the same image. Move the camera or wait a moment, then try again.",
+          tone: "warning",
           durationMs: ToastDurations.errorMs,
         });
         return;
@@ -118,9 +149,13 @@ export function CaptureScreen() {
 
       addCameraImage(capturedUri);
     } catch (error) {
-      const message = getErrorMessage(error, 'Unable to capture image.');
-      toast.show({ text: message, tone: 'error', durationMs: ToastDurations.errorMs });
-      Alert.alert('Capture failed', message);
+      const message = getErrorMessage(error, "Unable to capture image.");
+      toast.show({
+        text: message,
+        tone: "error",
+        durationMs: ToastDurations.errorMs,
+      });
+      Alert.alert("Capture failed", message);
     }
   }
 
@@ -129,7 +164,7 @@ export function CaptureScreen() {
     inputUris,
     liveBarcodes,
   }: {
-    source: 'camera' | 'gallery';
+    source: "camera" | "gallery";
     inputUris: string[];
     liveBarcodes?: BarcodeHit[];
   }): Promise<boolean> {
@@ -149,31 +184,31 @@ export function CaptureScreen() {
         liveBarcodes,
         signal: controller.signal,
         onProgress(stage) {
-          if (stage === 'barcode_started') {
-            setBarcodeState('running');
+          if (stage === "barcode_started") {
+            setBarcodeState("running");
             setActiveStageStartedAt(Date.now());
           }
 
-          if (stage === 'barcode_done') {
-            setBarcodeState('done');
+          if (stage === "barcode_done") {
+            setBarcodeState("done");
           }
 
-          if (stage === 'extraction_started') {
-            setExtractionState('running');
+          if (stage === "extraction_started") {
+            setExtractionState("running");
             setActiveStageStartedAt(Date.now());
           }
 
-          if (stage === 'extraction_done') {
-            setExtractionState('done');
+          if (stage === "extraction_done") {
+            setExtractionState("done");
           }
 
-          if (stage === 'websearch_started') {
-            setWebsearchState('running');
+          if (stage === "websearch_started") {
+            setWebsearchState("running");
             setActiveStageStartedAt(Date.now());
           }
 
-          if (stage === 'websearch_done') {
-            setWebsearchState('done');
+          if (stage === "websearch_done") {
+            setWebsearchState("done");
           }
         },
       });
@@ -183,19 +218,26 @@ export function CaptureScreen() {
       setProcessingImageUris(null);
       resetPipelineState();
       setIsProcessing(false);
-      router.push({ pathname: '/confirm/[attemptId]', params: { attemptId } });
+      router.push({ pathname: "/confirm/[attemptId]", params: { attemptId } });
       return true;
     } catch (error) {
       if (isAbortError(error) || controller.signal.aborted) {
         return false;
       }
 
-      console.error('[tolksyn] Capture processing failed:', error);
-      setExtractionState('failed');
+      console.error("[tolksyn] Capture processing failed:", error);
+      setExtractionState("failed");
 
-      const message = getErrorMessage(error, 'Unable to extract data from image.');
-      toast.show({ text: `Extraction failed: ${message}`, tone: 'error', durationMs: ToastDurations.errorMs });
-      Alert.alert('Extraction failed', message);
+      const message = getErrorMessage(
+        error,
+        "Unable to extract data from image.",
+      );
+      toast.show({
+        text: `Extraction failed: ${message}`,
+        tone: "error",
+        durationMs: ToastDurations.errorMs,
+      });
+      Alert.alert("Extraction failed", message);
       return false;
     } finally {
       if (abortControllerRef.current === controller) {
@@ -234,9 +276,9 @@ export function CaptureScreen() {
   }
 
   function resetPipelineState() {
-    setBarcodeState('idle');
-    setExtractionState('idle');
-    setWebsearchState('idle');
+    setBarcodeState("idle");
+    setExtractionState("idle");
+    setWebsearchState("idle");
     setActiveStageStartedAt(null);
     setElapsedSec(0);
   }
@@ -247,7 +289,14 @@ export function CaptureScreen() {
         eyebrow="Tolksyn"
         title="Capture"
         meta="Frame the label. Capture once. Review before sending."
-        action={<Button variant="secondary" size="sm" label="Settings" onPress={() => router.push('/settings')} />}
+        action={
+          <Button
+            variant="secondary"
+            size="sm"
+            label="Settings"
+            onPress={() => router.push("/settings")}
+          />
+        }
       />
 
       <View className="relative flex-1 overflow-hidden border-4 border-border bg-black">
@@ -274,7 +323,8 @@ export function CaptureScreen() {
             onBarcodeScanned={(event) => {
               setLiveBarcodes((current) => {
                 const exists = current.some(
-                  (barcode) => barcode.data === event.data && barcode.type === event.type,
+                  (barcode) =>
+                    barcode.data === event.data && barcode.type === event.type,
                 );
 
                 if (exists) {
@@ -298,7 +348,10 @@ export function CaptureScreen() {
         )}
 
         {!processingImageUris?.length && pendingImages.length === 0 ? (
-          <View pointerEvents="none" className="absolute inset-0 items-center justify-center">
+          <View
+            pointerEvents="none"
+            className="absolute inset-0 items-center justify-center"
+          >
             <View className="h-36 w-36 border-2 border-caution opacity-70" />
             <View className="absolute h-2 w-2 bg-caution" />
           </View>
@@ -311,14 +364,21 @@ export function CaptureScreen() {
             <Text className="text-xs font-black uppercase tracking-wide text-muted">
               Captured images
             </Text>
-            <StatusPill label={`${pendingImages.length} ready`} tone="success" />
+            <StatusPill
+              label={`${pendingImages.length} ready`}
+              tone="success"
+            />
           </View>
 
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
             className="w-full"
-            contentContainerStyle={{ flexDirection: 'row', gap: 8, paddingBottom: 2 }}
+            contentContainerStyle={{
+              flexDirection: "row",
+              gap: 8,
+              paddingBottom: 2,
+            }}
           >
             {pendingImages.map((image) => (
               <View
@@ -338,7 +398,9 @@ export function CaptureScreen() {
                   onPress={() => removePendingImage(image.id)}
                   className="absolute right-1 top-1 h-6 w-6 items-center justify-center rounded-full border-2 border-border bg-paper"
                 >
-                  <Text className="text-xs font-black leading-4 text-foreground">×</Text>
+                  <Text className="text-xs font-black leading-4 text-foreground">
+                    ×
+                  </Text>
                 </Pressable>
               </View>
             ))}
@@ -349,8 +411,12 @@ export function CaptureScreen() {
               onPress={handleGalleryImport}
               className="h-20 w-20 shrink-0 items-center justify-center border-2 border-dashed border-border bg-background"
             >
-              <Text className="text-3xl font-black leading-8 text-foreground">+</Text>
-              <Text className="text-[10px] font-black uppercase leading-3 text-muted">Gallery</Text>
+              <Text className="text-3xl font-black leading-8 text-foreground">
+                +
+              </Text>
+              <Text className="text-[10px] font-black uppercase leading-3 text-muted">
+                Gallery
+              </Text>
             </Pressable>
           </ScrollView>
         </BrutalFrame>
@@ -358,12 +424,33 @@ export function CaptureScreen() {
 
       <BrutalFrame className="gap-3 bg-paper">
         <View className="flex-row flex-wrap gap-2">
-          <StatusPill label={permission?.granted ? 'Camera Ready' : 'Camera Locked'} tone={permission?.granted ? 'success' : 'warning'} />
-          <StatusPill label={liveBarcodes.length ? `${liveBarcodes.length} Barcode${liveBarcodes.length === 1 ? '' : 's'}` : 'No Barcode Yet'} tone={liveBarcodes.length ? 'warning' : 'default'} />
-          <StatusPill label={`Barcode: ${formatStage(barcodeState, barcodeState === 'running' ? elapsedSec : undefined)}`} tone={stageTone(barcodeState)} />
-          <StatusPill label={`Vision-language: ${formatStage(extractionState, extractionState === 'running' ? elapsedSec : undefined)}`} tone={stageTone(extractionState)} />
-          <StatusPill label={`Websearch: ${formatStage(websearchState, websearchState === 'running' ? elapsedSec : undefined)}`} tone={stageTone(websearchState)} />
-          {isProcessing ? <StatusPill label="Processing" tone="warning" /> : null}
+          <StatusPill
+            label={permission?.granted ? "Camera Ready" : "Camera Locked"}
+            tone={permission?.granted ? "success" : "warning"}
+          />
+          <StatusPill
+            label={
+              liveBarcodes.length
+                ? `${liveBarcodes.length} Barcode${liveBarcodes.length === 1 ? "" : "s"}`
+                : "No Barcode Yet"
+            }
+            tone={liveBarcodes.length ? "warning" : "default"}
+          />
+          <StatusPill
+            label={`Barcode: ${formatStage(barcodeState, barcodeState === "running" ? elapsedSec : undefined)}`}
+            tone={stageTone(barcodeState)}
+          />
+          <StatusPill
+            label={`Vision-language: ${formatStage(extractionState, extractionState === "running" ? elapsedSec : undefined)}`}
+            tone={stageTone(extractionState)}
+          />
+          <StatusPill
+            label={`Websearch: ${formatStage(websearchState, websearchState === "running" ? elapsedSec : undefined)}`}
+            tone={stageTone(websearchState)}
+          />
+          {isProcessing ? (
+            <StatusPill label="Processing" tone="warning" />
+          ) : null}
         </View>
 
         {isProcessing ? (
@@ -407,7 +494,7 @@ export function CaptureScreen() {
               className="flex-1 min-h-12 px-3 py-3"
               textClassName="text-center text-xs leading-5"
               disabled={isProcessing}
-              label={isProcessing ? 'Processing…' : 'Capture'}
+              label={isProcessing ? "Processing…" : "Capture"}
               onPress={handleCapture}
             />
           </View>
@@ -418,35 +505,37 @@ export function CaptureScreen() {
 }
 
 function formatStage(stage: PipelineStage, elapsedSec?: number) {
-  if (stage === 'running') {
-    return elapsedSec == null ? 'running' : `running (${elapsedSec}s)`;
+  if (stage === "running") {
+    return elapsedSec == null ? "running" : `running (${elapsedSec}s)`;
   }
 
-  if (stage === 'done') {
-    return 'done';
+  if (stage === "done") {
+    return "done";
   }
 
-  if (stage === 'failed') {
-    return 'failed';
+  if (stage === "failed") {
+    return "failed";
   }
 
-  return 'waiting';
+  return "waiting";
 }
 
-function stageTone(stage: PipelineStage): 'default' | 'warning' | 'success' | 'danger' {
-  if (stage === 'failed') {
-    return 'danger';
+function stageTone(
+  stage: PipelineStage,
+): "default" | "warning" | "success" | "danger" {
+  if (stage === "failed") {
+    return "danger";
   }
 
-  if (stage === 'done') {
-    return 'success';
+  if (stage === "done") {
+    return "success";
   }
 
-  if (stage === 'running') {
-    return 'warning';
+  if (stage === "running") {
+    return "warning";
   }
 
-  return 'default';
+  return "default";
 }
 
 const styles = StyleSheet.create({
@@ -461,7 +550,7 @@ const styles = StyleSheet.create({
 
 function nextPaint() {
   return new Promise<void>((resolve) => {
-    if (typeof requestAnimationFrame === 'function') {
+    if (typeof requestAnimationFrame === "function") {
       requestAnimationFrame(() => resolve());
       return;
     }

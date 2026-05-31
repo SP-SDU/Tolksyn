@@ -1,9 +1,14 @@
-import type { BarcodeHit } from '@/utils/merge-extraction-result';
-import { EXPO_TO_WEB_BARCODE_TYPE, WEB_TO_EXPO_BARCODE_TYPE } from '@/constants/barcode';
-import { RuntimeLimits } from '@/constants/runtime';
+import {
+  EXPO_TO_WEB_BARCODE_TYPE,
+  WEB_TO_EXPO_BARCODE_TYPE,
+} from "@/constants/barcode";
+import { RuntimeLimits } from "@/constants/runtime";
+import type { BarcodeHit } from "@/utils/merge-extraction-result";
 
 type WebBarcodeDetector = {
-  detect(source: ImageBitmapSource): Promise<{ format: string; rawValue: string }[]>;
+  detect(
+    source: ImageBitmapSource,
+  ): Promise<{ format: string; rawValue: string }[]>;
 };
 
 type WebBarcodeDetectorConstructor = {
@@ -13,24 +18,37 @@ type WebBarcodeDetectorConstructor = {
 
 export function createBarcodeDetector() {
   return {
-    async detect({ imageUri, allowedTypes }: { imageUri: string; allowedTypes?: string[] }): Promise<BarcodeHit[]> {
+    async detect({
+      imageUri,
+      allowedTypes,
+    }: {
+      imageUri: string;
+      allowedTypes?: string[];
+    }): Promise<BarcodeHit[]> {
       return detectWebBarcodes(imageUri, allowedTypes);
     },
   };
 }
 
-async function detectWebBarcodes(imageUri: string, allowedTypes?: string[]): Promise<BarcodeHit[]> {
+async function detectWebBarcodes(
+  imageUri: string,
+  allowedTypes?: string[],
+): Promise<BarcodeHit[]> {
   const BarcodeDetector = await resolveBarcodeDetector();
-  if (typeof BarcodeDetector !== 'function' || typeof Image !== 'function') {
+  if (typeof BarcodeDetector !== "function" || typeof Image !== "function") {
     return [];
   }
 
-  let formats = allowedTypes?.map((type) => EXPO_TO_WEB_BARCODE_TYPE[type] ?? type).filter(Boolean);
+  let formats = allowedTypes
+    ?.map((type) => EXPO_TO_WEB_BARCODE_TYPE[type] ?? type)
+    .filter(Boolean);
   if (!formats?.length) {
     formats = Object.values(EXPO_TO_WEB_BARCODE_TYPE);
   }
 
-  const supportedFormats = await BarcodeDetector.getSupportedFormats?.().catch(() => undefined);
+  const supportedFormats = await BarcodeDetector.getSupportedFormats?.().catch(
+    () => undefined,
+  );
   if (supportedFormats?.length) {
     const supported = new Set(supportedFormats);
     formats = formats.filter((format) => supported.has(format));
@@ -40,7 +58,10 @@ async function detectWebBarcodes(imageUri: string, allowedTypes?: string[]): Pro
   }
 
   const controller = new AbortController();
-  const timeoutHandle = setTimeout(() => controller.abort(), RuntimeLimits.barcodeImageTimeoutMs);
+  const timeoutHandle = setTimeout(
+    () => controller.abort(),
+    RuntimeLimits.barcodeImageTimeoutMs,
+  );
 
   try {
     const response = await fetch(imageUri, { signal: controller.signal });
@@ -48,13 +69,16 @@ async function detectWebBarcodes(imageUri: string, allowedTypes?: string[]): Pro
       return [];
     }
 
-    const contentLength = response.headers.get('Content-Length');
-    if (contentLength && Number(contentLength) > RuntimeLimits.maxBarcodeImageBytes) {
+    const contentLength = response.headers.get("Content-Length");
+    if (
+      contentLength &&
+      Number(contentLength) > RuntimeLimits.maxBarcodeImageBytes
+    ) {
       return [];
     }
 
-    const contentType = response.headers.get('Content-Type') ?? '';
-    if (contentType && !contentType.toLowerCase().startsWith('image/')) {
+    const contentType = response.headers.get("Content-Type") ?? "";
+    if (contentType && !contentType.toLowerCase().startsWith("image/")) {
       return [];
     }
 
@@ -81,32 +105,39 @@ async function detectWebBarcodes(imageUri: string, allowedTypes?: string[]): Pro
   }
 }
 
-async function resolveBarcodeDetector(): Promise<WebBarcodeDetectorConstructor | undefined> {
-  const NativeBarcodeDetector = (globalThis as unknown as { BarcodeDetector?: WebBarcodeDetectorConstructor }).BarcodeDetector;
-  if (typeof NativeBarcodeDetector === 'function') {
+async function resolveBarcodeDetector(): Promise<
+  WebBarcodeDetectorConstructor | undefined
+> {
+  const NativeBarcodeDetector = (
+    globalThis as unknown as { BarcodeDetector?: WebBarcodeDetectorConstructor }
+  ).BarcodeDetector;
+  if (typeof NativeBarcodeDetector === "function") {
     return NativeBarcodeDetector;
   }
 
   try {
-    const { BarcodeDetector } = await import('barcode-detector');
+    const { BarcodeDetector } = await import("barcode-detector");
     return BarcodeDetector as unknown as WebBarcodeDetectorConstructor;
   } catch {
     return undefined;
   }
 }
 
-async function loadImageSource(blob: Blob): Promise<{ source: HTMLImageElement; cleanup(): void }> {
+async function loadImageSource(
+  blob: Blob,
+): Promise<{ source: HTMLImageElement; cleanup(): void }> {
   const objectUrl = URL.createObjectURL(blob);
   const image = new Image();
   image.src = objectUrl;
 
   try {
-    if (typeof image.decode === 'function') {
+    if (typeof image.decode === "function") {
       await image.decode();
     } else {
       await new Promise<void>((resolve, reject) => {
         image.onload = () => resolve();
-        image.onerror = () => reject(new Error('Unable to load barcode image.'));
+        image.onerror = () =>
+          reject(new Error("Unable to load barcode image."));
       });
     }
 

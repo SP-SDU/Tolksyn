@@ -1,15 +1,15 @@
-import { buildExtractionPrompt } from '@/api/providers/extraction-prompt';
-import { RuntimeLimits } from '@/constants/runtime';
-import { providerErrorMessage } from '@/api/providers/remote-extraction-shared';
+import { buildExtractionPrompt } from "@/api/providers/extraction-prompt";
+import { providerErrorMessage } from "@/api/providers/remote-extraction-shared";
 import type {
   ExtractionPromptAttempt,
   RemoteExtractionInput,
   RemoteExtractionProvider,
   RemoteExtractionResult,
-} from '@/api/providers/remote-extraction-types';
-import { AppError } from '@/types/app-error';
-import { emptyStructuredItem } from '@/types/item-schema';
-import { createAbortError, isAbortError, throwIfAborted } from '@/utils/abort';
+} from "@/api/providers/remote-extraction-types";
+import { RuntimeLimits } from "@/constants/runtime";
+import { AppError } from "@/types/app-error";
+import { emptyStructuredItem } from "@/types/item-schema";
+import { createAbortError, isAbortError, throwIfAborted } from "@/utils/abort";
 
 export async function extractWithRetries({
   fallbackProvider,
@@ -23,9 +23,13 @@ export async function extractWithRetries({
   const attempts: ExtractionPromptAttempt[] = [];
   const basePrompt = input.prompt ?? buildExtractionPrompt();
   let prompt = basePrompt;
-  let lastError = '';
+  let lastError = "";
 
-  for (let index = 1; index <= RuntimeLimits.maxExtractionAttempts; index += 1) {
+  for (
+    let index = 1;
+    index <= RuntimeLimits.maxExtractionAttempts;
+    index += 1
+  ) {
     try {
       throwIfAborted(input.signal);
       const result = await extract({
@@ -55,7 +59,7 @@ export async function extractWithRetries({
         throw createAbortError();
       }
 
-      const code = error instanceof AppError ? error.code : 'internal';
+      const code = error instanceof AppError ? error.code : "internal";
       const message = providerErrorMessage(error);
       attempts.push({
         attempt: index,
@@ -102,15 +106,20 @@ export async function extractWithRetries({
     },
     extractionDiagnostics: {
       failed: true,
-      finalError: lastError || 'Extraction failed.',
+      finalError: lastError || "Extraction failed.",
       fallbackStructuredJson: true,
       attempts,
     },
   };
 }
 
-function isRetryable(code: AppError['code']) {
-  return ['schema_violation', 'invalid_response', 'internal', 'extraction_fallback'].includes(code);
+function isRetryable(code: AppError["code"]) {
+  return [
+    "schema_violation",
+    "invalid_response",
+    "internal",
+    "extraction_fallback",
+  ].includes(code);
 }
 
 function buildRepairPrompt({
@@ -126,9 +135,9 @@ function buildRepairPrompt({
     basePrompt,
     `RETRY ATTEMPT ${attempt}.`,
     `Previous error: ${error}`,
-    'Fix your previous output and return one single valid JSON object only.',
-    'No markdown, no prose, no code fences, no partial fragments.',
+    "Fix your previous output and return one single valid JSON object only.",
+    "No markdown, no prose, no code fences, no partial fragments.",
   ]
     .filter(Boolean)
-    .join(' ');
+    .join(" ");
 }

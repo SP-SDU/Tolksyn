@@ -1,6 +1,6 @@
-import { Directory, File, Paths } from 'expo-file-system';
-import * as ImageManipulator from 'expo-image-manipulator';
-import { RuntimeLimits } from '@/constants/runtime';
+import { RuntimeLimits } from "@/constants/runtime";
+import { Directory, File, Paths } from "expo-file-system";
+import * as ImageManipulator from "expo-image-manipulator";
 
 type PersistedImage = {
   imageUri: string;
@@ -13,7 +13,10 @@ type PersistedImage = {
 
 export function createImageStore() {
   return {
-    async persistImages(input: { inputUris: string[]; attemptId: string }): Promise<PersistedImage[]> {
+    async persistImages(input: {
+      inputUris: string[];
+      attemptId: string;
+    }): Promise<PersistedImage[]> {
       return persistImages(input);
     },
 
@@ -35,11 +38,13 @@ async function persistImages({
   attemptId: string;
 }): Promise<PersistedImage[]> {
   if (inputUris.length === 0) {
-    throw new Error('At least one image is required.');
+    throw new Error("At least one image is required.");
   }
 
   return Promise.all(
-    inputUris.map((inputUri, index) => persistSingleImage({ inputUri, attemptId, index })),
+    inputUris.map((inputUri, index) =>
+      persistSingleImage({ inputUri, attemptId, index }),
+    ),
   );
 }
 
@@ -52,14 +57,27 @@ async function persistSingleImage({
   attemptId: string;
   index: number;
 }): Promise<PersistedImage> {
-  const normalized = await renderImage(inputUri, RuntimeLimits.normalizedImageWidth, 0.78, true);
-  const thumbnail = await renderImage(normalized.uri, RuntimeLimits.thumbnailImageWidth, 0.68, false);
+  const normalized = await renderImage(
+    inputUri,
+    RuntimeLimits.normalizedImageWidth,
+    0.78,
+    true,
+  );
+  const thumbnail = await renderImage(
+    normalized.uri,
+    RuntimeLimits.thumbnailImageWidth,
+    0.68,
+    false,
+  );
 
   const imagesDirectory = getImagesDirectory();
   imagesDirectory.create({ idempotent: true, intermediates: true });
 
   const imageFile = new File(imagesDirectory, `${attemptId}-${index}.webp`);
-  const thumbnailFile = new File(imagesDirectory, `${attemptId}-${index}.thumb.webp`);
+  const thumbnailFile = new File(
+    imagesDirectory,
+    `${attemptId}-${index}.thumb.webp`,
+  );
 
   if (imageFile.exists) {
     imageFile.delete();
@@ -76,14 +94,14 @@ async function persistSingleImage({
     imageUri: imageFile.uri,
     thumbnailUri: thumbnailFile.uri,
     imageBase64: normalized.base64,
-    mimeType: 'image/webp',
+    mimeType: "image/webp",
     width: normalized.width,
     height: normalized.height,
   };
 }
 
 function getImagesDirectory(): Directory {
-  return new Directory(Paths.document, 'tolksyn', 'images');
+  return new Directory(Paths.document, "tolksyn", "images");
 }
 
 async function deleteAttemptImages(attemptId: string): Promise<void> {
@@ -100,7 +118,10 @@ async function deleteAttemptImages(attemptId: string): Promise<void> {
       }
     }
   } catch (error) {
-    console.warn('[tolksyn] Failed to delete attempt images:', error instanceof Error ? error.message : String(error));
+    console.warn(
+      "[tolksyn] Failed to delete attempt images:",
+      error instanceof Error ? error.message : String(error),
+    );
   }
 }
 
@@ -112,7 +133,10 @@ async function deleteAllImages(): Promise<void> {
       imagesDirectory.delete();
     }
   } catch (error) {
-    console.warn('[tolksyn] Failed to delete image directory:', error instanceof Error ? error.message : String(error));
+    console.warn(
+      "[tolksyn] Failed to delete image directory:",
+      error instanceof Error ? error.message : String(error),
+    );
   }
 }
 
@@ -139,7 +163,7 @@ async function renderImage(
 
   return {
     uri: saved.uri,
-    base64: saved.base64 ?? '',
+    base64: saved.base64 ?? "",
     width: saved.width,
     height: saved.height,
   };

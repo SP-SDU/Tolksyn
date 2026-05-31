@@ -1,12 +1,12 @@
-import type { ProviderAuthMode } from '@/services/provider-catalog';
+import type { ProviderAuthMode } from "@/services/provider-catalog";
 
 export type ProviderAuth =
   | {
-      type: 'api';
+      type: "api";
       key: string;
     }
   | {
-      type: 'oauth';
+      type: "oauth";
       refresh: string;
       access: string;
       expires: number;
@@ -42,23 +42,32 @@ export type AppSettings = {
 export function defaultSettings(): AppSettings {
   return {
     provider: {
-      id: 'openai',
-      model: 'gpt-5.3-codex',
+      id: "openai",
+      model: "gpt-5.3-codex",
       modelVariant: null,
       timeoutMs: 6000,
       showExperimentalProviders: false,
       authModeByProvider: {
-        openai: 'oauth',
+        openai: "oauth",
       },
       auth: {},
     },
     ingest: {
-      endpointUrl: 'http://10.0.2.2:8787/ingest',
-      apiKey: '',
+      endpointUrl: "http://10.0.2.2:8787/ingest",
+      apiKey: "",
     },
     barcode: {
       enabled: true,
-      allowedTypes: ['ean13', 'ean8', 'upc_a', 'upc_e', 'code128', 'code39', 'qr', 'pdf417'],
+      allowedTypes: [
+        "ean13",
+        "ean8",
+        "upc_a",
+        "upc_e",
+        "code128",
+        "code39",
+        "qr",
+        "pdf417",
+      ],
     },
     webSearch: {
       enabled: false,

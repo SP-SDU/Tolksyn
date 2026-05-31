@@ -1,39 +1,39 @@
-import { z } from 'zod';
+import { z } from "zod";
 
 const textFieldNames = [
-  'sku',
-  'manufacturer',
-  'productNumber',
-  'productText',
-  'productVersion',
-  'eanOrUpc',
-  'countryOfOrigin',
-  'itemCategory',
-  'packaging',
-  'condition',
-  'externalCondition',
-  'workingCondition',
-  'storagePosition',
-  'externalNote',
-  'internalNote',
-  'status',
-  'advancedInformation',
-  'hsCode',
-  'itemGroup',
-  'reference',
-  'sendingType',
-  'sellingType',
-  'link',
+  "sku",
+  "manufacturer",
+  "productNumber",
+  "productText",
+  "productVersion",
+  "eanOrUpc",
+  "countryOfOrigin",
+  "itemCategory",
+  "packaging",
+  "condition",
+  "externalCondition",
+  "workingCondition",
+  "storagePosition",
+  "externalNote",
+  "internalNote",
+  "status",
+  "advancedInformation",
+  "hsCode",
+  "itemGroup",
+  "reference",
+  "sendingType",
+  "sellingType",
+  "link",
 ] as const;
 
 const numericFieldNames = [
-  'quantity',
-  'batchSize',
-  'priceEur',
-  'weightKg',
-  'heightMm',
-  'widthMm',
-  'lengthMm',
+  "quantity",
+  "batchSize",
+  "priceEur",
+  "weightKg",
+  "heightMm",
+  "widthMm",
+  "lengthMm",
 ] as const;
 
 type TextFieldName = (typeof textFieldNames)[number];
@@ -42,7 +42,9 @@ type NumericFieldName = (typeof numericFieldNames)[number];
 export type StructuredItem = Record<TextFieldName, string | null> &
   Record<NumericFieldName, number | null>;
 
-export type StructuredItemInput = Partial<Record<TextFieldName, string | null>> &
+export type StructuredItemInput = Partial<
+  Record<TextFieldName, string | null>
+> &
   Partial<Record<NumericFieldName, number | string | null>>;
 
 type ValidationSuccess = {
@@ -128,8 +130,13 @@ export function emptyStructuredItem(): StructuredItem {
   };
 }
 
-export function normalizeStructuredItemInput(input: Partial<Record<keyof StructuredItem, unknown>>): Record<keyof StructuredItem, string | number | null> {
-  const normalized = emptyStructuredItem() as Record<keyof StructuredItem, string | number | null>;
+export function normalizeStructuredItemInput(
+  input: Partial<Record<keyof StructuredItem, unknown>>,
+): Record<keyof StructuredItem, string | number | null> {
+  const normalized = emptyStructuredItem() as Record<
+    keyof StructuredItem,
+    string | number | null
+  >;
 
   for (const field of textFieldNames) {
     normalized[field] = normalizeText(input[field]);
@@ -139,28 +146,32 @@ export function normalizeStructuredItemInput(input: Partial<Record<keyof Structu
     normalized[field] = normalizeNumberLike(input[field]);
   }
 
-  if (normalized.link && typeof normalized.link === 'string') {
+  if (normalized.link && typeof normalized.link === "string") {
     normalized.link = normalized.link.trim();
   }
 
   return normalized;
 }
 
-export function validateStructuredItem(input: Partial<Record<keyof StructuredItem, unknown>>): ValidationSuccess | ValidationFailure {
+export function validateStructuredItem(
+  input: Partial<Record<keyof StructuredItem, unknown>>,
+): ValidationSuccess | ValidationFailure {
   const normalized = normalizeStructuredItemInput(input);
   const fieldErrors: Partial<Record<keyof StructuredItem, string[]>> = {};
 
   for (const field of numericFieldNames) {
     const value = normalized[field];
-    if (typeof value === 'string') {
-      fieldErrors[field] = ['Expected a number'];
+    if (typeof value === "string") {
+      fieldErrors[field] = ["Expected a number"];
     }
   }
 
-  if (typeof normalized.link === 'string') {
-    const urlResult = z.url({ error: 'Expected a valid URL' }).safeParse(normalized.link);
+  if (typeof normalized.link === "string") {
+    const urlResult = z
+      .url({ error: "Expected a valid URL" })
+      .safeParse(normalized.link);
     if (!urlResult.success) {
-      fieldErrors.link = ['Expected a valid URL'];
+      fieldErrors.link = ["Expected a valid URL"];
     }
   }
 
@@ -199,7 +210,7 @@ function normalizeNumberLike(value: unknown): number | string | null {
     return null;
   }
 
-  if (typeof value === 'number') {
+  if (typeof value === "number") {
     return Number.isFinite(value) ? value : String(value);
   }
 

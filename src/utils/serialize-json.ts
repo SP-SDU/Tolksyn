@@ -1,4 +1,4 @@
-import type { SubmissionPayload } from '../services/submission-service';
+import type { SubmissionPayload } from "../services/submission-service";
 
 /**
  * Serializes a SubmissionPayload into a pretty-printed JSON string.

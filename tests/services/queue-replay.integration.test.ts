@@ -1,30 +1,33 @@
-import Database from 'better-sqlite3';
-import { drizzle } from 'drizzle-orm/better-sqlite3';
+import Database from "better-sqlite3";
+import { drizzle } from "drizzle-orm/better-sqlite3";
 
-import * as schema from '@/db/schema';
-import { createQueueRepository } from '@/repositories/queue-repository';
-import { drainQueue, type QueueSubmissionResult } from '@/services/queue-worker';
+import * as schema from "@/db/schema";
+import { createQueueRepository } from "@/repositories/queue-repository";
+import {
+  drainQueue,
+  type QueueSubmissionResult,
+} from "@/services/queue-worker";
 
-describe('queue replay integration', () => {
-  test('keeps strict FIFO blocking when head item is retryable after restart', async () => {
-    const sqlite = new Database(':memory:');
+describe("queue replay integration", () => {
+  test("keeps strict FIFO blocking when head item is retryable after restart", async () => {
+    const sqlite = new Database(":memory:");
     const db1 = createTestDb(sqlite);
     const queue1 = createQueueRepository(db1 as any);
 
     await queue1.enqueue({
-      id: 'queue-1',
-      attemptId: 'attempt-1',
+      id: "queue-1",
+      attemptId: "attempt-1",
       acceptedRevision: 1,
-      idempotencyKey: 'k1',
-      payload: { attemptId: 'attempt-1' },
+      idempotencyKey: "k1",
+      payload: { attemptId: "attempt-1" },
       enqueuedAt: 10,
     });
     await queue1.enqueue({
-      id: 'queue-2',
-      attemptId: 'attempt-2',
+      id: "queue-2",
+      attemptId: "attempt-2",
       acceptedRevision: 1,
-      idempotencyKey: 'k2',
-      payload: { attemptId: 'attempt-2' },
+      idempotencyKey: "k2",
+      payload: { attemptId: "attempt-2" },
       enqueuedAt: 11,
     });
 
@@ -32,9 +35,9 @@ describe('queue replay integration', () => {
     const queue2 = createQueueRepository(db2 as any);
     const delivered: string[] = [];
     const outcomes: QueueSubmissionResult[] = [
-      { kind: 'retryable_error', errorCode: 'network_unavailable' },
-      { kind: 'success' },
-      { kind: 'success' },
+      { kind: "retryable_error", errorCode: "network_unavailable" },
+      { kind: "success" },
+      { kind: "success" },
     ];
 
     await drainQueue({
@@ -43,13 +46,13 @@ describe('queue replay integration', () => {
       transport: {
         submit: async (item) => {
           delivered.push(item.id);
-          return outcomes.shift() ?? { kind: 'success' };
+          return outcomes.shift() ?? { kind: "success" };
         },
       },
       computeDelayMs: () => 100,
     });
 
-    expect(delivered).toEqual(['queue-1']);
+    expect(delivered).toEqual(["queue-1"]);
 
     await drainQueue({
       now: 1100,
@@ -57,13 +60,13 @@ describe('queue replay integration', () => {
       transport: {
         submit: async (item) => {
           delivered.push(item.id);
-          return outcomes.shift() ?? { kind: 'success' };
+          return outcomes.shift() ?? { kind: "success" };
         },
       },
       computeDelayMs: () => 100,
     });
 
-    expect(delivered).toEqual(['queue-1', 'queue-1', 'queue-2']);
+    expect(delivered).toEqual(["queue-1", "queue-1", "queue-2"]);
   });
 });
 

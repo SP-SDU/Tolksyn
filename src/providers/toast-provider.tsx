@@ -1,8 +1,15 @@
-import { createContext, useContext, useEffect, useMemo, useState, type PropsWithChildren } from 'react';
-import { Text, View } from 'react-native';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type PropsWithChildren,
+} from "react";
+import { Text, View } from "react-native";
 
-import { AppDesign } from '@/constants/design';
-import { ToastDurations } from '@/constants/runtime';
+import { AppDesign } from "@/constants/design";
+import { ToastDurations } from "@/constants/runtime";
 import {
   enqueueToast,
   initialToastState,
@@ -11,7 +18,7 @@ import {
   upsertProgressToast,
   type ToastEntry,
   type ToastTone,
-} from '@/services/toast-state';
+} from "@/services/toast-state";
 
 type ToastApi = {
   show(input: { text: string; tone?: ToastTone; durationMs?: number }): void;
@@ -26,7 +33,11 @@ export function ToastProvider({ children }: PropsWithChildren) {
   const [state, setState] = useState(initialToastState);
 
   useEffect(() => {
-    if (!state.active || state.active.mode !== 'message' || state.active.durationMs <= 0) {
+    if (
+      !state.active ||
+      state.active.mode !== "message" ||
+      state.active.durationMs <= 0
+    ) {
       return;
     }
 
@@ -41,23 +52,23 @@ export function ToastProvider({ children }: PropsWithChildren) {
 
   const api = useMemo<ToastApi>(
     () => ({
-      show({ text, tone = 'info', durationMs = ToastDurations.messageMs }) {
+      show({ text, tone = "info", durationMs = ToastDurations.messageMs }) {
         const entry: ToastEntry = {
           id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
           text,
           tone,
-          mode: 'message',
+          mode: "message",
           durationMs,
         };
         setState((current) => enqueueToast(current, entry));
       },
 
-      progress({ id, text, tone = 'info' }) {
+      progress({ id, text, tone = "info" }) {
         const entry: ToastEntry = {
           id,
           text,
           tone,
-          mode: 'progress',
+          mode: "progress",
           durationMs: 0,
         };
         setState((current) => upsertProgressToast(current, entry));
@@ -67,8 +78,8 @@ export function ToastProvider({ children }: PropsWithChildren) {
         const entry: ToastEntry = {
           id: `${id}:done:${Date.now()}`,
           text,
-          tone: 'success',
-          mode: 'message',
+          tone: "success",
+          mode: "message",
           durationMs,
         };
         setState((current) => replaceProgressWithMessage(current, id, entry));
@@ -78,8 +89,8 @@ export function ToastProvider({ children }: PropsWithChildren) {
         const entry: ToastEntry = {
           id: `${id}:fail:${Date.now()}`,
           text,
-          tone: 'error',
-          mode: 'message',
+          tone: "error",
+          mode: "message",
           durationMs,
         };
         setState((current) => replaceProgressWithMessage(current, id, entry));
@@ -99,7 +110,7 @@ export function ToastProvider({ children }: PropsWithChildren) {
 export function useToast() {
   const value = useContext(ToastContext);
   if (!value) {
-    throw new Error('useToast must be used within ToastProvider.');
+    throw new Error("useToast must be used within ToastProvider.");
   }
 
   return value;
@@ -111,15 +122,22 @@ function ToastHost({ entry }: { entry?: ToastEntry }) {
   }
 
   return (
-    <View pointerEvents="box-none" className="absolute inset-0 z-50 justify-end px-4 pb-6">
+    <View
+      pointerEvents="box-none"
+      className="absolute inset-0 z-50 justify-end px-4 pb-6"
+    >
       <View
         className="px-4 py-3"
         style={{
           backgroundColor: toneContainer(entry.tone),
           borderColor: AppDesign.color.ink,
           borderWidth: AppDesign.border.solid,
-        }}>
-        <Text className="text-sm font-black uppercase tracking-wide" style={{ color: toneText(entry.tone) }}>
+        }}
+      >
+        <Text
+          className="text-sm font-black uppercase tracking-wide"
+          style={{ color: toneText(entry.tone) }}
+        >
           {entry.text}
         </Text>
       </View>
@@ -128,15 +146,15 @@ function ToastHost({ entry }: { entry?: ToastEntry }) {
 }
 
 function toneContainer(tone: ToastTone) {
-  if (tone === 'success') {
+  if (tone === "success") {
     return AppDesign.color.blueSoft;
   }
 
-  if (tone === 'warning') {
+  if (tone === "warning") {
     return AppDesign.color.yellow;
   }
 
-  if (tone === 'error') {
+  if (tone === "error") {
     return AppDesign.color.red;
   }
 
@@ -144,11 +162,11 @@ function toneContainer(tone: ToastTone) {
 }
 
 function toneText(tone: ToastTone) {
-  if (tone === 'success') {
+  if (tone === "success") {
     return AppDesign.color.blue;
   }
 
-  if (tone === 'error') {
+  if (tone === "error") {
     return AppDesign.color.paper;
   }
 

@@ -1,7 +1,7 @@
-import { useEffect, useRef } from 'react';
-import { View, type ViewStyle } from 'react-native';
+import { useEffect, useRef } from "react";
+import { View, type ViewStyle } from "react-native";
 
-import { AppDesign } from '@/constants/design';
+import { AppDesign } from "@/constants/design";
 
 const KEYFRAMES = `
 @keyframes scan-finder {
@@ -30,7 +30,7 @@ export function ScanAnimation() {
   const styleRef = useRef<HTMLStyleElement | null>(null);
 
   useEffect(() => {
-    const style = document.createElement('style');
+    const style = document.createElement("style");
     style.textContent = KEYFRAMES;
     document.head.appendChild(style);
     styleRef.current = style;
@@ -43,14 +43,18 @@ export function ScanAnimation() {
   const finder = <ScanFinder />;
 
   return (
-    <View pointerEvents="none" className="absolute inset-0 items-center justify-center bg-black/15">
+    <View
+      pointerEvents="none"
+      className="absolute inset-0 items-center justify-center bg-black/15"
+    >
       <View
         style={
           {
-            animation: 'scan-finder 3.9s ease-in-out infinite',
-            willChange: 'transform',
+            animation: "scan-finder 3.9s ease-in-out infinite",
+            willChange: "transform",
           } as unknown as ViewStyle
-        }>
+        }
+      >
         {finder}
       </View>
     </View>
@@ -65,10 +69,13 @@ function ScanFinder() {
         height: 92,
         borderWidth: 3,
         borderColor: AppDesign.color.yellow,
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}>
-      <View style={{ width: 8, height: 8, backgroundColor: AppDesign.color.yellow }} />
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <View
+        style={{ width: 8, height: 8, backgroundColor: AppDesign.color.yellow }}
+      />
     </View>
   );
 }

@@ -1,5 +1,5 @@
-import type { StructuredItem } from '@/types/item-schema';
-import type { ExtractionPromptAttempt } from '@/api/providers/remote-extraction-types';
+import type { ExtractionPromptAttempt } from "@/api/providers/remote-extraction-types";
+import type { StructuredItem } from "@/types/item-schema";
 
 export type BarcodeHit = {
   type: string;
@@ -16,8 +16,8 @@ export type ExtractionMetadata = {
 export type WebSearchEnrichment = {
   enabled: boolean;
   attempts: {
-    type: 'query_planning' | 'exa_search' | 'webfetch' | 'reconciliation';
-    status: 'success' | 'failed';
+    type: "query_planning" | "exa_search" | "webfetch" | "reconciliation";
+    status: "success" | "failed";
     prompt?: string;
     responseText?: string;
     query?: string;
@@ -66,7 +66,7 @@ export type MergeExtractionInput = {
 };
 
 export type BarcodeConflict = {
-  field: 'eanOrUpc';
+  field: "eanOrUpc";
   values: string[];
 };
 
@@ -81,9 +81,11 @@ export type MergeExtractionResult = MergeExtractionInput & {
   };
 };
 
-const barcodeSuggestionTypes = new Set(['ean13', 'ean8', 'upc_a', 'upc_e']);
+const barcodeSuggestionTypes = new Set(["ean13", "ean8", "upc_a", "upc_e"]);
 
-export function mergeExtractionResult(input: MergeExtractionInput): MergeExtractionResult {
+export function mergeExtractionResult(
+  input: MergeExtractionInput,
+): MergeExtractionResult {
   const detected = dedupeBarcodes(input.barcodes);
   const eanOrUpcCandidates = detected
     .filter((barcode) => barcodeSuggestionTypes.has(barcode.type))
@@ -97,9 +99,10 @@ export function mergeExtractionResult(input: MergeExtractionInput): MergeExtract
       relatedFieldSuggestions: {
         eanOrUpc: eanOrUpcCandidates[0] ?? null,
       },
-      conflicts: eanOrUpcCandidates.length > 1
-        ? [{ field: 'eanOrUpc', values: eanOrUpcCandidates }]
-        : [],
+      conflicts:
+        eanOrUpcCandidates.length > 1
+          ? [{ field: "eanOrUpc", values: eanOrUpcCandidates }]
+          : [],
     },
   };
 }

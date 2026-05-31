@@ -1,24 +1,24 @@
-import { createSettingsRepository } from '@/repositories/settings-repository';
+import { createSettingsRepository } from "@/repositories/settings-repository";
 
-describe('settings repository web fallback', () => {
-  test('loads persisted settings from secret store when sqlite value is malformed', async () => {
+describe("settings repository web fallback", () => {
+  test("loads persisted settings from secret store when sqlite value is malformed", async () => {
     const valid = JSON.stringify({
       provider: {
-        id: 'github-copilot',
-        endpointUrl: 'https://api.githubcopilot.com/chat/completions',
-        model: 'gpt-4.1',
+        id: "github-copilot",
+        endpointUrl: "https://api.githubcopilot.com/chat/completions",
+        model: "gpt-4.1",
         timeoutMs: 6000,
         showExperimentalProviders: true,
         authModeByProvider: {
-          'github-copilot': 'oauth',
+          "github-copilot": "oauth",
         },
       },
       ingest: {
-        endpointUrl: 'https://example.com/ingest',
+        endpointUrl: "https://example.com/ingest",
       },
       barcode: {
         enabled: true,
-        allowedTypes: ['ean13'],
+        allowedTypes: ["ean13"],
       },
       webSearch: {
         enabled: true,
@@ -26,16 +26,16 @@ describe('settings repository web fallback', () => {
     });
 
     const secrets = createSecretStore({
-      'tolksyn.settings.web': valid,
-      'tolksyn.secret.provider_auth': JSON.stringify({
-        'github-copilot': {
-          type: 'oauth',
-          refresh: 'r',
-          access: 'a',
+      "tolksyn.settings.web": valid,
+      "tolksyn.secret.provider_auth": JSON.stringify({
+        "github-copilot": {
+          type: "oauth",
+          refresh: "r",
+          access: "a",
           expires: 0,
         },
       }),
-      'tolksyn.secret.ingest_api_key': 'ingest',
+      "tolksyn.secret.ingest_api_key": "ingest",
     });
 
     const db = {
@@ -48,7 +48,8 @@ describe('settings repository web fallback', () => {
                   limit() {
                     return Promise.resolve([
                       {
-                        value: '{"provider":{"id":"openai","endpointUrl":"https://api.openai.com/v1/chat/completions"',
+                        value:
+                          '{"provider":{"id":"openai","endpointUrl":"https://api.openai.com/v1/chat/completions"',
                       },
                     ]);
                   },
@@ -74,13 +75,13 @@ describe('settings repository web fallback', () => {
     const repo = createSettingsRepository({ db: db as any, secrets });
     const settings = await repo.getSettings();
 
-    expect(settings.provider.id).toBe('github-copilot');
+    expect(settings.provider.id).toBe("github-copilot");
     expect(settings.provider.showExperimentalProviders).toBe(true);
     expect(settings.webSearch.enabled).toBe(true);
-    expect(settings.provider.auth['github-copilot']).toEqual({
-      type: 'oauth',
-      refresh: 'r',
-      access: 'a',
+    expect(settings.provider.auth["github-copilot"]).toEqual({
+      type: "oauth",
+      refresh: "r",
+      access: "a",
       expires: 0,
     });
   });

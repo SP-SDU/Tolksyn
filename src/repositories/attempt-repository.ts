@@ -1,27 +1,27 @@
-import { desc, eq, inArray } from 'drizzle-orm';
-import type { ExpoSQLiteDatabase } from 'drizzle-orm/expo-sqlite';
-import type { SQLiteDatabase } from 'expo-sqlite';
+import { desc, eq, inArray } from "drizzle-orm";
+import type { ExpoSQLiteDatabase } from "drizzle-orm/expo-sqlite";
+import type { SQLiteDatabase } from "expo-sqlite";
 
-import { attemptsTable } from '@/db/schema';
-import type * as schema from '@/db/schema';
-import type { AttemptImage } from '@/types/attempt-image';
-import type { StructuredItem } from '@/types/item-schema';
-import type { MergeExtractionResult } from '@/utils/merge-extraction-result';
+import type * as schema from "@/db/schema";
+import { attemptsTable } from "@/db/schema";
+import type { AttemptImage } from "@/types/attempt-image";
+import type { StructuredItem } from "@/types/item-schema";
+import type { MergeExtractionResult } from "@/utils/merge-extraction-result";
 
 const MAX_ATTEMPTS = 20;
 
 export type AttemptStatus =
-  | 'captured'
-  | 'ready_for_review'
-  | 'queued'
-  | 'sent'
-  | 'extract_failed'
-  | 'send_failed'
-  | 'discarded';
+  | "captured"
+  | "ready_for_review"
+  | "queued"
+  | "sent"
+  | "extract_failed"
+  | "send_failed"
+  | "discarded";
 
 export type AttemptRecord = {
   id: string;
-  source: 'camera' | 'gallery';
+  source: "camera" | "gallery";
   images: AttemptImage[];
   createdAt: number;
   updatedAt: number;
@@ -29,24 +29,31 @@ export type AttemptRecord = {
   acceptedRevision: number;
   draftStructuredJson?: StructuredItem;
   extractionResult?: MergeExtractionResult;
-  extractionDiagnostics?: MergeExtractionResult['extractionDiagnostics'];
+  extractionDiagnostics?: MergeExtractionResult["extractionDiagnostics"];
   errorCode?: string;
 };
 
 type DbLike = ExpoSQLiteDatabase<typeof schema>;
 
-export function createAttemptRepository(db: DbLike, sqlite?: SQLiteDatabase, hooks?: { onDelete?: (id: string) => void | Promise<void>, onPrune?: (ids: string[]) => void | Promise<void> }) {
+export function createAttemptRepository(
+  db: DbLike,
+  sqlite?: SQLiteDatabase,
+  hooks?: {
+    onDelete?: (id: string) => void | Promise<void>;
+    onPrune?: (ids: string[]) => void | Promise<void>;
+  },
+) {
   return {
     async create(input: {
       id: string;
-      source: AttemptRecord['source'];
+      source: AttemptRecord["source"];
       images: AttemptImage[];
       createdAt: number;
     }): Promise<AttemptRecord> {
       const attempt: AttemptRecord = {
         ...input,
         updatedAt: input.createdAt,
-        status: 'captured',
+        status: "captured",
         acceptedRevision: 0,
       };
 
@@ -55,20 +62,26 @@ export function createAttemptRepository(db: DbLike, sqlite?: SQLiteDatabase, hoo
       return attempt;
     },
 
-    async saveExtractionResult(id: string, result: MergeExtractionResult): Promise<void> {
+    async saveExtractionResult(
+      id: string,
+      result: MergeExtractionResult,
+    ): Promise<void> {
       await db
         .update(attemptsTable)
         .set({
           extractionResult: JSON.stringify(result),
           draftStructuredJson: JSON.stringify(result.structuredJson),
-          status: 'ready_for_review',
+          status: "ready_for_review",
           updatedAt: Date.now(),
         })
         .where(eq(attemptsTable.id, id));
       await pruneAttempts(db, sqlite, hooks);
     },
 
-    async saveDraft(id: string, draftStructuredJson: StructuredItem): Promise<void> {
+    async saveDraft(
+      id: string,
+      draftStructuredJson: StructuredItem,
+    ): Promise<void> {
       await db
         .update(attemptsTable)
         .set({
@@ -83,7 +96,7 @@ export function createAttemptRepository(db: DbLike, sqlite?: SQLiteDatabase, hoo
       await db
         .update(attemptsTable)
         .set({
-          status: 'queued',
+          status: "queued",
           acceptedRevision,
           updatedAt: Date.now(),
         })
@@ -95,7 +108,7 @@ export function createAttemptRepository(db: DbLike, sqlite?: SQLiteDatabase, hoo
       await db
         .update(attemptsTable)
         .set({
-          status: 'sent',
+          status: "sent",
           updatedAt: Date.now(),
         })
         .where(eq(attemptsTable.id, id));
@@ -106,7 +119,7 @@ export function createAttemptRepository(db: DbLike, sqlite?: SQLiteDatabase, hoo
       await db
         .update(attemptsTable)
         .set({
-          status: 'send_failed',
+          status: "send_failed",
           errorCode,
           updatedAt: Date.now(),
         })
@@ -117,18 +130,16 @@ export function createAttemptRepository(db: DbLike, sqlite?: SQLiteDatabase, hoo
     async deleteById(id: string): Promise<void> {
       if (sqlite?.runAsync) {
         try {
-          await sqlite.runAsync('delete from attempts where id = ?', id);
+          await sqlite.runAsync("delete from attempts where id = ?", id);
           await hooks?.onDelete?.(id);
           return;
-        } catch {
-        }
+        } catch {}
       }
 
       await db.delete(attemptsTable).where(eq(attemptsTable.id, id));
       try {
         await hooks?.onDelete?.(id);
-      } catch {
-      }
+      } catch {}
     },
 
     async getById(id: string): Promise<AttemptRecord | null> {
@@ -157,23 +168,32 @@ export function createAttemptRepository(db: DbLike, sqlite?: SQLiteDatabase, hoo
 
           return {
             id: row.id,
-            source: row.source as AttemptRecord['source'],
+            source: row.source as AttemptRecord["source"],
             images: parseAttemptImages(row.imageUri, row.thumbnailUri),
             createdAt: row.createdAt,
             updatedAt: row.updatedAt,
             status: row.status as AttemptStatus,
             acceptedRevision: row.acceptedRevision,
-            draftStructuredJson: parseJsonOrUndefined<StructuredItem>(row.draftStructuredJson),
-            extractionResult: parseJsonOrUndefined<MergeExtractionResult>(row.extractionResult),
-            extractionDiagnostics: parseExtractionDiagnostics(row.extractionResult),
+            draftStructuredJson: parseJsonOrUndefined<StructuredItem>(
+              row.draftStructuredJson,
+            ),
+            extractionResult: parseJsonOrUndefined<MergeExtractionResult>(
+              row.extractionResult,
+            ),
+            extractionDiagnostics: parseExtractionDiagnostics(
+              row.extractionResult,
+            ),
             errorCode: row.errorCode ?? undefined,
           };
-        } catch {
-        }
+        } catch {}
       }
 
       try {
-        const rows = await db.select().from(attemptsTable).where(eq(attemptsTable.id, id)).limit(1);
+        const rows = await db
+          .select()
+          .from(attemptsTable)
+          .where(eq(attemptsTable.id, id))
+          .limit(1);
         const row = rows[0];
 
         return row ? deserializeAttempt(row) : null;
@@ -200,7 +220,7 @@ export function createAttemptRepository(db: DbLike, sqlite?: SQLiteDatabase, hoo
 
           return {
             id: base.id,
-            source: base.source as AttemptRecord['source'],
+            source: base.source as AttemptRecord["source"],
             images: parseAttemptImages(base.imageUri, base.thumbnailUri),
             createdAt: base.createdAt,
             updatedAt: base.updatedAt,
@@ -234,7 +254,7 @@ export function createAttemptRepository(db: DbLike, sqlite?: SQLiteDatabase, hoo
 
           return rows.map((row) => ({
             id: row.id,
-            source: row.source as AttemptRecord['source'],
+            source: row.source as AttemptRecord["source"],
             images: parseAttemptImages(row.imageUri, row.thumbnailUri),
             createdAt: row.createdAt,
             updatedAt: row.updatedAt,
@@ -242,8 +262,7 @@ export function createAttemptRepository(db: DbLike, sqlite?: SQLiteDatabase, hoo
             acceptedRevision: row.acceptedRevision,
             errorCode: row.errorCode ?? undefined,
           }));
-        } catch {
-        }
+        } catch {}
       }
 
       try {
@@ -265,8 +284,8 @@ export function createAttemptRepository(db: DbLike, sqlite?: SQLiteDatabase, hoo
 
         return rows.map((row) => ({
           id: row.id,
-          source: row.source as AttemptRecord['source'],
-            images: parseAttemptImages(row.imageUri, row.thumbnailUri),
+          source: row.source as AttemptRecord["source"],
+          images: parseAttemptImages(row.imageUri, row.thumbnailUri),
           createdAt: row.createdAt,
           updatedAt: row.updatedAt,
           status: row.status as AttemptStatus,
@@ -278,11 +297,16 @@ export function createAttemptRepository(db: DbLike, sqlite?: SQLiteDatabase, hoo
       }
     },
 
-    async getDistinctFieldValues(field: keyof StructuredItem, limit: number = 20): Promise<string[]> {
+    async getDistinctFieldValues(
+      field: keyof StructuredItem,
+      limit: number = 20,
+    ): Promise<string[]> {
       try {
         let rows;
         if (sqlite?.getAllAsync) {
-          rows = await sqlite.getAllAsync<{ draftStructuredJson: string | null }>(
+          rows = await sqlite.getAllAsync<{
+            draftStructuredJson: string | null;
+          }>(
             `select draft_structured_json as draftStructuredJson from attempts order by created_at desc limit ?`,
             limit,
           );
@@ -297,10 +321,12 @@ export function createAttemptRepository(db: DbLike, sqlite?: SQLiteDatabase, hoo
         const values = new Set<string>();
         for (const row of rows) {
           if (!row.draftStructuredJson) continue;
-          const parsed = parseJsonOrUndefined<StructuredItem>(row.draftStructuredJson);
-          if (parsed && typeof parsed === 'object') {
+          const parsed = parseJsonOrUndefined<StructuredItem>(
+            row.draftStructuredJson,
+          );
+          if (parsed && typeof parsed === "object") {
             const val = parsed[field];
-            if (typeof val === 'string' && val.trim().length > 0) {
+            if (typeof val === "string" && val.trim().length > 0) {
               values.add(val.trim());
             }
           }
@@ -318,28 +344,40 @@ function serializeAttempt(record: AttemptRecord) {
     id: record.id,
     source: record.source,
     imageUri: JSON.stringify(record.images.map((image) => image.imageUri)),
-    thumbnailUri: JSON.stringify(record.images.map((image) => image.thumbnailUri)),
+    thumbnailUri: JSON.stringify(
+      record.images.map((image) => image.thumbnailUri),
+    ),
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
     status: record.status,
     acceptedRevision: record.acceptedRevision,
-    draftStructuredJson: record.draftStructuredJson ? JSON.stringify(record.draftStructuredJson) : null,
-    extractionResult: record.extractionResult ? JSON.stringify(record.extractionResult) : null,
+    draftStructuredJson: record.draftStructuredJson
+      ? JSON.stringify(record.draftStructuredJson)
+      : null,
+    extractionResult: record.extractionResult
+      ? JSON.stringify(record.extractionResult)
+      : null,
     errorCode: record.errorCode ?? null,
   };
 }
 
-function deserializeAttempt(row: typeof attemptsTable.$inferSelect): AttemptRecord {
+function deserializeAttempt(
+  row: typeof attemptsTable.$inferSelect,
+): AttemptRecord {
   return {
     id: row.id,
-    source: row.source as AttemptRecord['source'],
+    source: row.source as AttemptRecord["source"],
     images: parseAttemptImages(row.imageUri, row.thumbnailUri),
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
     status: row.status as AttemptStatus,
     acceptedRevision: row.acceptedRevision,
-    draftStructuredJson: parseJsonOrUndefined<StructuredItem>(row.draftStructuredJson),
-    extractionResult: parseJsonOrUndefined<MergeExtractionResult>(row.extractionResult),
+    draftStructuredJson: parseJsonOrUndefined<StructuredItem>(
+      row.draftStructuredJson,
+    ),
+    extractionResult: parseJsonOrUndefined<MergeExtractionResult>(
+      row.extractionResult,
+    ),
     extractionDiagnostics: parseExtractionDiagnostics(row.extractionResult),
     errorCode: row.errorCode ?? undefined,
   };
@@ -354,10 +392,12 @@ function parseUriList(value: string | null | undefined): string[] {
     const parsed = JSON.parse(value);
 
     if (Array.isArray(parsed)) {
-      return parsed.filter((item): item is string => typeof item === 'string' && item.length > 0);
+      return parsed.filter(
+        (item): item is string => typeof item === "string" && item.length > 0,
+      );
     }
 
-    if (typeof parsed === 'string' && parsed.length > 0) {
+    if (typeof parsed === "string" && parsed.length > 0) {
       return [parsed];
     }
   } catch {
@@ -380,14 +420,16 @@ function parseAttemptImages(
   }));
 }
 
-function parseExtractionDiagnostics(value: string | null): MergeExtractionResult['extractionDiagnostics'] | undefined {
+function parseExtractionDiagnostics(
+  value: string | null,
+): MergeExtractionResult["extractionDiagnostics"] | undefined {
   if (!value) {
     return undefined;
   }
 
   try {
     const parsed = JSON.parse(value) as {
-      extractionDiagnostics?: MergeExtractionResult['extractionDiagnostics'];
+      extractionDiagnostics?: MergeExtractionResult["extractionDiagnostics"];
     };
     return parsed.extractionDiagnostics;
   } catch {
@@ -407,10 +449,16 @@ function parseJsonOrUndefined<T>(value: string | null): T | undefined {
   }
 }
 
-async function pruneAttempts(db: DbLike, sqlite?: SQLiteDatabase, hooks?: { onPrune?: (ids: string[]) => void | Promise<void> }): Promise<void> {
+async function pruneAttempts(
+  db: DbLike,
+  sqlite?: SQLiteDatabase,
+  hooks?: { onPrune?: (ids: string[]) => void | Promise<void> },
+): Promise<void> {
   try {
     const rows = sqlite?.getAllAsync
-      ? await sqlite.getAllAsync<{ id: string }>('select id from attempts order by created_at desc')
+      ? await sqlite.getAllAsync<{ id: string }>(
+          "select id from attempts order by created_at desc",
+        )
       : await db
           .select({ id: attemptsTable.id })
           .from(attemptsTable)
@@ -426,15 +474,23 @@ async function pruneAttempts(db: DbLike, sqlite?: SQLiteDatabase, hooks?: { onPr
     }
 
     if (sqlite?.runAsync) {
-      const placeholders = idsToDelete.map(() => '?').join(',');
-      await sqlite.runAsync(`delete from attempts where id in (${placeholders})`, idsToDelete);
+      const placeholders = idsToDelete.map(() => "?").join(",");
+      await sqlite.runAsync(
+        `delete from attempts where id in (${placeholders})`,
+        idsToDelete,
+      );
       await hooks?.onPrune?.(idsToDelete);
       return;
     }
 
-    await db.delete(attemptsTable).where(inArray(attemptsTable.id, idsToDelete));
+    await db
+      .delete(attemptsTable)
+      .where(inArray(attemptsTable.id, idsToDelete));
     await hooks?.onPrune?.(idsToDelete);
   } catch (error) {
-    console.warn('[tolksyn] Attempt pruning skipped:', error instanceof Error ? error.message : String(error));
+    console.warn(
+      "[tolksyn] Attempt pruning skipped:",
+      error instanceof Error ? error.message : String(error),
+    );
   }
 }

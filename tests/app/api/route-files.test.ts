@@ -1,9 +1,13 @@
-import { readdirSync, statSync } from 'node:fs';
-import path from 'node:path';
+import { readdirSync, statSync } from "node:fs";
+import path from "node:path";
 
-describe('api route files', () => {
-  test('does not keep non-route shared helpers inside app api routes', () => {
-    expect(listFiles(path.join(process.cwd(), 'src', 'app', 'api')).filter((file) => file.endsWith('shared.ts'))).toEqual([]);
+describe("api route files", () => {
+  test("does not keep non-route shared helpers inside app api routes", () => {
+    expect(
+      listFiles(path.join(process.cwd(), "src", "app", "api")).filter((file) =>
+        file.endsWith("shared.ts"),
+      ),
+    ).toEqual([]);
   });
 });
 

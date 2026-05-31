@@ -1,32 +1,36 @@
-import { Platform } from 'react-native';
-import { Directory, File, Paths } from 'expo-file-system';
-import * as Sharing from 'expo-sharing';
-import { serializeJson } from '../utils/serialize-json';
-import { serializeCsv } from '../utils/serialize-csv';
-import type { SubmissionPayload } from './submission-service';
-import type { StructuredItem } from '../types/item-schema';
+import { Directory, File, Paths } from "expo-file-system";
+import * as Sharing from "expo-sharing";
+import { Platform } from "react-native";
+import type { StructuredItem } from "../types/item-schema";
+import { serializeCsv } from "../utils/serialize-csv";
+import { serializeJson } from "../utils/serialize-json";
+import type { SubmissionPayload } from "./submission-service";
 
 export function createExportService() {
   return {
     async exportJson(payload: SubmissionPayload): Promise<void> {
       const content = serializeJson(payload);
       const filename = `tolksyn-${payload.attemptId}-${Date.now()}.json`;
-      await exportFile(filename, content, 'application/json');
+      await exportFile(filename, content, "application/json");
     },
 
     async exportCsv(attemptId: string, item: StructuredItem): Promise<void> {
       const content = serializeCsv(item);
       const filename = `tolksyn-${attemptId}-${Date.now()}.csv`;
-      await exportFile(filename, content, 'text/csv');
+      await exportFile(filename, content, "text/csv");
     },
   };
 }
 
-async function exportFile(filename: string, content: string, mimeType: string): Promise<void> {
-  if (Platform.OS === 'web') {
+async function exportFile(
+  filename: string,
+  content: string,
+  mimeType: string,
+): Promise<void> {
+  if (Platform.OS === "web") {
     const blob = new Blob([content], { type: mimeType });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
     a.download = filename;
     document.body.appendChild(a);
@@ -37,7 +41,7 @@ async function exportFile(filename: string, content: string, mimeType: string): 
   }
 
   // Use the Expo SDK 55 File System API
-  const exportsDir = new Directory(Paths.document, 'tolksyn', 'exports') as any;
+  const exportsDir = new Directory(Paths.document, "tolksyn", "exports") as any;
   exportsDir.create({ idempotent: true, intermediates: true });
 
   const file = new File(exportsDir, filename) as any;
@@ -47,9 +51,9 @@ async function exportFile(filename: string, content: string, mimeType: string): 
   if (isSharingAvailable) {
     await Sharing.shareAsync(file.uri, {
       mimeType,
-      dialogTitle: 'Export Tolksyn Data',
+      dialogTitle: "Export Tolksyn Data",
     });
   } else {
-    throw new Error('Sharing is not available on this device');
+    throw new Error("Sharing is not available on this device");
   }
 }

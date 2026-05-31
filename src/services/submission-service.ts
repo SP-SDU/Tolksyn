@@ -1,9 +1,12 @@
-import type { QueueSubmissionResult } from '@/services/queue-worker';
-import { AppError, type AppErrorCode } from '@/types/app-error';
-import type { BarcodeConflict, BarcodeHit } from '@/utils/merge-extraction-result';
+import type { QueueSubmissionResult } from "@/services/queue-worker";
+import { AppError, type AppErrorCode } from "@/types/app-error";
+import type {
+  BarcodeConflict,
+  BarcodeHit,
+} from "@/utils/merge-extraction-result";
 
 export type SubmissionPayload = {
-  schemaVersion: 'tolksyn.item.v1';
+  schemaVersion: "tolksyn.item.v1";
   attemptId: string;
   acceptedRevision: number;
   structuredJson: Record<string, unknown>;
@@ -29,7 +32,10 @@ export function createSubmissionService({
 }: {
   attempts: {
     markSent(attemptId: string): Promise<void> | void;
-    markQueued(attemptId: string, acceptedRevision: number): Promise<void> | void;
+    markQueued(
+      attemptId: string,
+      acceptedRevision: number,
+    ): Promise<void> | void;
     markFailed(attemptId: string, errorCode: string): Promise<void> | void;
   };
   queue: {
@@ -53,7 +59,10 @@ export function createSubmissionService({
   network: {
     isOnline(): Promise<boolean>;
   };
-  createIdempotencyKey(attemptId: string, acceptedRevision: number): Promise<string>;
+  createIdempotencyKey(
+    attemptId: string,
+    acceptedRevision: number,
+  ): Promise<string>;
   now(): number;
 }) {
   return {
@@ -65,12 +74,20 @@ export function createSubmissionService({
       attemptId: string;
       acceptedRevision: number;
       payload: SubmissionPayload;
-    }): Promise<{ outcome: 'sent' | 'queued'; idempotencyKey: string }> {
-      const idempotencyKey = await createIdempotencyKey(attemptId, acceptedRevision);
+    }): Promise<{ outcome: "sent" | "queued"; idempotencyKey: string }> {
+      const idempotencyKey = await createIdempotencyKey(
+        attemptId,
+        acceptedRevision,
+      );
 
       if (!(await network.isOnline())) {
-        await enqueueAttempt({ attemptId, acceptedRevision, payload, idempotencyKey });
-        return { outcome: 'queued', idempotencyKey };
+        await enqueueAttempt({
+          attemptId,
+          acceptedRevision,
+          payload,
+          idempotencyKey,
+        });
+        return { outcome: "queued", idempotencyKey };
       }
 
       const result = await transport.submit({
@@ -80,18 +97,26 @@ export function createSubmissionService({
         payload,
       });
 
-      if (result.kind === 'success') {
+      if (result.kind === "success") {
         await attempts.markSent(attemptId);
-        return { outcome: 'sent', idempotencyKey };
+        return { outcome: "sent", idempotencyKey };
       }
 
-      if (result.kind === 'retryable_error') {
-        await enqueueAttempt({ attemptId, acceptedRevision, payload, idempotencyKey });
-        return { outcome: 'queued', idempotencyKey };
+      if (result.kind === "retryable_error") {
+        await enqueueAttempt({
+          attemptId,
+          acceptedRevision,
+          payload,
+          idempotencyKey,
+        });
+        return { outcome: "queued", idempotencyKey };
       }
 
       await attempts.markFailed(attemptId, result.errorCode);
-      throw new AppError(result.errorCode, submissionErrorMessage(result.errorCode));
+      throw new AppError(
+        result.errorCode,
+        submissionErrorMessage(result.errorCode),
+      );
     },
   };
 
@@ -120,17 +145,17 @@ export function createSubmissionService({
 }
 
 function submissionErrorMessage(code: AppErrorCode): string {
-  if (code === 'auth_failed') {
-    return 'Submission authentication failed. Check the ingest API key in Settings.';
+  if (code === "auth_failed") {
+    return "Submission authentication failed. Check the ingest API key in Settings.";
   }
 
-  if (code === 'invalid_response') {
-    return 'Submission was rejected by the ingest endpoint.';
+  if (code === "invalid_response") {
+    return "Submission was rejected by the ingest endpoint.";
   }
 
-  if (code === 'unsupported') {
-    return 'Submission is not supported by the configured ingest endpoint.';
+  if (code === "unsupported") {
+    return "Submission is not supported by the configured ingest endpoint.";
   }
 
-  return 'Unable to submit this attempt.';
+  return "Unable to submit this attempt.";
 }

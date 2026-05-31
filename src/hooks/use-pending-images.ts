@@ -1,13 +1,16 @@
-import { useState, useCallback } from 'react';
+import { useCallback, useState } from "react";
 
 export type PendingImage = {
   id: string;
   uri: string;
-  source: 'camera' | 'gallery';
+  source: "camera" | "gallery";
   createdAt: number;
 };
 
-function createPendingImage(uri: string, source: 'camera' | 'gallery'): PendingImage {
+function createPendingImage(
+  uri: string,
+  source: "camera" | "gallery",
+): PendingImage {
   return {
     id: `${source}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
     uri,
@@ -20,11 +23,17 @@ export function usePendingImages() {
   const [pendingImages, setPendingImages] = useState<PendingImage[]>([]);
 
   const addCameraImage = useCallback((uri: string) => {
-    setPendingImages((current) => [...current, createPendingImage(uri, 'camera')]);
+    setPendingImages((current) => [
+      ...current,
+      createPendingImage(uri, "camera"),
+    ]);
   }, []);
 
   const addGalleryImages = useCallback((uris: string[]) => {
-    setPendingImages((current) => [...current, ...uris.map((uri) => createPendingImage(uri, 'gallery'))]);
+    setPendingImages((current) => [
+      ...current,
+      ...uris.map((uri) => createPendingImage(uri, "gallery")),
+    ]);
   }, []);
 
   const removePendingImage = useCallback((id: string) => {
@@ -40,12 +49,19 @@ export function usePendingImages() {
   }, []);
 
   const getLastCameraImage = useCallback((): PendingImage | undefined => {
-    return [...pendingImages].reverse().find((image) => image.source === 'camera');
+    return [...pendingImages]
+      .reverse()
+      .find((image) => image.source === "camera");
   }, [pendingImages]);
 
-  const getProcessingInput = useCallback((): { inputUris: string[]; source: 'camera' | 'gallery' } => {
+  const getProcessingInput = useCallback((): {
+    inputUris: string[];
+    source: "camera" | "gallery";
+  } => {
     const inputUris = pendingImages.map((img) => img.uri);
-    const source = pendingImages.every((img) => img.source === 'camera') ? 'camera' : 'gallery';
+    const source = pendingImages.every((img) => img.source === "camera")
+      ? "camera"
+      : "gallery";
     return { inputUris, source };
   }, [pendingImages]);
 

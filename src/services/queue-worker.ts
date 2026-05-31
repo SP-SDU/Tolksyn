@@ -1,9 +1,9 @@
-import type { AppErrorCode } from '@/types/app-error';
+import type { AppErrorCode } from "@/types/app-error";
 
 export type QueueItem = {
   id: string;
   sequence: number;
-  status: 'queued' | 'sent' | 'failed';
+  status: "queued" | "sent" | "failed";
   nextAttemptAt: number;
   retryCount: number;
   payload: unknown;
@@ -12,14 +12,19 @@ export type QueueItem = {
 };
 
 export type QueueSubmissionResult =
-  | { kind: 'success' }
-  | { kind: 'retryable_error'; errorCode: AppErrorCode }
-  | { kind: 'permanent_error'; errorCode: AppErrorCode };
+  | { kind: "success" }
+  | { kind: "retryable_error"; errorCode: AppErrorCode }
+  | { kind: "permanent_error"; errorCode: AppErrorCode };
 
 export interface QueueRepository {
   peekReady(now: number): Promise<QueueItem | null>;
   markSent(id: string): Promise<void>;
-  reschedule(id: string, nextAttemptAt: number, retryCount: number, errorCode: string): Promise<void>;
+  reschedule(
+    id: string,
+    nextAttemptAt: number,
+    retryCount: number,
+    errorCode: string,
+  ): Promise<void>;
   markFailed(id: string, errorCode: string): Promise<void>;
 }
 
@@ -46,19 +51,24 @@ export async function drainQueue({
 
     const result = await transport.submit(next);
 
-    if (result.kind === 'success') {
+    if (result.kind === "success") {
       await repository.markSent(next.id);
       continue;
     }
 
-    if (result.kind === 'permanent_error') {
+    if (result.kind === "permanent_error") {
       await repository.markFailed(next.id, result.errorCode);
       continue;
     }
 
     const retryCount = next.retryCount + 1;
     const nextAttemptAt = now + computeDelayMs(retryCount);
-    await repository.reschedule(next.id, nextAttemptAt, retryCount, result.errorCode);
+    await repository.reschedule(
+      next.id,
+      nextAttemptAt,
+      retryCount,
+      result.errorCode,
+    );
     return;
   }
 }
