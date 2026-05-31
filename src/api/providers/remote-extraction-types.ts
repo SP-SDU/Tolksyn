@@ -37,11 +37,8 @@ export type RemoteExtractionResult = {
 export type RemoteExtractionInput = {
   apiKey: string;
   model: string;
-  imageBase64: string;
-  mimeType: string;
+  images: { imageBase64: string; mimeType: string; width: number; height: number }[];
   timeoutMs: number;
-  imageWidth?: number;
-  imageHeight?: number;
   prompt?: string;
   signal?: AbortSignal;
 };

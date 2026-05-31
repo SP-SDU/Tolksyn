@@ -30,11 +30,13 @@ describe('remote extractor', () => {
     } as any);
 
     const result = await extractor.extract({
-      imageUri: 'file://img.jpg',
-      imageBase64: 'abc',
-      mimeType: 'image/jpeg',
-      width: 1200,
-      height: 800,
+      images: [{
+        imageUri: 'file://img.jpg',
+        imageBase64: 'abc',
+        mimeType: 'image/jpeg',
+        width: 1200,
+        height: 800,
+      }],
     });
 
     expect(generateTextMock).toHaveBeenCalledWith(expect.objectContaining({
@@ -66,11 +68,13 @@ describe('remote extractor', () => {
 
     await expect(
       extractor.extract({
-        imageUri: 'file://img.jpg',
-        imageBase64: 'abc',
-        mimeType: 'image/jpeg',
-        width: 1200,
-        height: 800,
+        images: [{
+          imageUri: 'file://img.jpg',
+          imageBase64: 'abc',
+          mimeType: 'image/jpeg',
+          width: 1200,
+          height: 800,
+        }],
       }),
     ).rejects.toMatchObject({ code: 'auth_failed' });
     expect(generateTextMock).not.toHaveBeenCalled();
@@ -89,11 +93,13 @@ describe('remote extractor', () => {
 
     await expect(
       extractor.extract({
-        imageUri: 'file://img.jpg',
-        imageBase64: 'abc',
-        mimeType: 'image/jpeg',
-        width: 1200,
-        height: 800,
+        images: [{
+          imageUri: 'file://img.jpg',
+          imageBase64: 'abc',
+          mimeType: 'image/jpeg',
+          width: 1200,
+          height: 800,
+        }],
       }),
     ).rejects.toMatchObject({
       code: 'unsupported',

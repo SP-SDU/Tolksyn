@@ -29,6 +29,6 @@ describe('importFromGallery', () => {
       }),
     });
 
-    expect(result).toBe('file://picked.jpg');
+    expect(result).toEqual(['file://picked.jpg']);
   });
 });

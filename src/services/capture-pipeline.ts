@@ -1,11 +1,12 @@
 import { mergeExtractionResult, type BarcodeHit, type WebSearchEnrichment } from '@/utils/merge-extraction-result';
 import { getErrorMessage } from '@/types/app-error';
+import type { AttemptImage } from '@/types/attempt-image';
 import { emptyStructuredItem, type StructuredItem } from '@/types/item-schema';
 import { isAbortError, throwIfAborted } from '@/utils/abort';
 
 export async function processImage({
   source,
-  inputUri,
+  inputUris,
   liveBarcodes,
   now,
   createAttemptId,
@@ -18,27 +19,26 @@ export async function processImage({
   signal,
 }: {
   source: 'camera' | 'gallery';
-  inputUri: string;
+  inputUris: string[];
   liveBarcodes?: BarcodeHit[];
   signal?: AbortSignal;
   now: () => number;
   createAttemptId: () => string;
   imageStore: {
-    persistImage(input: { inputUri: string; attemptId: string }): Promise<{
+    persistImages(input: { inputUris: string[]; attemptId: string }): Promise<{
       imageUri: string;
       thumbnailUri: string;
       imageBase64: string;
       mimeType: string;
       width: number;
       height: number;
-    }>;
+    }[]>;
   };
   attempts: {
     create(input: {
       id: string;
       source: 'camera' | 'gallery';
-      imageUri: string;
-      thumbnailUri: string;
+      images: AttemptImage[];
       createdAt: number;
     }): Promise<unknown>;
     saveExtractionResult(attemptId: string, result: ReturnType<typeof mergeExtractionResult>): Promise<unknown>;
@@ -46,15 +46,17 @@ export async function processImage({
     deleteById?(attemptId: string): Promise<unknown>;
   };
   barcodeDetector: {
-    detect(input: { imageUri: string; signal?: AbortSignal }): Promise<BarcodeHit[]>;
+    detect(input: { imageUris: string[]; signal?: AbortSignal }): Promise<BarcodeHit[]>;
   };
   extractor: {
     extract(input: {
-      imageUri: string;
-      imageBase64: string;
-      mimeType: string;
-      width: number;
-      height: number;
+      images: {
+        imageUri: string;
+        imageBase64: string;
+        mimeType: string;
+        width: number;
+        height: number;
+      }[];
       prompt?: string;
       signal?: AbortSignal;
     }): Promise<{
@@ -83,11 +85,13 @@ export async function processImage({
   };
   webSearchEnricher?: {
     enrich(input: {
-      imageUri: string;
-      imageBase64: string;
-      mimeType: string;
-      width: number;
-      height: number;
+      images: {
+        imageUri: string;
+        imageBase64: string;
+        mimeType: string;
+        width: number;
+        height: number;
+      }[];
       structuredJson: Awaited<ReturnType<typeof extractor.extract>>['structuredJson'];
       barcodes: BarcodeHit[];
       auxiliaryText?: string;
@@ -105,7 +109,7 @@ export async function processImage({
 
   try {
     throwIfAborted(signal);
-    const persisted = await imageStore.persistImage({ inputUri, attemptId });
+    const persisted = await imageStore.persistImages({ inputUris, attemptId });
     throwIfAborted(signal);
     const createdAt = now();
     onProgress?.('persisted');
@@ -113,8 +117,10 @@ export async function processImage({
     await attempts.create({
       id: attemptId,
       source,
-      imageUri: persisted.imageUri,
-      thumbnailUri: persisted.thumbnailUri,
+      images: persisted.map((p) => ({
+        imageUri: p.imageUri,
+        thumbnailUri: p.thumbnailUri,
+      })),
       createdAt,
     });
     created = true;
@@ -125,7 +131,7 @@ export async function processImage({
         onProgress?.('barcode_started');
         try {
           throwIfAborted(signal);
-          const barcodes = await barcodeDetector.detect({ imageUri: persisted.imageUri, signal });
+          const barcodes = await barcodeDetector.detect({ imageUris: persisted.map(p => p.imageUri), signal });
           throwIfAborted(signal);
           onProgress?.('barcode_done');
           return barcodes;
@@ -144,11 +150,13 @@ export async function processImage({
         try {
           throwIfAborted(signal);
           const extraction = await extractor.extract({
-            imageUri: persisted.imageUri,
-            imageBase64: persisted.imageBase64,
-            mimeType: persisted.mimeType,
-            width: persisted.width,
-            height: persisted.height,
+            images: persisted.map(p => ({
+              imageUri: p.imageUri,
+              imageBase64: p.imageBase64,
+              mimeType: p.mimeType,
+              width: p.width,
+              height: p.height,
+            })),
             signal,
           });
           throwIfAborted(signal);
@@ -162,8 +170,8 @@ export async function processImage({
           onProgress?.('extraction_done');
           return failedExtractionResult({
             error,
-            width: persisted.width,
-            height: persisted.height,
+            width: persisted[0]?.width ?? 0,
+            height: persisted[0]?.height ?? 0,
           });
         }
       })(),
@@ -176,11 +184,13 @@ export async function processImage({
     }
     const webSearch = await enrichWithWebSearch({
       webSearchEnricher,
-      imageUri: persisted.imageUri,
-      imageBase64: persisted.imageBase64,
-      mimeType: persisted.mimeType,
-      width: persisted.width,
-      height: persisted.height,
+      images: persisted.map(p => ({
+        imageUri: p.imageUri,
+        imageBase64: p.imageBase64,
+        mimeType: p.mimeType,
+        width: p.width,
+        height: p.height,
+      })),
       structuredJson: extracted.structuredJson,
       barcodes: allBarcodes,
       auxiliaryText: extracted.auxiliaryText,
@@ -258,11 +268,7 @@ function failedExtractionResult({
 
 async function enrichWithWebSearch({
   webSearchEnricher,
-  imageUri,
-  imageBase64,
-  mimeType,
-  width,
-  height,
+  images,
   structuredJson,
   barcodes,
   auxiliaryText,
@@ -270,11 +276,13 @@ async function enrichWithWebSearch({
   signal,
 }: {
   webSearchEnricher?: Parameters<typeof processImage>[0]['webSearchEnricher'];
-  imageUri: string;
-  imageBase64: string;
-  mimeType: string;
-  width: number;
-  height: number;
+  images: {
+    imageUri: string;
+    imageBase64: string;
+    mimeType: string;
+    width: number;
+    height: number;
+  }[];
   structuredJson: StructuredItem;
   barcodes: BarcodeHit[];
   auxiliaryText?: string;
@@ -291,11 +299,7 @@ async function enrichWithWebSearch({
   try {
     throwIfAborted(signal);
     const enriched = await webSearchEnricher.enrich({
-      imageUri,
-      imageBase64,
-      mimeType,
-      width,
-      height,
+      images,
       structuredJson,
       barcodes,
       auxiliaryText,

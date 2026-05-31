@@ -12,7 +12,7 @@ export async function importFromGallery({
       assets: { uri: string }[];
     }
   >;
-}): Promise<string | null> {
+}): Promise<string[] | null> {
   const permission = await requestPermission();
   if (!permission.granted) {
     throw new AppError('permission_denied', 'Media library permission denied by user.');
@@ -23,5 +23,5 @@ export async function importFromGallery({
     return null;
   }
 
-  return result.assets[0]?.uri ?? null;
+  return result.assets.map(asset => asset.uri);
 }

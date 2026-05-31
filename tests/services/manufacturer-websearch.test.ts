@@ -54,11 +54,13 @@ describe('manufacturer websearch enrichment', () => {
     });
 
     const result = await enricher.enrich({
-      imageUri: 'file://image.jpg',
-      imageBase64: 'abc',
-      mimeType: 'image/jpeg',
-      width: 100,
-      height: 100,
+      images: [{
+        imageUri: 'file://image.jpg',
+        imageBase64: 'abc',
+        mimeType: 'image/jpeg',
+        width: 100,
+        height: 100,
+      }],
       structuredJson: { ...emptyStructuredItem(), productNumber: '2865463' },
       barcodes: [],
     });
@@ -129,11 +131,13 @@ describe('manufacturer websearch enrichment', () => {
     });
 
     const result = await enricher.enrich({
-      imageUri: 'file://image.jpg',
-      imageBase64: 'abc',
-      mimeType: 'image/jpeg',
-      width: 100,
-      height: 100,
+      images: [{
+        imageUri: 'file://image.jpg',
+        imageBase64: 'abc',
+        mimeType: 'image/jpeg',
+        width: 100,
+        height: 100,
+      }],
       structuredJson: emptyStructuredItem(),
       barcodes: [],
     });
@@ -161,11 +165,13 @@ describe('manufacturer websearch enrichment', () => {
     });
 
     const result = await enricher.enrich({
-      imageUri: 'file://image.jpg',
-      imageBase64: 'abc',
-      mimeType: 'image/jpeg',
-      width: 100,
-      height: 100,
+      images: [{
+        imageUri: 'file://image.jpg',
+        imageBase64: 'abc',
+        mimeType: 'image/jpeg',
+        width: 100,
+        height: 100,
+      }],
       structuredJson: { ...emptyStructuredItem(), manufacturer: 'Siemens' },
       barcodes: [],
     });
@@ -217,11 +223,13 @@ describe('manufacturer websearch enrichment', () => {
     });
 
     await enricher.enrich({
-      imageUri: 'file://image.jpg',
-      imageBase64: 'abc',
-      mimeType: 'image/jpeg',
-      width: 100,
-      height: 100,
+      images: [{
+        imageUri: 'file://image.jpg',
+        imageBase64: 'abc',
+        mimeType: 'image/jpeg',
+        width: 100,
+        height: 100,
+      }],
       structuredJson: emptyStructuredItem(),
       barcodes: [],
     });

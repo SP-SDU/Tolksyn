@@ -26,11 +26,13 @@ export function createRemoteExtractor(settingsRepository: {
 }) {
   return {
     async extract(input: {
-      imageUri: string;
-      imageBase64: string;
-      mimeType: string;
-      width: number;
-      height: number;
+      images: {
+        imageUri: string;
+        imageBase64: string;
+        mimeType: string;
+        width: number;
+        height: number;
+      }[];
       prompt?: string;
       signal?: AbortSignal;
     }) {
@@ -81,11 +83,13 @@ return extractWithRetries({
         input: {
           apiKey: credential,
           model: settings.provider.model,
-          imageBase64: input.imageBase64,
-          mimeType: input.mimeType,
+          images: input.images.map(img => ({
+            imageBase64: img.imageBase64,
+            mimeType: img.mimeType,
+            width: img.width,
+            height: img.height,
+          })),
           timeoutMs: settings.provider.timeoutMs,
-          imageWidth: input.width,
-          imageHeight: input.height,
           prompt: input.prompt,
           signal: input.signal,
         },
@@ -100,7 +104,11 @@ return extractWithRetries({
                   role: 'user',
                   content: [
                     { type: 'text', text: prompt },
-                    { type: 'file', data: payload.imageBase64, mediaType: payload.mimeType },
+                    ...payload.images.map(img => ({
+                      type: 'file' as const,
+                      data: img.imageBase64,
+                      mediaType: img.mimeType,
+                    })),
                   ],
                 },
               ],
@@ -117,8 +125,8 @@ return extractWithRetries({
               metadata: {
                 provider: 'remote_ai_sdk' as const,
                 durationMs: Math.max(1, Date.now() - startedAt),
-                imageWidth: payload.imageWidth ?? 0,
-                imageHeight: payload.imageHeight ?? 0,
+                imageWidth: payload.images[0]?.width ?? 0,
+                imageHeight: payload.images[0]?.height ?? 0,
               },
             };
           } catch (error) {

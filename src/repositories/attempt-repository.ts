@@ -4,6 +4,7 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 
 import { attemptsTable } from '@/db/schema';
 import type * as schema from '@/db/schema';
+import type { AttemptImage } from '@/types/attempt-image';
 import type { StructuredItem } from '@/types/item-schema';
 import type { MergeExtractionResult } from '@/utils/merge-extraction-result';
 
@@ -21,8 +22,7 @@ export type AttemptStatus =
 export type AttemptRecord = {
   id: string;
   source: 'camera' | 'gallery';
-  imageUri: string;
-  thumbnailUri: string;
+  images: AttemptImage[];
   createdAt: number;
   updatedAt: number;
   status: AttemptStatus;
@@ -35,13 +35,12 @@ export type AttemptRecord = {
 
 type DbLike = ExpoSQLiteDatabase<typeof schema>;
 
-export function createAttemptRepository(db: DbLike, sqlite?: SQLiteDatabase) {
+export function createAttemptRepository(db: DbLike, sqlite?: SQLiteDatabase, hooks?: { onDelete?: (id: string) => void | Promise<void>, onPrune?: (ids: string[]) => void | Promise<void> }) {
   return {
     async create(input: {
       id: string;
       source: AttemptRecord['source'];
-      imageUri: string;
-      thumbnailUri: string;
+      images: AttemptImage[];
       createdAt: number;
     }): Promise<AttemptRecord> {
       const attempt: AttemptRecord = {
@@ -52,7 +51,7 @@ export function createAttemptRepository(db: DbLike, sqlite?: SQLiteDatabase) {
       };
 
       await db.insert(attemptsTable).values(serializeAttempt(attempt));
-      await pruneAttempts(db, sqlite);
+      await pruneAttempts(db, sqlite, hooks);
       return attempt;
     },
 
@@ -66,7 +65,7 @@ export function createAttemptRepository(db: DbLike, sqlite?: SQLiteDatabase) {
           updatedAt: Date.now(),
         })
         .where(eq(attemptsTable.id, id));
-      await pruneAttempts(db, sqlite);
+      await pruneAttempts(db, sqlite, hooks);
     },
 
     async saveDraft(id: string, draftStructuredJson: StructuredItem): Promise<void> {
@@ -77,7 +76,7 @@ export function createAttemptRepository(db: DbLike, sqlite?: SQLiteDatabase) {
           updatedAt: Date.now(),
         })
         .where(eq(attemptsTable.id, id));
-      await pruneAttempts(db, sqlite);
+      await pruneAttempts(db, sqlite, hooks);
     },
 
     async markQueued(id: string, acceptedRevision: number): Promise<void> {
@@ -89,7 +88,7 @@ export function createAttemptRepository(db: DbLike, sqlite?: SQLiteDatabase) {
           updatedAt: Date.now(),
         })
         .where(eq(attemptsTable.id, id));
-      await pruneAttempts(db, sqlite);
+      await pruneAttempts(db, sqlite, hooks);
     },
 
     async markSent(id: string): Promise<void> {
@@ -100,7 +99,7 @@ export function createAttemptRepository(db: DbLike, sqlite?: SQLiteDatabase) {
           updatedAt: Date.now(),
         })
         .where(eq(attemptsTable.id, id));
-      await pruneAttempts(db, sqlite);
+      await pruneAttempts(db, sqlite, hooks);
     },
 
     async markFailed(id: string, errorCode: string): Promise<void> {
@@ -112,19 +111,24 @@ export function createAttemptRepository(db: DbLike, sqlite?: SQLiteDatabase) {
           updatedAt: Date.now(),
         })
         .where(eq(attemptsTable.id, id));
-      await pruneAttempts(db, sqlite);
+      await pruneAttempts(db, sqlite, hooks);
     },
 
     async deleteById(id: string): Promise<void> {
       if (sqlite?.runAsync) {
         try {
           await sqlite.runAsync('delete from attempts where id = ?', id);
+          await hooks?.onDelete?.(id);
           return;
         } catch {
         }
       }
 
       await db.delete(attemptsTable).where(eq(attemptsTable.id, id));
+      try {
+        await hooks?.onDelete?.(id);
+      } catch {
+      }
     },
 
     async getById(id: string): Promise<AttemptRecord | null> {
@@ -154,8 +158,7 @@ export function createAttemptRepository(db: DbLike, sqlite?: SQLiteDatabase) {
           return {
             id: row.id,
             source: row.source as AttemptRecord['source'],
-            imageUri: row.imageUri,
-            thumbnailUri: row.thumbnailUri,
+            images: parseAttemptImages(row.imageUri, row.thumbnailUri),
             createdAt: row.createdAt,
             updatedAt: row.updatedAt,
             status: row.status as AttemptStatus,
@@ -198,8 +201,7 @@ export function createAttemptRepository(db: DbLike, sqlite?: SQLiteDatabase) {
           return {
             id: base.id,
             source: base.source as AttemptRecord['source'],
-            imageUri: base.imageUri,
-            thumbnailUri: base.thumbnailUri,
+            images: parseAttemptImages(base.imageUri, base.thumbnailUri),
             createdAt: base.createdAt,
             updatedAt: base.updatedAt,
             status: base.status as AttemptStatus,
@@ -233,8 +235,7 @@ export function createAttemptRepository(db: DbLike, sqlite?: SQLiteDatabase) {
           return rows.map((row) => ({
             id: row.id,
             source: row.source as AttemptRecord['source'],
-            imageUri: row.imageUri,
-            thumbnailUri: row.thumbnailUri,
+            images: parseAttemptImages(row.imageUri, row.thumbnailUri),
             createdAt: row.createdAt,
             updatedAt: row.updatedAt,
             status: row.status as AttemptStatus,
@@ -265,14 +266,46 @@ export function createAttemptRepository(db: DbLike, sqlite?: SQLiteDatabase) {
         return rows.map((row) => ({
           id: row.id,
           source: row.source as AttemptRecord['source'],
-          imageUri: row.imageUri,
-          thumbnailUri: row.thumbnailUri,
+            images: parseAttemptImages(row.imageUri, row.thumbnailUri),
           createdAt: row.createdAt,
           updatedAt: row.updatedAt,
           status: row.status as AttemptStatus,
           acceptedRevision: row.acceptedRevision,
           errorCode: row.errorCode ?? undefined,
         }));
+      } catch {
+        return [];
+      }
+    },
+
+    async getDistinctFieldValues(field: keyof StructuredItem, limit: number = 20): Promise<string[]> {
+      try {
+        let rows;
+        if (sqlite?.getAllAsync) {
+          rows = await sqlite.getAllAsync<{ draftStructuredJson: string | null }>(
+            `select draft_structured_json as draftStructuredJson from attempts order by created_at desc limit ?`,
+            limit,
+          );
+        } else {
+          rows = await db
+            .select({ draftStructuredJson: attemptsTable.draftStructuredJson })
+            .from(attemptsTable)
+            .orderBy(desc(attemptsTable.createdAt))
+            .limit(limit);
+        }
+
+        const values = new Set<string>();
+        for (const row of rows) {
+          if (!row.draftStructuredJson) continue;
+          const parsed = parseJsonOrUndefined<StructuredItem>(row.draftStructuredJson);
+          if (parsed && typeof parsed === 'object') {
+            const val = parsed[field];
+            if (typeof val === 'string' && val.trim().length > 0) {
+              values.add(val.trim());
+            }
+          }
+        }
+        return Array.from(values);
       } catch {
         return [];
       }
@@ -284,8 +317,8 @@ function serializeAttempt(record: AttemptRecord) {
   return {
     id: record.id,
     source: record.source,
-    imageUri: record.imageUri,
-    thumbnailUri: record.thumbnailUri,
+    imageUri: JSON.stringify(record.images.map((image) => image.imageUri)),
+    thumbnailUri: JSON.stringify(record.images.map((image) => image.thumbnailUri)),
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
     status: record.status,
@@ -300,8 +333,7 @@ function deserializeAttempt(row: typeof attemptsTable.$inferSelect): AttemptReco
   return {
     id: row.id,
     source: row.source as AttemptRecord['source'],
-    imageUri: row.imageUri,
-    thumbnailUri: row.thumbnailUri,
+    images: parseAttemptImages(row.imageUri, row.thumbnailUri),
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
     status: row.status as AttemptStatus,
@@ -311,6 +343,41 @@ function deserializeAttempt(row: typeof attemptsTable.$inferSelect): AttemptReco
     extractionDiagnostics: parseExtractionDiagnostics(row.extractionResult),
     errorCode: row.errorCode ?? undefined,
   };
+}
+
+function parseUriList(value: string | null | undefined): string[] {
+  if (!value || value.trim().length === 0) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(value);
+
+    if (Array.isArray(parsed)) {
+      return parsed.filter((item): item is string => typeof item === 'string' && item.length > 0);
+    }
+
+    if (typeof parsed === 'string' && parsed.length > 0) {
+      return [parsed];
+    }
+  } catch {
+    return [value];
+  }
+
+  return [];
+}
+
+function parseAttemptImages(
+  imageUriValue: string | null | undefined,
+  thumbnailUriValue: string | null | undefined,
+): AttemptImage[] {
+  const imageUris = parseUriList(imageUriValue);
+  const thumbnailUris = parseUriList(thumbnailUriValue);
+
+  return imageUris.map((imageUri, index) => ({
+    imageUri,
+    thumbnailUri: thumbnailUris[index] ?? imageUri,
+  }));
 }
 
 function parseExtractionDiagnostics(value: string | null): MergeExtractionResult['extractionDiagnostics'] | undefined {
@@ -340,7 +407,7 @@ function parseJsonOrUndefined<T>(value: string | null): T | undefined {
   }
 }
 
-async function pruneAttempts(db: DbLike, sqlite?: SQLiteDatabase): Promise<void> {
+async function pruneAttempts(db: DbLike, sqlite?: SQLiteDatabase, hooks?: { onPrune?: (ids: string[]) => void | Promise<void> }): Promise<void> {
   try {
     const rows = sqlite?.getAllAsync
       ? await sqlite.getAllAsync<{ id: string }>('select id from attempts order by created_at desc')
@@ -361,10 +428,12 @@ async function pruneAttempts(db: DbLike, sqlite?: SQLiteDatabase): Promise<void>
     if (sqlite?.runAsync) {
       const placeholders = idsToDelete.map(() => '?').join(',');
       await sqlite.runAsync(`delete from attempts where id in (${placeholders})`, idsToDelete);
+      await hooks?.onPrune?.(idsToDelete);
       return;
     }
 
     await db.delete(attemptsTable).where(inArray(attemptsTable.id, idsToDelete));
+    await hooks?.onPrune?.(idsToDelete);
   } catch (error) {
     console.warn('[tolksyn] Attempt pruning skipped:', error instanceof Error ? error.message : String(error));
   }

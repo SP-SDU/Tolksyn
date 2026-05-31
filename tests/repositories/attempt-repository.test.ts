@@ -8,15 +8,14 @@ import { emptyStructuredItem } from '@/types/item-schema';
 
 describe('attempt repository', () => {
   test('keeps only the latest 20 attempts in history order', async () => {
-    const db = createTestDb();
+    const { db } = createTestDb();
     const repository = createAttemptRepository(db as any);
 
     for (let index = 1; index <= 22; index += 1) {
       await repository.create({
         id: `attempt-${index}`,
         source: 'camera',
-        imageUri: `file://image-${index}.jpg`,
-        thumbnailUri: `file://thumb-${index}.jpg`,
+        images: [{ imageUri: `file://image-${index}.jpg`, thumbnailUri: `file://thumb-${index}.jpg` }],
         createdAt: index,
       });
     }
@@ -29,14 +28,13 @@ describe('attempt repository', () => {
   });
 
   test('persists extraction results and accepted revisions', async () => {
-    const db = createTestDb();
+    const { db } = createTestDb();
     const repository = createAttemptRepository(db as any);
 
     await repository.create({
       id: 'attempt-1',
       source: 'gallery',
-      imageUri: 'file://image.jpg',
-      thumbnailUri: 'file://thumb.jpg',
+      images: [{ imageUri: 'file://image.jpg', thumbnailUri: 'file://thumb.jpg' }],
       createdAt: 100,
     });
     await repository.saveExtractionResult('attempt-1', {
@@ -89,14 +87,13 @@ describe('attempt repository', () => {
   });
 
   test('lists recent attempts without parsing malformed JSON columns', async () => {
-    const db = createTestDb();
+    const { db } = createTestDb();
     const repository = createAttemptRepository(db as any);
 
     await repository.create({
       id: 'attempt-bad-json',
       source: 'camera',
-      imageUri: 'file://image.jpg',
-      thumbnailUri: 'file://thumb.jpg',
+      images: [{ imageUri: 'file://image.jpg', thumbnailUri: 'file://thumb.jpg' }],
       createdAt: 200,
     });
 
@@ -140,8 +137,8 @@ describe('attempt repository', () => {
           findFirst: jest.fn().mockResolvedValue({
             id: 'attempt-fallback',
             source: 'gallery',
-            imageUri: 'file://image.jpg',
-            thumbnailUri: 'file://thumb.jpg',
+            imageUri: '["file://image.jpg"]',
+            thumbnailUri: '["file://thumb.jpg"]',
             createdAt: 123,
             updatedAt: 124,
             status: 'ready_for_review',
@@ -172,10 +169,26 @@ describe('attempt repository', () => {
       expect.objectContaining({
         id: 'attempt-fallback',
         source: 'gallery',
-        imageUri: 'file://image.jpg',
+        images: [{ imageUri: 'file://image.jpg', thumbnailUri: 'file://thumb.jpg' }],
         status: 'ready_for_review',
       }),
     );
+  });
+
+  test('deserializes old plain-string image URIs without JSON array wrapping', async () => {
+    const { db, sqlite } = createTestDb();
+    const repository = createAttemptRepository(db as any);
+
+    sqlite.exec(`
+      insert into attempts (id, source, image_uri, thumbnail_uri, created_at, updated_at, status, accepted_revision)
+      values ('old-style', 'camera', 'file://old-image.jpg', 'file://old-thumb.jpg', 300, 300, 'ready_for_review', 0)
+    `);
+
+    const result = await repository.getById('old-style');
+
+    expect(result?.images).toEqual([
+      { imageUri: 'file://old-image.jpg', thumbnailUri: 'file://old-thumb.jpg' },
+    ]);
   });
 
   test('logs pruning failures as warning messages without error stack objects', async () => {
@@ -192,8 +205,7 @@ describe('attempt repository', () => {
     await repository.create({
       id: 'attempt-prune-warning',
       source: 'gallery',
-      imageUri: 'file://image.jpg',
-      thumbnailUri: 'file://thumb.jpg',
+      images: [{ imageUri: 'file://image.jpg', thumbnailUri: 'file://thumb.jpg' }],
       createdAt: 123,
     });
 
@@ -225,5 +237,5 @@ function createTestDb() {
     );
   `);
 
-  return db;
+  return { db, sqlite };
 }

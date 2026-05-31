@@ -70,8 +70,8 @@ export async function extractWithRetries({
           metadata: {
             provider: fallbackProvider,
             durationMs: 1,
-            imageWidth: input.imageWidth ?? 0,
-            imageHeight: input.imageHeight ?? 0,
+            imageWidth: input.images[0]?.width ?? 0,
+            imageHeight: input.images[0]?.height ?? 0,
           },
           extractionDiagnostics: {
             failed: true,
@@ -97,8 +97,8 @@ export async function extractWithRetries({
     metadata: {
       provider: fallbackProvider,
       durationMs: 1,
-      imageWidth: input.imageWidth ?? 0,
-      imageHeight: input.imageHeight ?? 0,
+      imageWidth: input.images[0]?.width ?? 0,
+      imageHeight: input.images[0]?.height ?? 0,
     },
     extractionDiagnostics: {
       failed: true,

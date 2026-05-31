@@ -5,15 +5,14 @@ import type { StructuredItem } from '@/types/item-schema';
 import type { BarcodeHit, WebSearchEnrichment } from '@/utils/merge-extraction-result';
 import { isAbortError, throwIfAborted } from '@/utils/abort';
 
-type ImageInput = {
-  imageUri: string;
-  imageBase64: string;
-  mimeType: string;
-  width: number;
-  height: number;
-};
-
-type EnrichmentInput = ImageInput & {
+type EnrichmentInput = {
+  images: {
+    imageUri: string;
+    imageBase64: string;
+    mimeType: string;
+    width: number;
+    height: number;
+  }[];
   structuredJson: StructuredItem;
   barcodes: BarcodeHit[];
   auxiliaryText?: string;
@@ -35,7 +34,7 @@ export function createManufacturerWebSearchEnricher({
 }: {
   settings: { getSettings(): Promise<AppSettings> };
   extractor: {
-    extract(input: ImageInput & { prompt?: string; signal?: AbortSignal }): Promise<RemoteExtractionResult>;
+    extract(input: { images: EnrichmentInput['images']; prompt?: string; signal?: AbortSignal }): Promise<RemoteExtractionResult>;
   };
   queryCrawl: { query(input: AgentQueryCrawlInput): Promise<AgentQueryCrawlResult> };
 }) {
@@ -75,11 +74,7 @@ export function createManufacturerWebSearchEnricher({
       throwIfAborted(input.signal);
       const reconciliationPrompt = buildReconciliationPrompt(input.structuredJson, input.barcodes, searchResults, sources);
       const reconciled = await extractor.extract({
-        imageUri: input.imageUri,
-        imageBase64: input.imageBase64,
-        mimeType: input.mimeType,
-        width: input.width,
-        height: input.height,
+        images: input.images,
         prompt: reconciliationPrompt,
         signal: input.signal,
       });
@@ -180,18 +175,14 @@ async function planQueries({
   extractor,
   input,
 }: {
-  extractor: { extract(input: ImageInput & { prompt?: string; signal?: AbortSignal }): Promise<RemoteExtractionResult> };
+  extractor: { extract(input: { images: EnrichmentInput['images']; prompt?: string; signal?: AbortSignal }): Promise<RemoteExtractionResult> };
   input: EnrichmentInput;
 }): Promise<{ queries: string[]; attempt: WebSearchAttempt }> {
   const prompt = buildQueryPlanningPrompt(input.structuredJson, input.barcodes, input.auxiliaryText, input.responseText);
   try {
     throwIfAborted(input.signal);
     const planned = await extractor.extract({
-      imageUri: input.imageUri,
-      imageBase64: input.imageBase64,
-      mimeType: input.mimeType,
-      width: input.width,
-      height: input.height,
+      images: input.images,
       prompt,
       signal: input.signal,
     });

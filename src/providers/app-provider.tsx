@@ -22,6 +22,7 @@ import { createProviderCatalog } from '@/services/provider-catalog';
 import { createProviderOAuth } from '@/services/provider-oauth';
 import { drainQueue } from '@/services/queue-worker';
 import { createSubmissionService } from '@/services/submission-service';
+import { createExportService } from '@/services/export-service';
 import { buildIdempotencyKey } from '@/utils/idempotency';
 import type { BarcodeHit } from '@/utils/merge-extraction-result';
 import { computeRetryDelayMs } from '@/utils/retry-policy';
@@ -67,7 +68,13 @@ export function useAppRuntime() {
 
 function createRuntime(sqlite: Parameters<typeof createDb>[0]) {
   const db = createDb(sqlite);
-  const attempts = createAttemptRepository(db, sqlite);
+  const imageStore = createImageStore();
+  const attempts = createAttemptRepository(db, sqlite, {
+    onDelete: (id) => imageStore.deleteAttemptImages(id),
+    onPrune: async (ids) => {
+      await Promise.all(ids.map((id) => imageStore.deleteAttemptImages(id)));
+    },
+  });
   const queue = createQueueRepository(db);
   const catalog = createProviderCatalog({
     secrets: secureSecretStore,
@@ -79,7 +86,7 @@ function createRuntime(sqlite: Parameters<typeof createDb>[0]) {
     catalog,
   });
   const barcodeDetector = createBarcodeDetector();
-  const imageStore = createImageStore();
+  const exportService = createExportService();
   let loadedExtractor: RemoteExtractor | null = null;
   let loadedQueryCrawl: Promise<{ query(input: AgentQueryCrawlInput): Promise<AgentQueryCrawlResult> }> | null = null;
   const extractor: RemoteExtractor = {
@@ -142,6 +149,7 @@ function createRuntime(sqlite: Parameters<typeof createDb>[0]) {
     settings,
     providerCatalog: catalog,
     oauth,
+    exportService,
 
     async importFromGallery() {
       return importFromGallery({
@@ -151,13 +159,14 @@ function createRuntime(sqlite: Parameters<typeof createDb>[0]) {
             mediaTypes: ['images'],
             quality: 1,
             allowsEditing: false,
+            allowsMultipleSelection: true,
           }),
       });
     },
 
-    async processImage(options: {
+    async processImages(options: {
       source: 'camera' | 'gallery';
-      inputUri: string;
+      inputUris: string[];
       liveBarcodes?: BarcodeHit[];
       signal?: AbortSignal;
       onProgress?: Parameters<typeof processImage>[0]['onProgress'];
@@ -170,9 +179,9 @@ function createRuntime(sqlite: Parameters<typeof createDb>[0]) {
         imageStore,
         attempts,
         barcodeDetector: {
-          detect: ({ imageUri }) =>
+          detect: ({ imageUris }) =>
             appSettings.barcode.enabled
-              ? barcodeDetector.detect({ imageUri, allowedTypes: appSettings.barcode.allowedTypes })
+              ? Promise.all(imageUris.map(imageUri => barcodeDetector.detect({ imageUri, allowedTypes: appSettings.barcode.allowedTypes }))).then(results => results.flat())
               : Promise.resolve([]),
         },
         extractor,
@@ -205,6 +214,10 @@ function createRuntime(sqlite: Parameters<typeof createDb>[0]) {
       }
       try {
         await db.delete(settingsTable);
+      } catch {
+      }
+      try {
+        await imageStore.deleteAllImages();
       } catch {
       }
 

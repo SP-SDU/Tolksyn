@@ -7,19 +7,19 @@ describe('processImage', () => {
     const saveExtractionResult = jest.fn().mockResolvedValue(undefined);
     const result = await processImage({
       source: 'camera',
-      inputUri: 'file://input.jpg',
+      inputUris: ['file://input.jpg'],
       liveBarcodes: [{ type: 'ean13', data: '4046356160483' }],
       now: () => 123,
       createAttemptId: () => 'attempt-123',
       imageStore: {
-        persistImage: jest.fn().mockResolvedValue({
+        persistImages: jest.fn().mockResolvedValue([{
           imageUri: 'file://stored.jpg',
           thumbnailUri: 'file://thumb.jpg',
           imageBase64: 'abc',
           mimeType: 'image/jpeg',
           width: 1200,
           height: 900,
-        }),
+        }]),
       },
       attempts: {
         create,
@@ -50,7 +50,7 @@ describe('processImage', () => {
       expect.objectContaining({
         id: 'attempt-123',
         source: 'camera',
-        imageUri: 'file://stored.jpg',
+        images: [{ imageUri: 'file://stored.jpg', thumbnailUri: 'file://thumb.jpg' }],
       }),
     );
     expect(saveExtractionResult).toHaveBeenCalledWith(
@@ -70,18 +70,18 @@ describe('processImage', () => {
 
     await processImage({
       source: 'camera',
-      inputUri: 'file://input.jpg',
+      inputUris: ['file://input.jpg'],
       now: () => 123,
       createAttemptId: () => 'attempt-websearch',
       imageStore: {
-        persistImage: jest.fn().mockResolvedValue({
+        persistImages: jest.fn().mockResolvedValue([{
           imageUri: 'file://stored.jpg',
           thumbnailUri: 'file://thumb.jpg',
           imageBase64: 'abc',
           mimeType: 'image/jpeg',
           width: 1200,
           height: 900,
-        }),
+        }]),
       },
       attempts: {
         create: jest.fn().mockResolvedValue(undefined),
@@ -165,18 +165,18 @@ describe('processImage', () => {
 
     await processImage({
       source: 'camera',
-      inputUri: 'file://input.jpg',
+      inputUris: ['file://input.jpg'],
       now: () => 123,
       createAttemptId: () => 'attempt-websearch-failed',
       imageStore: {
-        persistImage: jest.fn().mockResolvedValue({
+        persistImages: jest.fn().mockResolvedValue([{
           imageUri: 'file://stored.jpg',
           thumbnailUri: 'file://thumb.jpg',
           imageBase64: 'abc',
           mimeType: 'image/jpeg',
           width: 1200,
           height: 900,
-        }),
+        }]),
       },
       attempts: {
         create: jest.fn().mockResolvedValue(undefined),
@@ -227,18 +227,18 @@ describe('processImage', () => {
 
     await processImage({
       source: 'gallery',
-      inputUri: 'file://input.jpg',
+      inputUris: ['file://input.jpg'],
       now: () => 123,
       createAttemptId: () => 'attempt-xyz',
       imageStore: {
-        persistImage: jest.fn().mockResolvedValue({
+        persistImages: jest.fn().mockResolvedValue([{
           imageUri: 'file://stored.jpg',
           thumbnailUri: 'file://thumb.jpg',
           imageBase64: 'abc',
           mimeType: 'image/jpeg',
           width: 1200,
           height: 900,
-        }),
+        }]),
       },
       attempts: {
         create,
@@ -276,18 +276,18 @@ describe('processImage', () => {
 
     const result = await processImage({
       source: 'camera',
-      inputUri: 'file://input.jpg',
+      inputUris: ['file://input.jpg'],
       now: () => 123,
       createAttemptId: () => 'attempt-json-error',
       imageStore: {
-        persistImage: jest.fn().mockResolvedValue({
+        persistImages: jest.fn().mockResolvedValue([{
           imageUri: 'file://stored.jpg',
           thumbnailUri: 'file://thumb.jpg',
           imageBase64: 'abc',
           mimeType: 'image/jpeg',
           width: 1200,
           height: 900,
-        }),
+        }]),
       },
       attempts: {
         create: jest.fn().mockResolvedValue(undefined),
@@ -323,22 +323,22 @@ describe('processImage', () => {
 
     const promise = processImage({
       source: 'camera',
-      inputUri: 'file://input.jpg',
+      inputUris: ['file://input.jpg'],
       signal: controller.signal,
       now: () => 123,
       createAttemptId: () => 'attempt-cancel-before-create',
       imageStore: {
-        persistImage: jest.fn().mockImplementation(async () => {
+        persistImages: jest.fn().mockImplementation(async () => {
           controller.abort();
 
-          return {
+          return [{
             imageUri: 'file://stored.jpg',
             thumbnailUri: 'file://thumb.jpg',
             imageBase64: 'abc',
             mimeType: 'image/jpeg',
             width: 1200,
             height: 900,
-          };
+          }];
         }),
       },
       attempts: {
@@ -374,19 +374,19 @@ describe('processImage', () => {
 
     const promise = processImage({
       source: 'gallery',
-      inputUri: 'file://input.jpg',
+      inputUris: ['file://input.jpg'],
       signal: controller.signal,
       now: () => 123,
       createAttemptId: () => 'attempt-cancel-after-create',
       imageStore: {
-        persistImage: jest.fn().mockResolvedValue({
+        persistImages: jest.fn().mockResolvedValue([{
           imageUri: 'file://stored.jpg',
           thumbnailUri: 'file://thumb.jpg',
           imageBase64: 'abc',
           mimeType: 'image/jpeg',
           width: 1200,
           height: 900,
-        }),
+        }]),
       },
       attempts: {
         create: jest.fn().mockResolvedValue(undefined),
@@ -416,5 +416,78 @@ describe('processImage', () => {
     await expect(promise).rejects.toMatchObject({ name: 'AbortError' });
     expect(saveExtractionResult).not.toHaveBeenCalled();
     expect(deleteById).toHaveBeenCalledWith('attempt-cancel-after-create');
+  });
+
+  test('persists and extracts multiple images for one attempt', async () => {
+    const create = jest.fn().mockResolvedValue(undefined);
+    const saveExtractionResult = jest.fn().mockResolvedValue(undefined);
+    const extract = jest.fn().mockResolvedValue({
+      structuredJson: emptyStructuredItem(),
+      barcodes: [],
+      responseText: '{}',
+      auxiliaryText: undefined,
+      metadata: {
+        provider: 'remote_ai_sdk',
+        durationMs: 1,
+        imageWidth: 1200,
+        imageHeight: 900,
+      },
+    });
+
+    await processImage({
+      source: 'camera',
+      inputUris: ['file://input-1.jpg', 'file://input-2.jpg'],
+      now: () => 123,
+      createAttemptId: () => 'attempt-multi',
+      imageStore: {
+        persistImages: jest.fn().mockResolvedValue([
+          {
+            imageUri: 'file://stored-1.jpg',
+            thumbnailUri: 'file://thumb-1.jpg',
+            imageBase64: 'abc1',
+            mimeType: 'image/jpeg',
+            width: 1200,
+            height: 900,
+          },
+          {
+            imageUri: 'file://stored-2.jpg',
+            thumbnailUri: 'file://thumb-2.jpg',
+            imageBase64: 'abc2',
+            mimeType: 'image/jpeg',
+            width: 800,
+            height: 600,
+          },
+        ]),
+      },
+      attempts: {
+        create,
+        saveExtractionResult,
+        markFailed: jest.fn().mockResolvedValue(undefined),
+        deleteById: jest.fn().mockResolvedValue(undefined),
+      },
+      barcodeDetector: {
+        detect: jest.fn().mockResolvedValue([]),
+      },
+      extractor: {
+        extract,
+      },
+    });
+
+    expect(create).toHaveBeenCalledWith(expect.objectContaining({
+      id: 'attempt-multi',
+      images: [
+        { imageUri: 'file://stored-1.jpg', thumbnailUri: 'file://thumb-1.jpg' },
+        { imageUri: 'file://stored-2.jpg', thumbnailUri: 'file://thumb-2.jpg' },
+      ],
+    }));
+
+    expect(extract).toHaveBeenCalledWith(expect.objectContaining({
+      images: [
+        expect.objectContaining({ imageUri: 'file://stored-1.jpg', imageBase64: 'abc1' }),
+        expect.objectContaining({ imageUri: 'file://stored-2.jpg', imageBase64: 'abc2' }),
+      ],
+    }));
+
+    expect(saveExtractionResult).toHaveBeenCalled();
   });
 });

@@ -46,7 +46,8 @@ describe('createImageStore', () => {
       .mockResolvedValueOnce({ uri: 'normalized.webp', base64: 'abc', width: 1200, height: 800 })
       .mockResolvedValueOnce({ uri: 'thumbnail.webp', base64: 'thumb', width: 240, height: 160 });
 
-    const result = await createImageStore().persistImage({ inputUri: 'input.jpg', attemptId: 'attempt-1' });
+    const results = await createImageStore().persistImages({ inputUris: ['input.jpg'], attemptId: 'attempt-1' });
+    const result = results[0];
 
     expect(ImageManipulator.manipulateAsync).toHaveBeenNthCalledWith(
       1,
@@ -61,7 +62,7 @@ describe('createImageStore', () => {
       expect.objectContaining({ compress: 0.68, format: ImageManipulator.SaveFormat.WEBP }),
     );
     expect(result.mimeType).toBe('image/webp');
-    expect(result.imageUri).toContain('attempt-1.webp');
-    expect(result.thumbnailUri).toContain('attempt-1.thumb.webp');
+    expect(result.imageUri).toContain('attempt-1-0.webp');
+    expect(result.thumbnailUri).toContain('attempt-1-0.thumb.webp');
   });
 });

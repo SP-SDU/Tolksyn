@@ -27,8 +27,7 @@ describe('extractWithRetries', () => {
       input: {
         apiKey: 'k',
         model: 'm',
-        imageBase64: 'abc',
-        mimeType: 'image/jpeg',
+        images: [{ imageBase64: 'abc', mimeType: 'image/jpeg', width: 100, height: 100 }],
         timeoutMs: 5000,
       },
       extract,
@@ -47,8 +46,7 @@ describe('extractWithRetries', () => {
       input: {
         apiKey: 'k',
         model: 'm',
-        imageBase64: 'abc',
-        mimeType: 'image/jpeg',
+        images: [{ imageBase64: 'abc', mimeType: 'image/jpeg', width: 100, height: 100 }],
         timeoutMs: 5000,
       },
       extract,
@@ -81,8 +79,7 @@ describe('extractWithRetries', () => {
       input: {
         apiKey: 'k',
         model: 'm',
-        imageBase64: 'abc',
-        mimeType: 'image/jpeg',
+        images: [{ imageBase64: 'abc', mimeType: 'image/jpeg', width: 100, height: 100 }],
         timeoutMs: 5000,
         prompt: 'Return query JSON only.',
       },
@@ -110,8 +107,7 @@ describe('extractWithRetries', () => {
         input: {
           apiKey: 'k',
           model: 'm',
-          imageBase64: 'abc',
-          mimeType: 'image/jpeg',
+          images: [{ imageBase64: 'abc', mimeType: 'image/jpeg', width: 100, height: 100 }],
           timeoutMs: 5000,
           signal: controller.signal,
         },
