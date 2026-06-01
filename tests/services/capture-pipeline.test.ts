@@ -1,42 +1,49 @@
-import { processImage } from '@/services/capture-pipeline';
-import { emptyStructuredItem } from '@/types/item-schema';
+import { processImage } from "@/services/capture-pipeline";
+import { emptyStructuredItem } from "@/types/item-schema";
 
-describe('processImage', () => {
-  test('creates an attempt and saves merged extraction output', async () => {
+describe("processImage", () => {
+  test("creates an attempt and saves merged extraction output", async () => {
+    // Arrange
     const create = jest.fn().mockResolvedValue(undefined);
     const saveExtractionResult = jest.fn().mockResolvedValue(undefined);
+
+    // Act
     const result = await processImage({
-      source: 'camera',
-      inputUri: 'file://input.jpg',
-      liveBarcodes: [{ type: 'ean13', data: '4046356160483' }],
+      source: "camera",
+      inputUris: ["file://input.jpg"],
+      liveBarcodes: [{ type: "ean13", data: "4046356160483" }],
       now: () => 123,
-      createAttemptId: () => 'attempt-123',
+      createAttemptId: () => "attempt-123",
       imageStore: {
-        persistImage: jest.fn().mockResolvedValue({
-          imageUri: 'file://stored.jpg',
-          thumbnailUri: 'file://thumb.jpg',
-          imageBase64: 'abc',
-          mimeType: 'image/jpeg',
-          width: 1200,
-          height: 900,
-        }),
+        persistImages: jest.fn().mockResolvedValue([
+          {
+            imageUri: "file://stored.jpg",
+            thumbnailUri: "file://thumb.jpg",
+            imageBase64: "abc",
+            mimeType: "image/jpeg",
+            width: 1200,
+            height: 900,
+          },
+        ]),
       },
       attempts: {
         create,
         saveExtractionResult,
       },
       barcodeDetector: {
-        detect: jest.fn().mockResolvedValue([{ type: 'ean13', data: '4046356160483' }]),
+        detect: jest
+          .fn()
+          .mockResolvedValue([{ type: "ean13", data: "4046356160483" }]),
       },
       extractor: {
         extract: jest.fn().mockResolvedValue({
           structuredJson: {
             ...emptyStructuredItem(),
-            manufacturer: 'Siemens',
+            manufacturer: "Siemens",
           },
           barcodes: [],
           metadata: {
-            provider: 'remote_openai_compatible',
+            provider: "remote_openai_compatible",
             durationMs: 1400,
             imageWidth: 1200,
             imageHeight: 900,
@@ -45,61 +52,72 @@ describe('processImage', () => {
       },
     });
 
-    expect(result).toEqual({ attemptId: 'attempt-123' });
+    // Assert
+    // Full pipeline: persist images, detect barcodes, extract, merge, save
+    expect(result).toEqual({ attemptId: "attempt-123" });
     expect(create).toHaveBeenCalledWith(
       expect.objectContaining({
-        id: 'attempt-123',
-        source: 'camera',
-        imageUri: 'file://stored.jpg',
+        id: "attempt-123",
+        source: "camera",
+        images: [
+          { imageUri: "file://stored.jpg", thumbnailUri: "file://thumb.jpg" },
+        ],
       }),
     );
+    // Extraction result includes both AI-extracted data and barcode enrichment
     expect(saveExtractionResult).toHaveBeenCalledWith(
-      'attempt-123',
+      "attempt-123",
       expect.objectContaining({
-        structuredJson: expect.objectContaining({ manufacturer: 'Siemens' }),
+        structuredJson: expect.objectContaining({ manufacturer: "Siemens" }),
         barcodeEnrichment: expect.objectContaining({
-          detected: [{ type: 'ean13', data: '4046356160483' }],
+          detected: [{ type: "ean13", data: "4046356160483" }],
         }),
       }),
     );
   });
 
-  test('runs manufacturer web search enrichment after extraction and saves reconciled output', async () => {
+  test("runs manufacturer web search enrichment after extraction and saves reconciled output", async () => {
+    // Arrange
     const saveExtractionResult = jest.fn().mockResolvedValue(undefined);
     const stages: string[] = [];
 
+    // Act
     await processImage({
-      source: 'camera',
-      inputUri: 'file://input.jpg',
+      source: "camera",
+      inputUris: ["file://input.jpg"],
       now: () => 123,
-      createAttemptId: () => 'attempt-websearch',
+      createAttemptId: () => "attempt-websearch",
       imageStore: {
-        persistImage: jest.fn().mockResolvedValue({
-          imageUri: 'file://stored.jpg',
-          thumbnailUri: 'file://thumb.jpg',
-          imageBase64: 'abc',
-          mimeType: 'image/jpeg',
-          width: 1200,
-          height: 900,
-        }),
+        persistImages: jest.fn().mockResolvedValue([
+          {
+            imageUri: "file://stored.jpg",
+            thumbnailUri: "file://thumb.jpg",
+            imageBase64: "abc",
+            mimeType: "image/jpeg",
+            width: 1200,
+            height: 900,
+          },
+        ]),
       },
       attempts: {
         create: jest.fn().mockResolvedValue(undefined),
         saveExtractionResult,
       },
       barcodeDetector: {
-        detect: jest.fn().mockResolvedValue([{ type: 'ean13', data: '4046356160483' }]),
+        detect: jest
+          .fn()
+          .mockResolvedValue([{ type: "ean13", data: "4046356160483" }]),
       },
       extractor: {
         extract: jest.fn().mockResolvedValue({
           structuredJson: {
             ...emptyStructuredItem(),
-            productNumber: '2865463',
+            productNumber: "2865463",
           },
           barcodes: [],
-          auxiliaryText: 'label text',
+          auxiliaryText: "label text",
           metadata: {
-            provider: 'remote_openai_compatible',
+            provider: "remote_openai_compatible",
             durationMs: 1400,
             imageWidth: 1200,
             imageHeight: 900,
@@ -110,27 +128,32 @@ describe('processImage', () => {
         enrich: jest.fn().mockResolvedValue({
           structuredJson: {
             ...emptyStructuredItem(),
-            manufacturer: 'Phoenix Contact',
-            productNumber: '2865463',
+            manufacturer: "Phoenix Contact",
+            productNumber: "2865463",
           },
           diagnostics: {
             enabled: true,
             attempts: [],
-            queries: ['Phoenix Contact 2865463 official datasheet'],
+            queries: ["Phoenix Contact 2865463 official datasheet"],
             searchResults: [
               {
-                query: 'Phoenix Contact 2865463 official datasheet',
-                output: 'official product result',
-                urls: ['https://example.com/product'],
+                query: "Phoenix Contact 2865463 official datasheet",
+                output: "official product result",
+                urls: ["https://example.com/product"],
               },
             ],
-            sources: [{ url: 'https://example.com/product', excerpt: 'official product page' }],
+            sources: [
+              {
+                url: "https://example.com/product",
+                excerpt: "official product page",
+              },
+            ],
             fieldChanges: [
               {
-                field: 'manufacturer',
+                field: "manufacturer",
                 before: null,
-                after: 'Phoenix Contact',
-                evidenceUrls: ['https://example.com/product'],
+                after: "Phoenix Contact",
+                evidenceUrls: ["https://example.com/product"],
               },
             ],
             conflicts: [],
@@ -142,41 +165,58 @@ describe('processImage', () => {
       onProgress: (stage) => stages.push(stage),
     });
 
-    expect(stages).toEqual(expect.arrayContaining(['websearch_started', 'websearch_done']));
+    // Assert
+    // Web search progress stages emitted during pipeline execution
+    expect(stages).toEqual(
+      expect.arrayContaining(["websearch_started", "websearch_done"]),
+    );
 
+    // Final save includes web search enrichment with manufacturer and evidence
     expect(saveExtractionResult).toHaveBeenCalledWith(
-      'attempt-websearch',
+      "attempt-websearch",
       expect.objectContaining({
         structuredJson: expect.objectContaining({
-          manufacturer: 'Phoenix Contact',
-          productNumber: '2865463',
+          manufacturer: "Phoenix Contact",
+          productNumber: "2865463",
         }),
         webSearchEnrichment: expect.objectContaining({
-          queries: ['Phoenix Contact 2865463 official datasheet'],
-          fieldChanges: [expect.objectContaining({ field: 'manufacturer', after: 'Phoenix Contact' })],
-          sources: [expect.objectContaining({ url: 'https://example.com/product' })],
+          queries: ["Phoenix Contact 2865463 official datasheet"],
+          fieldChanges: [
+            expect.objectContaining({
+              field: "manufacturer",
+              after: "Phoenix Contact",
+            }),
+          ],
+          sources: [
+            expect.objectContaining({ url: "https://example.com/product" }),
+          ],
         }),
       }),
     );
   });
 
-  test('keeps extraction result when manufacturer web search enrichment fails', async () => {
+  test("keeps extraction result when manufacturer web search enrichment fails", async () => {
+    // Arrange
+    // Web search enricher throws but extraction should still be saved
     const saveExtractionResult = jest.fn().mockResolvedValue(undefined);
 
+    // Act
     await processImage({
-      source: 'camera',
-      inputUri: 'file://input.jpg',
+      source: "camera",
+      inputUris: ["file://input.jpg"],
       now: () => 123,
-      createAttemptId: () => 'attempt-websearch-failed',
+      createAttemptId: () => "attempt-websearch-failed",
       imageStore: {
-        persistImage: jest.fn().mockResolvedValue({
-          imageUri: 'file://stored.jpg',
-          thumbnailUri: 'file://thumb.jpg',
-          imageBase64: 'abc',
-          mimeType: 'image/jpeg',
-          width: 1200,
-          height: 900,
-        }),
+        persistImages: jest.fn().mockResolvedValue([
+          {
+            imageUri: "file://stored.jpg",
+            thumbnailUri: "file://thumb.jpg",
+            imageBase64: "abc",
+            mimeType: "image/jpeg",
+            width: 1200,
+            height: 900,
+          },
+        ]),
       },
       attempts: {
         create: jest.fn().mockResolvedValue(undefined),
@@ -189,11 +229,11 @@ describe('processImage', () => {
         extract: jest.fn().mockResolvedValue({
           structuredJson: {
             ...emptyStructuredItem(),
-            productNumber: '2865463',
+            productNumber: "2865463",
           },
           barcodes: [],
           metadata: {
-            provider: 'remote_openai_compatible',
+            provider: "remote_openai_compatible",
             durationMs: 1400,
             imageWidth: 1200,
             imageHeight: 900,
@@ -201,44 +241,51 @@ describe('processImage', () => {
         }),
       },
       webSearchEnricher: {
-        enrich: jest.fn().mockRejectedValue(new Error('Exa unavailable')),
+        enrich: jest.fn().mockRejectedValue(new Error("Exa unavailable")),
       },
     });
 
+    // Assert
+    // Extraction result saved even when web search fails
     expect(saveExtractionResult).toHaveBeenCalledWith(
-      'attempt-websearch-failed',
+      "attempt-websearch-failed",
       expect.objectContaining({
         structuredJson: expect.objectContaining({
-          productNumber: '2865463',
+          productNumber: "2865463",
         }),
         webSearchEnrichment: expect.objectContaining({
           enabled: true,
           failed: true,
-          error: 'Exa unavailable',
+          error: "Exa unavailable",
         }),
       }),
     );
   });
 
-  test('marks attempt as extract_failed when extraction diagnostics report fallback', async () => {
+  test("marks attempt as extract_failed when extraction diagnostics report fallback", async () => {
+    // Arrange
+    // Extraction succeeded but reported failed diagnostics (retries exhausted)
     const create = jest.fn().mockResolvedValue(undefined);
     const saveExtractionResult = jest.fn().mockResolvedValue(undefined);
     const markFailed = jest.fn().mockResolvedValue(undefined);
 
+    // Act
     await processImage({
-      source: 'gallery',
-      inputUri: 'file://input.jpg',
+      source: "gallery",
+      inputUris: ["file://input.jpg"],
       now: () => 123,
-      createAttemptId: () => 'attempt-xyz',
+      createAttemptId: () => "attempt-xyz",
       imageStore: {
-        persistImage: jest.fn().mockResolvedValue({
-          imageUri: 'file://stored.jpg',
-          thumbnailUri: 'file://thumb.jpg',
-          imageBase64: 'abc',
-          mimeType: 'image/jpeg',
-          width: 1200,
-          height: 900,
-        }),
+        persistImages: jest.fn().mockResolvedValue([
+          {
+            imageUri: "file://stored.jpg",
+            thumbnailUri: "file://thumb.jpg",
+            imageBase64: "abc",
+            mimeType: "image/jpeg",
+            width: 1200,
+            height: 900,
+          },
+        ]),
       },
       attempts: {
         create,
@@ -254,11 +301,11 @@ describe('processImage', () => {
           barcodes: [],
           extractionDiagnostics: {
             failed: true,
-            finalError: 'Provider JSON failed schema validation.',
+            finalError: "Provider JSON failed schema validation.",
             attempts: [],
           },
           metadata: {
-            provider: 'remote_openai_codex',
+            provider: "remote_openai_codex",
             durationMs: 1000,
             imageWidth: 1200,
             imageHeight: 900,
@@ -267,27 +314,37 @@ describe('processImage', () => {
       },
     });
 
-    expect(markFailed).toHaveBeenCalledWith('attempt-xyz', 'Provider JSON failed schema validation.');
+    // Assert
+    // Attempt marked as failed with the diagnostic error message
+    expect(markFailed).toHaveBeenCalledWith(
+      "attempt-xyz",
+      "Provider JSON failed schema validation.",
+    );
   });
 
-  test('saves failed extraction result instead of throwing raw extractor errors', async () => {
+  test("saves failed extraction result instead of throwing raw extractor errors", async () => {
+    // Arrange
+    // Extractor throws a SyntaxError (e.g. malformed JSON from provider)
     const saveExtractionResult = jest.fn().mockResolvedValue(undefined);
     const markFailed = jest.fn().mockResolvedValue(undefined);
 
+    // Act
     const result = await processImage({
-      source: 'camera',
-      inputUri: 'file://input.jpg',
+      source: "camera",
+      inputUris: ["file://input.jpg"],
       now: () => 123,
-      createAttemptId: () => 'attempt-json-error',
+      createAttemptId: () => "attempt-json-error",
       imageStore: {
-        persistImage: jest.fn().mockResolvedValue({
-          imageUri: 'file://stored.jpg',
-          thumbnailUri: 'file://thumb.jpg',
-          imageBase64: 'abc',
-          mimeType: 'image/jpeg',
-          width: 1200,
-          height: 900,
-        }),
+        persistImages: jest.fn().mockResolvedValue([
+          {
+            imageUri: "file://stored.jpg",
+            thumbnailUri: "file://thumb.jpg",
+            imageBase64: "abc",
+            mimeType: "image/jpeg",
+            width: 1200,
+            height: 900,
+          },
+        ]),
       },
       attempts: {
         create: jest.fn().mockResolvedValue(undefined),
@@ -298,47 +355,61 @@ describe('processImage', () => {
         detect: jest.fn().mockResolvedValue([]),
       },
       extractor: {
-        extract: jest.fn().mockRejectedValue(new SyntaxError('Unterminated string in JSON at position 28')),
+        extract: jest
+          .fn()
+          .mockRejectedValue(
+            new SyntaxError("Unterminated string in JSON at position 28"),
+          ),
       },
     });
 
-    expect(result).toEqual({ attemptId: 'attempt-json-error' });
+    // Assert
+    // Pipeline catches the error, saves a failed extraction result, marks attempt failed
+    expect(result).toEqual({ attemptId: "attempt-json-error" });
     expect(saveExtractionResult).toHaveBeenCalledWith(
-      'attempt-json-error',
+      "attempt-json-error",
       expect.objectContaining({
         structuredJson: emptyStructuredItem(),
         extractionDiagnostics: expect.objectContaining({
           failed: true,
-          finalError: 'Unterminated string in JSON at position 28',
+          finalError: "Unterminated string in JSON at position 28",
         }),
       }),
     );
-    expect(markFailed).toHaveBeenCalledWith('attempt-json-error', 'Unterminated string in JSON at position 28');
+    expect(markFailed).toHaveBeenCalledWith(
+      "attempt-json-error",
+      "Unterminated string in JSON at position 28",
+    );
   });
 
-  test('stops before creating an attempt when cancelled during image persistence', async () => {
+  test("stops before creating an attempt when cancelled during image persistence", async () => {
+    // Arrange
     const controller = new AbortController();
     const create = jest.fn().mockResolvedValue(undefined);
     const saveExtractionResult = jest.fn().mockResolvedValue(undefined);
 
+    // Act
     const promise = processImage({
-      source: 'camera',
-      inputUri: 'file://input.jpg',
+      source: "camera",
+      inputUris: ["file://input.jpg"],
       signal: controller.signal,
       now: () => 123,
-      createAttemptId: () => 'attempt-cancel-before-create',
+      createAttemptId: () => "attempt-cancel-before-create",
       imageStore: {
-        persistImage: jest.fn().mockImplementation(async () => {
+        persistImages: jest.fn().mockImplementation(async () => {
+          // Abort fires during the first async operation
           controller.abort();
 
-          return {
-            imageUri: 'file://stored.jpg',
-            thumbnailUri: 'file://thumb.jpg',
-            imageBase64: 'abc',
-            mimeType: 'image/jpeg',
-            width: 1200,
-            height: 900,
-          };
+          return [
+            {
+              imageUri: "file://stored.jpg",
+              thumbnailUri: "file://thumb.jpg",
+              imageBase64: "abc",
+              mimeType: "image/jpeg",
+              width: 1200,
+              height: 900,
+            },
+          ];
         }),
       },
       attempts: {
@@ -353,7 +424,7 @@ describe('processImage', () => {
           structuredJson: emptyStructuredItem(),
           barcodes: [],
           metadata: {
-            provider: 'remote_openai_compatible',
+            provider: "remote_openai_compatible",
             durationMs: 1000,
             imageWidth: 1200,
             imageHeight: 900,
@@ -362,31 +433,37 @@ describe('processImage', () => {
       },
     });
 
-    await expect(promise).rejects.toMatchObject({ name: 'AbortError' });
+    // Assert
+    // AbortError thrown. No attempt was created
+    await expect(promise).rejects.toMatchObject({ name: "AbortError" });
     expect(create).not.toHaveBeenCalled();
     expect(saveExtractionResult).not.toHaveBeenCalled();
   });
 
-  test('deletes a partial attempt and skips saving output when cancelled after creation', async () => {
+  test("deletes a partial attempt and skips saving output when cancelled after creation", async () => {
+    // Arrange
     const controller = new AbortController();
     const deleteById = jest.fn().mockResolvedValue(undefined);
     const saveExtractionResult = jest.fn().mockResolvedValue(undefined);
 
+    // Act
     const promise = processImage({
-      source: 'gallery',
-      inputUri: 'file://input.jpg',
+      source: "gallery",
+      inputUris: ["file://input.jpg"],
       signal: controller.signal,
       now: () => 123,
-      createAttemptId: () => 'attempt-cancel-after-create',
+      createAttemptId: () => "attempt-cancel-after-create",
       imageStore: {
-        persistImage: jest.fn().mockResolvedValue({
-          imageUri: 'file://stored.jpg',
-          thumbnailUri: 'file://thumb.jpg',
-          imageBase64: 'abc',
-          mimeType: 'image/jpeg',
-          width: 1200,
-          height: 900,
-        }),
+        persistImages: jest.fn().mockResolvedValue([
+          {
+            imageUri: "file://stored.jpg",
+            thumbnailUri: "file://thumb.jpg",
+            imageBase64: "abc",
+            mimeType: "image/jpeg",
+            width: 1200,
+            height: 900,
+          },
+        ]),
       },
       attempts: {
         create: jest.fn().mockResolvedValue(undefined),
@@ -395,8 +472,9 @@ describe('processImage', () => {
       },
       barcodeDetector: {
         detect: jest.fn().mockImplementation(async () => {
+          // Abort triggered during barcode detection, after attempt creation
           controller.abort();
-          throw new DOMException('Aborted', 'AbortError');
+          throw new DOMException("Aborted", "AbortError");
         }),
       },
       extractor: {
@@ -404,7 +482,7 @@ describe('processImage', () => {
           structuredJson: emptyStructuredItem(),
           barcodes: [],
           metadata: {
-            provider: 'remote_openai_compatible',
+            provider: "remote_openai_compatible",
             durationMs: 1000,
             imageWidth: 1200,
             imageHeight: 900,
@@ -413,8 +491,103 @@ describe('processImage', () => {
       },
     });
 
-    await expect(promise).rejects.toMatchObject({ name: 'AbortError' });
+    // Assert
+    // AbortError thrown. Partial attempt cleaned up via deleteById
+    await expect(promise).rejects.toMatchObject({ name: "AbortError" });
     expect(saveExtractionResult).not.toHaveBeenCalled();
-    expect(deleteById).toHaveBeenCalledWith('attempt-cancel-after-create');
+    expect(deleteById).toHaveBeenCalledWith("attempt-cancel-after-create");
+  });
+
+  test("persists and extracts multiple images for one attempt", async () => {
+    // Arrange
+    const create = jest.fn().mockResolvedValue(undefined);
+    const saveExtractionResult = jest.fn().mockResolvedValue(undefined);
+    const extract = jest.fn().mockResolvedValue({
+      structuredJson: emptyStructuredItem(),
+      barcodes: [],
+      responseText: "{}",
+      auxiliaryText: undefined,
+      metadata: {
+        provider: "remote_ai_sdk",
+        durationMs: 1,
+        imageWidth: 1200,
+        imageHeight: 900,
+      },
+    });
+
+    // Act
+    await processImage({
+      source: "camera",
+      inputUris: ["file://input-1.jpg", "file://input-2.jpg"],
+      now: () => 123,
+      createAttemptId: () => "attempt-multi",
+      imageStore: {
+        persistImages: jest.fn().mockResolvedValue([
+          {
+            imageUri: "file://stored-1.jpg",
+            thumbnailUri: "file://thumb-1.jpg",
+            imageBase64: "abc1",
+            mimeType: "image/jpeg",
+            width: 1200,
+            height: 900,
+          },
+          {
+            imageUri: "file://stored-2.jpg",
+            thumbnailUri: "file://thumb-2.jpg",
+            imageBase64: "abc2",
+            mimeType: "image/jpeg",
+            width: 800,
+            height: 600,
+          },
+        ]),
+      },
+      attempts: {
+        create,
+        saveExtractionResult,
+        markFailed: jest.fn().mockResolvedValue(undefined),
+        deleteById: jest.fn().mockResolvedValue(undefined),
+      },
+      barcodeDetector: {
+        detect: jest.fn().mockResolvedValue([]),
+      },
+      extractor: {
+        extract,
+      },
+    });
+
+    // Assert
+    // Both images persisted and passed to extractor
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "attempt-multi",
+        images: [
+          {
+            imageUri: "file://stored-1.jpg",
+            thumbnailUri: "file://thumb-1.jpg",
+          },
+          {
+            imageUri: "file://stored-2.jpg",
+            thumbnailUri: "file://thumb-2.jpg",
+          },
+        ],
+      }),
+    );
+
+    expect(extract).toHaveBeenCalledWith(
+      expect.objectContaining({
+        images: [
+          expect.objectContaining({
+            imageUri: "file://stored-1.jpg",
+            imageBase64: "abc1",
+          }),
+          expect.objectContaining({
+            imageUri: "file://stored-2.jpg",
+            imageBase64: "abc2",
+          }),
+        ],
+      }),
+    );
+
+    expect(saveExtractionResult).toHaveBeenCalled();
   });
 });

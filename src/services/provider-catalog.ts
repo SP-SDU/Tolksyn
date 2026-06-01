@@ -1,14 +1,14 @@
-import { Platform } from 'react-native';
 import {
   copilotBase,
   copilotModelHeaders,
   exchangeGitHubCopilotToken,
   normalizeEnterpriseDomain,
-} from 'github-copilot-oauth';
+} from "github-copilot-oauth";
+import { Platform } from "react-native";
 
-import type { SecretStore } from '@/repositories/settings-repository';
+import type { SecretStore } from "@/repositories/settings-repository";
 
-export type ProviderAuthMode = 'api' | 'oauth';
+export type ProviderAuthMode = "api" | "oauth";
 
 export type ProviderModel = {
   id: string;
@@ -41,7 +41,7 @@ type ModelsDevProvider = {
       name: string;
       release_date: string;
       reasoning: boolean;
-      status?: 'alpha' | 'beta' | 'deprecated';
+      status?: "alpha" | "beta" | "deprecated";
       provider?: {
         npm?: string;
       };
@@ -49,97 +49,110 @@ type ModelsDevProvider = {
   >;
 };
 
-const CATALOG_URL = 'https://models.dev/api.json';
-const CACHE_KEY = 'tolksyn.settings.provider_catalog';
-const WEB_CACHE_KEY = 'tolksyn.settings.provider_catalog.web';
-const PROVIDER_AUTH_SECRET_KEY = 'tolksyn.secret.provider_auth';
+const CATALOG_URL = "https://models.dev/api.json";
+const CACHE_KEY = "tolksyn.settings.provider_catalog";
+const WEB_CACHE_KEY = "tolksyn.settings.provider_catalog.web";
+const PROVIDER_AUTH_SECRET_KEY = "tolksyn.secret.provider_auth";
 const TTL_MS = 1000 * 60 * 5;
 
+/** models.dev changes often, and cache keeps settings responsive when the catalog fetch fails. */
 const AUTH_METHODS: Record<string, ProviderAuthMode[]> = {
-  openai: ['api', 'oauth'],
-  'github-copilot': ['oauth'],
+  openai: ["api", "oauth"],
+  "github-copilot": ["oauth"],
 };
 
-const DEFAULT_PROVIDER_IDS = new Set(['openai', 'google', 'anthropic', 'github-copilot']);
+const DEFAULT_PROVIDER_IDS = new Set([
+  "openai",
+  "google",
+  "anthropic",
+  "github-copilot",
+]);
 
-const SUPPORTED_EXTRACTION_PROVIDER_IDS = new Set(['openai', 'google', 'anthropic', 'github-copilot']);
+const SUPPORTED_EXTRACTION_PROVIDER_IDS = new Set([
+  "openai",
+  "google",
+  "anthropic",
+  "github-copilot",
+]);
 
 const FALLBACK_DEFAULTS = {
   openai: {
-    model: 'gpt-4.1-mini',
+    model: "gpt-4.1-mini",
   },
   anthropic: {
-    model: 'claude-sonnet-4-0',
+    model: "claude-sonnet-4-0",
   },
   google: {
-    model: 'gemini-2.0-flash',
+    model: "gemini-2.0-flash",
   },
-  'github-copilot': {
-    model: 'gpt-4.1',
+  "github-copilot": {
+    model: "gpt-4.1",
   },
 } as const;
 
 const FALLBACK_PROVIDERS: ProviderItem[] = [
   {
-    id: 'openai',
-    name: 'OpenAI',
-    api: 'https://api.openai.com/v1/chat/completions',
+    id: "openai",
+    name: "OpenAI",
+    api: "https://api.openai.com/v1/chat/completions",
     models: [
       {
-        id: 'gpt-4.1-mini',
-        name: 'GPT-4.1 Mini',
-        variants: ['minimal', 'low', 'medium', 'high', 'xhigh'],
+        id: "gpt-4.1-mini",
+        name: "GPT-4.1 Mini",
+        variants: ["minimal", "low", "medium", "high", "xhigh"],
         supportsImage: true,
-        releaseDate: '2025-01-01',
+        releaseDate: "2025-01-01",
       },
     ],
   },
   {
-    id: 'anthropic',
-    name: 'Anthropic',
-    api: 'https://api.anthropic.com/v1/messages',
+    id: "anthropic",
+    name: "Anthropic",
+    api: "https://api.anthropic.com/v1/messages",
     models: [
       {
-        id: 'claude-sonnet-4-0',
-        name: 'Claude Sonnet 4',
-        variants: ['low', 'medium', 'high'],
+        id: "claude-sonnet-4-0",
+        name: "Claude Sonnet 4",
+        variants: ["low", "medium", "high"],
         supportsImage: true,
-        releaseDate: '2025-01-01',
+        releaseDate: "2025-01-01",
       },
     ],
   },
   {
-    id: 'github-copilot',
-    name: 'GitHub Copilot',
-    api: 'https://api.githubcopilot.com/chat/completions',
+    id: "github-copilot",
+    name: "GitHub Copilot",
+    api: "https://api.githubcopilot.com/chat/completions",
     models: [
       {
-        id: 'gpt-4.1',
-        name: 'GPT-4.1',
-        variants: ['low', 'medium', 'high'],
+        id: "gpt-4.1",
+        name: "GPT-4.1",
+        variants: ["low", "medium", "high"],
         supportsImage: true,
-        releaseDate: '2025-01-01',
+        releaseDate: "2025-01-01",
       },
     ],
   },
   {
-    id: 'google',
-    name: 'Google',
-    api: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent',
+    id: "google",
+    name: "Google",
+    api: "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent",
     models: [
       {
-        id: 'gemini-2.0-flash',
-        name: 'Gemini 2.0 Flash',
-        variants: ['low', 'high'],
+        id: "gemini-2.0-flash",
+        name: "Gemini 2.0 Flash",
+        variants: ["low", "high"],
         supportsImage: true,
-        releaseDate: '2025-01-01',
+        releaseDate: "2025-01-01",
       },
     ],
   },
 ];
 
 function defaults(providerId: string): { model: string } {
-  const value = (FALLBACK_DEFAULTS as Record<string, { model: string } | undefined>)[providerId];
+  const value = (
+    FALLBACK_DEFAULTS as Record<string, { model: string } | undefined>
+  )[providerId];
   if (value) {
     return value;
   }
@@ -148,7 +161,7 @@ function defaults(providerId: string): { model: string } {
 }
 
 function authMethods(providerId: string): ProviderAuthMode[] {
-  return AUTH_METHODS[providerId] ?? ['api'];
+  return AUTH_METHODS[providerId] ?? ["api"];
 }
 
 function authMode(providerId: string): ProviderAuthMode {
@@ -163,55 +176,67 @@ export function isExperimentalProvider(providerId: string): boolean {
   return !DEFAULT_PROVIDER_IDS.has(providerId);
 }
 
-function variantsForModel(providerId: string, model: ModelsDevProvider['models'][string]): string[] {
+function variantsForModel(
+  providerId: string,
+  model: ModelsDevProvider["models"][string],
+): string[] {
   if (!model.reasoning) {
     return [];
   }
 
   const id = model.id.toLowerCase();
-  const npm = model.provider?.npm ?? '';
+  const npm = model.provider?.npm ?? "";
 
-  if (providerId === 'google' || npm === '@ai-sdk/google' || npm === '@ai-sdk/google-vertex') {
-    if (id.includes('3.1')) {
-      return ['low', 'medium', 'high'];
+  if (
+    providerId === "google" ||
+    npm === "@ai-sdk/google" ||
+    npm === "@ai-sdk/google-vertex"
+  ) {
+    if (id.includes("3.1")) {
+      return ["low", "medium", "high"];
     }
 
-    if (id.includes('2.5')) {
-      return ['high', 'max'];
+    if (id.includes("2.5")) {
+      return ["high", "max"];
     }
 
-    return ['low', 'high'];
+    return ["low", "high"];
   }
 
-  if (providerId === 'github-copilot') {
-    if (id.includes('gpt-5') && model.release_date >= '2025-12-04') {
-      return ['low', 'medium', 'high', 'xhigh'];
+  if (providerId === "github-copilot") {
+    if (id.includes("gpt-5") && model.release_date >= "2025-12-04") {
+      return ["low", "medium", "high", "xhigh"];
     }
 
-    return ['low', 'medium', 'high'];
+    return ["low", "medium", "high"];
   }
 
-  if (providerId === 'openai') {
-    if (id.includes('gpt-5')) {
-      const variants = ['minimal', 'low', 'medium', 'high'];
-      if (model.release_date >= '2025-12-04') {
-        variants.push('xhigh');
+  if (providerId === "openai") {
+    if (id.includes("gpt-5")) {
+      const variants = ["minimal", "low", "medium", "high"];
+      if (model.release_date >= "2025-12-04") {
+        variants.push("xhigh");
       }
       return variants;
     }
 
-    return ['low', 'medium', 'high'];
+    return ["low", "medium", "high"];
   }
 
-  return ['low', 'medium', 'high'];
+  return ["low", "medium", "high"];
 }
 
-function normalizeProviders(raw: Record<string, ModelsDevProvider>): ProviderItem[] {
+function normalizeProviders(
+  raw: Record<string, ModelsDevProvider>,
+): ProviderItem[] {
   return Object.values(raw)
     .map((provider) => {
       const models = Object.values(provider.models)
-        .filter((model) => model.status !== 'deprecated')
-        .filter((model) => !(provider.id === 'openai' && model.id.startsWith('gpt-4.1')))
+        .filter((model) => model.status !== "deprecated")
+        .filter(
+          (model) =>
+            !(provider.id === "openai" && model.id.startsWith("gpt-4.1")),
+        )
         .map((model) => ({
           id: model.id,
           name: model.name,
@@ -232,7 +257,9 @@ function normalizeProviders(raw: Record<string, ModelsDevProvider>): ProviderIte
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
-function supportsImageInput(model: ModelsDevProvider['models'][string]): boolean {
+function supportsImageInput(
+  model: ModelsDevProvider["models"][string],
+): boolean {
   const typed = model as {
     modalities?: {
       input?: string[];
@@ -240,7 +267,7 @@ function supportsImageInput(model: ModelsDevProvider['models'][string]): boolean
     attachment?: boolean;
   };
 
-  if (typed.modalities?.input?.includes('image')) {
+  if (typed.modalities?.input?.includes("image")) {
     return true;
   }
 
@@ -251,8 +278,12 @@ function supportsImageInput(model: ModelsDevProvider['models'][string]): boolean
   return false;
 }
 
-function compareModels(providerId: string, left: ProviderModel, right: ProviderModel): number {
-  if (providerId === 'openai') {
+function compareModels(
+  providerId: string,
+  left: ProviderModel,
+  right: ProviderModel,
+): number {
+  if (providerId === "openai") {
     const leftCodex = isOpenAIOAuthModel(left.id);
     const rightCodex = isOpenAIOAuthModel(right.id);
     if (leftCodex !== rightCodex) {
@@ -270,25 +301,29 @@ function compareModels(providerId: string, left: ProviderModel, right: ProviderM
 function isOpenAIOAuthModel(modelId: string): boolean {
   const id = modelId.toLowerCase();
 
-  if (!id.startsWith('gpt-')) {
+  if (!id.startsWith("gpt-")) {
     return false;
   }
 
   const versionPart = id.slice(4);
-  const versionNumber = parseInt(versionPart.split('-')[0], 10);
+  const versionNumber = parseInt(versionPart.split("-")[0], 10);
   if (isNaN(versionNumber) || versionNumber < 5) {
     return false;
   }
 
-  if (id.includes('chat') || id.includes('image')) {
+  if (id.includes("chat") || id.includes("image")) {
     return false;
   }
 
   return true;
 }
 
-function filterModels(providerId: string, mode: ProviderAuthMode | undefined, models: ProviderModel[]): ProviderModel[] {
-  if (providerId === 'openai' && mode === 'oauth') {
+function filterModels(
+  providerId: string,
+  mode: ProviderAuthMode | undefined,
+  models: ProviderModel[],
+): ProviderModel[] {
+  if (providerId === "openai" && mode === "oauth") {
     return models.filter((model) => isOpenAIOAuthModel(model.id));
   }
 
@@ -296,14 +331,16 @@ function filterModels(providerId: string, mode: ProviderAuthMode | undefined, mo
 }
 
 type StoredAuth = {
-  type: 'oauth';
+  type: "oauth";
   access: string;
   refresh: string;
   expires: number;
   enterpriseUrl?: string;
 };
 
-async function loadProviderAuth(secrets: SecretStore): Promise<Record<string, StoredAuth | undefined>> {
+async function loadProviderAuth(
+  secrets: SecretStore,
+): Promise<Record<string, StoredAuth | undefined>> {
   const raw = await secrets.getItem(PROVIDER_AUTH_SECRET_KEY);
   if (!raw) {
     return {};
@@ -342,11 +379,11 @@ function copilotReleaseDate(version: string, id: string): string {
     return version.slice(prefix.length);
   }
 
-  return '';
+  return "";
 }
 
 async function loadCached(secrets: SecretStore): Promise<CacheData | null> {
-  const key = Platform.OS === 'web' ? WEB_CACHE_KEY : CACHE_KEY;
+  const key = Platform.OS === "web" ? WEB_CACHE_KEY : CACHE_KEY;
   const raw = await secrets.getItem(key);
   if (!raw) {
     return null;
@@ -359,7 +396,10 @@ async function loadCached(secrets: SecretStore): Promise<CacheData | null> {
   }
 }
 
-async function saveCached(secrets: SecretStore, data: CacheData): Promise<void> {
+async function saveCached(
+  secrets: SecretStore,
+  data: CacheData,
+): Promise<void> {
   const value = JSON.stringify(data);
   await secrets.setItem(CACHE_KEY, value);
   await secrets.setItem(WEB_CACHE_KEY, value);
@@ -387,9 +427,11 @@ export function createProviderCatalog({
   const getNow = now ?? (() => Date.now());
   let memory: CacheData | null = null;
 
-  async function copilotModels(provider: ProviderItem): Promise<ProviderModel[]> {
+  async function copilotModels(
+    provider: ProviderItem,
+  ): Promise<ProviderModel[]> {
     const auth = await loadProviderAuth(secrets);
-    const token = auth['github-copilot'];
+    const token = auth["github-copilot"];
     const refreshToken = token?.refresh?.trim() || token?.access?.trim();
     if (!refreshToken) {
       return provider.models;
@@ -397,7 +439,11 @@ export function createProviderCatalog({
     const enterpriseUrl = token?.enterpriseUrl;
 
     try {
-      const request = await copilotModelsRequest(fetch, refreshToken, enterpriseUrl);
+      const request = await copilotModelsRequest(
+        fetch,
+        refreshToken,
+        enterpriseUrl,
+      );
       const response = await fetch(request.url, {
         headers: request.headers,
       });
@@ -408,7 +454,9 @@ export function createProviderCatalog({
 
       const payload = (await response.json()) as CopilotResponse;
       const map = new Map(
-        payload.data.filter((item) => item.model_picker_enabled).map((item) => [item.id, item] as const),
+        payload.data
+          .filter((item) => item.model_picker_enabled)
+          .map((item) => [item.id, item] as const),
       );
 
       const merged = provider.models
@@ -417,28 +465,38 @@ export function createProviderCatalog({
           const remote = map.get(model.id);
           const supportsImage =
             Boolean(remote?.capabilities.supports.vision) ||
-            Boolean(remote?.capabilities.limits.vision?.supported_media_types?.some((item) => item.startsWith('image/')));
+            Boolean(
+              remote?.capabilities.limits.vision?.supported_media_types?.some(
+                (item) => item.startsWith("image/"),
+              ),
+            );
           return {
             ...model,
             name: remote?.name ?? model.name,
             supportsImage,
-            releaseDate: remote ? copilotReleaseDate(remote.version, remote.id) : model.releaseDate,
+            releaseDate: remote
+              ? copilotReleaseDate(remote.version, remote.id)
+              : model.releaseDate,
           };
         });
 
-      return merged.sort((a, b) => compareModels('github-copilot', a, b));
+      return merged.sort((a, b) => compareModels("github-copilot", a, b));
     } catch {
       return provider.models;
     }
   }
 
-  async function provider(providerId: string, mode?: ProviderAuthMode): Promise<ProviderItem | undefined> {
+  async function provider(
+    providerId: string,
+    mode?: ProviderAuthMode,
+  ): Promise<ProviderItem | undefined> {
     const item = await byId(providerId);
     if (!item) {
       return undefined;
     }
 
-    const models = providerId === 'github-copilot' ? await copilotModels(item) : item.models;
+    const models =
+      providerId === "github-copilot" ? await copilotModels(item) : item.models;
     const filtered = filterModels(providerId, mode, models);
 
     return {
@@ -499,17 +557,28 @@ export function createProviderCatalog({
     };
   }
 
-  async function modelOptions(providerId: string, mode?: ProviderAuthMode): Promise<ProviderModel[]> {
+  async function modelOptions(
+    providerId: string,
+    mode?: ProviderAuthMode,
+  ): Promise<ProviderModel[]> {
     const item = await provider(providerId, mode);
     return item?.models ?? [];
   }
 
-  async function thinkingLevels(providerId: string, modelId: string, mode?: ProviderAuthMode): Promise<string[]> {
+  async function thinkingLevels(
+    providerId: string,
+    modelId: string,
+    mode?: ProviderAuthMode,
+  ): Promise<string[]> {
     const models = await modelOptions(providerId, mode);
     return models.find((model) => model.id === modelId)?.variants ?? [];
   }
 
-  async function supportsImage(providerId: string, modelId: string, mode?: ProviderAuthMode): Promise<boolean> {
+  async function supportsImage(
+    providerId: string,
+    modelId: string,
+    mode?: ProviderAuthMode,
+  ): Promise<boolean> {
     const models = await modelOptions(providerId, mode);
     return models.find((model) => model.id === modelId)?.supportsImage ?? false;
   }
@@ -533,18 +602,21 @@ async function copilotModelsRequest(
   enterpriseUrl?: string,
 ): Promise<{ url: string; headers: Record<string, string> }> {
   const domain = normalizeEnterpriseDomain(enterpriseUrl);
-  if (typeof window !== 'undefined' && typeof window.location?.origin === 'string') {
-    const origin = window.location.origin.replace(/\/$/, '');
+  if (
+    typeof window !== "undefined" &&
+    typeof window.location?.origin === "string"
+  ) {
+    const origin = window.location.origin.replace(/\/$/, "");
     const url = new URL(`${origin}/api/proxy/github-copilot/models`);
     if (domain) {
-      url.searchParams.set('enterpriseUrl', domain);
+      url.searchParams.set("enterpriseUrl", domain);
     }
 
     return {
       url: url.toString(),
       headers: {
         authorization: `Bearer ${refreshToken}`,
-        ...(domain ? { 'x-copilot-enterprise-url': domain } : {}),
+        ...(domain ? { "x-copilot-enterprise-url": domain } : {}),
       },
     };
   }

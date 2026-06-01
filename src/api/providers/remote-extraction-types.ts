@@ -1,5 +1,5 @@
-import type { StructuredItem } from '@/types/item-schema';
-import type { BarcodeHit } from '@/utils/merge-extraction-result';
+import type { StructuredItem } from "@/types/item-schema";
+import type { BarcodeHit } from "@/utils/merge-extraction-result";
 
 export type ExtractionPromptAttempt = {
   attempt: number;
@@ -9,11 +9,11 @@ export type ExtractionPromptAttempt = {
 };
 
 export type RemoteExtractionProvider =
-  | 'remote_openai_compatible'
-  | 'remote_gemini'
-  | 'remote_openai_codex'
-  | 'remote_github_copilot'
-  | 'remote_ai_sdk';
+  | "remote_openai_compatible"
+  | "remote_gemini"
+  | "remote_openai_codex"
+  | "remote_github_copilot"
+  | "remote_ai_sdk";
 
 export type RemoteExtractionResult = {
   structuredJson: StructuredItem;
@@ -37,11 +37,13 @@ export type RemoteExtractionResult = {
 export type RemoteExtractionInput = {
   apiKey: string;
   model: string;
-  imageBase64: string;
-  mimeType: string;
+  images: {
+    imageBase64: string;
+    mimeType: string;
+    width: number;
+    height: number;
+  }[];
   timeoutMs: number;
-  imageWidth?: number;
-  imageHeight?: number;
   prompt?: string;
   signal?: AbortSignal;
 };

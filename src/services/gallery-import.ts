@@ -1,4 +1,4 @@
-import { AppError } from '@/types/app-error';
+import { AppError } from "@/types/app-error";
 
 export async function importFromGallery({
   requestPermission,
@@ -8,14 +8,17 @@ export async function importFromGallery({
   launchPicker: () => Promise<
     | { canceled: true }
     | {
-      canceled: false;
-      assets: { uri: string }[];
-    }
+        canceled: false;
+        assets: { uri: string }[];
+      }
   >;
-}): Promise<string | null> {
+}): Promise<string[] | null> {
   const permission = await requestPermission();
   if (!permission.granted) {
-    throw new AppError('permission_denied', 'Media library permission denied by user.');
+    throw new AppError(
+      "permission_denied",
+      "Media library permission denied by user.",
+    );
   }
 
   const result = await launchPicker();
@@ -23,5 +26,5 @@ export async function importFromGallery({
     return null;
   }
 
-  return result.assets[0]?.uri ?? null;
+  return result.assets.map((asset) => asset.uri);
 }

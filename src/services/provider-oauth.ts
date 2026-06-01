@@ -1,8 +1,12 @@
-import { startGitHubCopilotDeviceFlow, normalizeEnterpriseDomain, GitHubCopilotOAuthError } from 'github-copilot-oauth';
-import { startOpenAIDeviceFlow, OpenAIOAuthError } from 'openai-codex-oauth';
+import {
+  GitHubCopilotOAuthError,
+  normalizeEnterpriseDomain,
+  startGitHubCopilotDeviceFlow,
+} from "github-copilot-oauth";
+import { OpenAIOAuthError, startOpenAIDeviceFlow } from "openai-codex-oauth";
 
-import { AppError } from '@/types/app-error';
-import type { ProviderAuth } from '@/types/settings';
+import { AppError } from "@/types/app-error";
+import type { ProviderAuth } from "@/types/settings";
 
 type FetchLike = typeof fetch;
 
@@ -18,6 +22,7 @@ export type OAuthStartOptions = {
   enterpriseUrl?: string;
 };
 
+/** GitHub device OAuth cannot reach github.com from the browser without same-origin proxy routes. */
 export function createProviderOAuth({
   fetch,
   now,
@@ -28,9 +33,12 @@ export function createProviderOAuth({
   sleep?: (ms: number) => Promise<void>;
 }) {
   return {
-    async start(providerId: string, options?: OAuthStartOptions): Promise<OAuthFlow> {
+    async start(
+      providerId: string,
+      options?: OAuthStartOptions,
+    ): Promise<OAuthFlow> {
       try {
-        if (providerId === 'openai') {
+        if (providerId === "openai") {
           const flow = await startOpenAIDeviceFlow({ fetch, now, sleep });
           return {
             providerId: flow.providerId,
@@ -40,8 +48,8 @@ export function createProviderOAuth({
             async complete() {
               const tokens = await flow.complete();
               return {
-                type: 'oauth',
-                refresh: tokens.refreshToken ?? '',
+                type: "oauth",
+                refresh: tokens.refreshToken ?? "",
                 access: tokens.accessToken,
                 expires: tokens.expiresAt ?? 0,
                 accountId: tokens.accountId,
@@ -50,8 +58,10 @@ export function createProviderOAuth({
           };
         }
 
-        if (providerId === 'github-copilot') {
-          const enterpriseUrl = normalizeEnterpriseDomain(options?.enterpriseUrl);
+        if (providerId === "github-copilot") {
+          const enterpriseUrl = normalizeEnterpriseDomain(
+            options?.enterpriseUrl,
+          );
           const flow = await startGitHubCopilotDeviceFlow({
             fetch: githubOAuthFetch(fetch, enterpriseUrl),
             sleep,
@@ -65,7 +75,7 @@ export function createProviderOAuth({
             async complete() {
               const tokens = await flow.complete();
               return {
-                type: 'oauth',
+                type: "oauth",
                 refresh: tokens.githubToken,
                 access: tokens.githubToken,
                 expires: 0,
@@ -75,7 +85,10 @@ export function createProviderOAuth({
           };
         }
 
-        throw new AppError('unsupported', `OAuth is not supported for provider "${providerId}".`);
+        throw new AppError(
+          "unsupported",
+          `OAuth is not supported for provider "${providerId}".`,
+        );
       } catch (error) {
         throw normalizeOAuthError(error);
       }
@@ -95,19 +108,28 @@ function githubOAuthFetch(fetch: FetchLike, enterpriseUrl?: string): FetchLike {
   };
 }
 
-function githubProxyUrl(input: Parameters<FetchLike>[0], enterpriseUrl?: string): string | undefined {
-  if (typeof window === 'undefined' || typeof window.location?.origin !== 'string') {
+function githubProxyUrl(
+  input: Parameters<FetchLike>[0],
+  enterpriseUrl?: string,
+): string | undefined {
+  if (
+    typeof window === "undefined" ||
+    typeof window.location?.origin !== "string"
+  ) {
     return undefined;
   }
 
   const value = input instanceof Request ? input.url : String(input);
-  const origin = window.location.origin.replace(/\/$/, '');
-  const suffix = enterpriseUrl ? `?enterpriseUrl=${encodeURIComponent(enterpriseUrl)}` : '';
-  if (value.endsWith('/login/device/code')) {
+  const origin = window.location.origin.replace(/\/$/, "");
+  const suffix = enterpriseUrl
+    ? `?enterpriseUrl=${encodeURIComponent(enterpriseUrl)}`
+    : "";
+  // Browser CORS blocks direct GitHub device endpoints, so same-origin API routes forward them.
+  if (value.endsWith("/login/device/code")) {
     return `${origin}/api/oauth/github-copilot/device/code${suffix}`;
   }
 
-  if (value.endsWith('/login/oauth/access_token')) {
+  if (value.endsWith("/login/oauth/access_token")) {
     return `${origin}/api/oauth/github-copilot/device/token${suffix}`;
   }
 
@@ -119,20 +141,27 @@ function normalizeOAuthError(error: unknown): AppError {
     return error;
   }
 
-  if (error instanceof GitHubCopilotOAuthError || error instanceof OpenAIOAuthError) {
-    return new AppError(error.code === 'unsupported' ? 'unsupported' : 'auth_failed', error.message, error);
+  if (
+    error instanceof GitHubCopilotOAuthError ||
+    error instanceof OpenAIOAuthError
+  ) {
+    return new AppError(
+      error.code === "unsupported" ? "unsupported" : "auth_failed",
+      error.message,
+      error,
+    );
   }
 
   if (error instanceof Error) {
-    return new AppError('auth_failed', error.message, error);
+    return new AppError("auth_failed", error.message, error);
   }
 
-  return new AppError('auth_failed', 'OAuth authorization failed.', error);
+  return new AppError("auth_failed", "OAuth authorization failed.", error);
 }
 
 function oauthProxyUnavailableError() {
   return new AppError(
-    'auth_failed',
-    'GitHub Copilot OAuth on web requires local API OAuth proxy routes. Start the app with `npm run start` and open web to enable /api/oauth routes.',
+    "auth_failed",
+    "GitHub Copilot OAuth on web requires local API OAuth proxy routes. Start the app with `npm run start` and open web to enable /api/oauth routes.",
   );
 }

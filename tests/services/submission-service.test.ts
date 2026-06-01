@@ -1,13 +1,14 @@
-import { createSubmissionService } from '@/services/submission-service';
-import { AppError } from '@/types/app-error';
-import { emptyStructuredItem } from '@/types/item-schema';
+import { createSubmissionService } from "@/services/submission-service";
+import { AppError } from "@/types/app-error";
+import { emptyStructuredItem } from "@/types/item-schema";
 
-describe('createSubmissionService', () => {
-  test('sends immediately when online and transport succeeds', async () => {
+describe("createSubmissionService", () => {
+  test("sends immediately when online and transport succeeds", async () => {
+    // Arrange
     const markSent = jest.fn();
     const markQueued = jest.fn();
     const enqueue = jest.fn();
-    const submit = jest.fn().mockResolvedValue({ kind: 'success' });
+    const submit = jest.fn().mockResolvedValue({ kind: "success" });
     const service = createSubmissionService({
       attempts: {
         markSent,
@@ -21,16 +22,17 @@ describe('createSubmissionService', () => {
       network: {
         isOnline: async () => true,
       },
-      createIdempotencyKey: async () => 'idempotency-key',
+      createIdempotencyKey: async () => "idempotency-key",
       now: () => 10,
     });
 
+    // Act
     const result = await service.acceptAttempt({
-      attemptId: 'attempt-1',
+      attemptId: "attempt-1",
       acceptedRevision: 1,
       payload: {
-        schemaVersion: 'tolksyn.item.v1',
-        attemptId: 'attempt-1',
+        schemaVersion: "tolksyn.item.v1",
+        attemptId: "attempt-1",
         acceptedRevision: 1,
         structuredJson: emptyStructuredItem(),
         barcodeEnrichment: {
@@ -39,20 +41,26 @@ describe('createSubmissionService', () => {
           relatedFieldSuggestions: { eanOrUpc: null },
           conflicts: [],
         },
-        metadata: { source: 'camera' },
+        metadata: { source: "camera" },
       },
     });
 
-    expect(result).toEqual({ outcome: 'sent', idempotencyKey: 'idempotency-key' });
+    // Assert
+    // Success path: sent immediately, queue never touched
+    expect(result).toEqual({
+      outcome: "sent",
+      idempotencyKey: "idempotency-key",
+    });
     expect(submit).toHaveBeenCalledWith(
-      expect.objectContaining({ idempotencyKey: 'idempotency-key' }),
+      expect.objectContaining({ idempotencyKey: "idempotency-key" }),
     );
-    expect(markSent).toHaveBeenCalledWith('attempt-1');
+    expect(markSent).toHaveBeenCalledWith("attempt-1");
     expect(enqueue).not.toHaveBeenCalled();
     expect(markQueued).not.toHaveBeenCalled();
   });
 
-  test('queues immediately when offline', async () => {
+  test("queues immediately when offline", async () => {
+    // Arrange
     const markQueued = jest.fn();
     const enqueue = jest.fn();
     const service = createSubmissionService({
@@ -68,16 +76,17 @@ describe('createSubmissionService', () => {
       network: {
         isOnline: async () => false,
       },
-      createIdempotencyKey: async () => 'idempotency-key',
+      createIdempotencyKey: async () => "idempotency-key",
       now: () => 10,
     });
 
+    // Act
     const result = await service.acceptAttempt({
-      attemptId: 'attempt-1',
+      attemptId: "attempt-1",
       acceptedRevision: 2,
       payload: {
-        schemaVersion: 'tolksyn.item.v1',
-        attemptId: 'attempt-1',
+        schemaVersion: "tolksyn.item.v1",
+        attemptId: "attempt-1",
         acceptedRevision: 2,
         structuredJson: emptyStructuredItem(),
         barcodeEnrichment: {
@@ -86,22 +95,29 @@ describe('createSubmissionService', () => {
           relatedFieldSuggestions: { eanOrUpc: null },
           conflicts: [],
         },
-        metadata: { source: 'camera' },
+        metadata: { source: "camera" },
       },
     });
 
-    expect(result).toEqual({ outcome: 'queued', idempotencyKey: 'idempotency-key' });
+    // Assert
+    // Offline: submission queued without attempting transport
+    expect(result).toEqual({
+      outcome: "queued",
+      idempotencyKey: "idempotency-key",
+    });
     expect(enqueue).toHaveBeenCalledWith(
       expect.objectContaining({
-        attemptId: 'attempt-1',
+        attemptId: "attempt-1",
         acceptedRevision: 2,
-        idempotencyKey: 'idempotency-key',
+        idempotencyKey: "idempotency-key",
       }),
     );
-    expect(markQueued).toHaveBeenCalledWith('attempt-1', 2);
+    expect(markQueued).toHaveBeenCalledWith("attempt-1", 2);
   });
 
-  test('queues retryable transport failures instead of dropping them', async () => {
+  test("queues retryable transport failures instead of dropping them", async () => {
+    // Arrange
+    // Online but transport returns a retryable error
     const markQueued = jest.fn();
     const service = createSubmissionService({
       attempts: {
@@ -113,21 +129,25 @@ describe('createSubmissionService', () => {
         enqueue: jest.fn(),
       },
       transport: {
-        submit: jest.fn().mockResolvedValue({ kind: 'retryable_error', errorCode: 'network_unavailable' }),
+        submit: jest.fn().mockResolvedValue({
+          kind: "retryable_error",
+          errorCode: "network_unavailable",
+        }),
       },
       network: {
         isOnline: async () => true,
       },
-      createIdempotencyKey: async () => 'idempotency-key',
+      createIdempotencyKey: async () => "idempotency-key",
       now: () => 10,
     });
 
+    // Act
     const result = await service.acceptAttempt({
-      attemptId: 'attempt-1',
+      attemptId: "attempt-1",
       acceptedRevision: 3,
       payload: {
-        schemaVersion: 'tolksyn.item.v1',
-        attemptId: 'attempt-1',
+        schemaVersion: "tolksyn.item.v1",
+        attemptId: "attempt-1",
         acceptedRevision: 3,
         structuredJson: emptyStructuredItem(),
         barcodeEnrichment: {
@@ -136,15 +156,21 @@ describe('createSubmissionService', () => {
           relatedFieldSuggestions: { eanOrUpc: null },
           conflicts: [],
         },
-        metadata: { source: 'camera' },
+        metadata: { source: "camera" },
       },
     });
 
-    expect(result).toEqual({ outcome: 'queued', idempotencyKey: 'idempotency-key' });
-    expect(markQueued).toHaveBeenCalledWith('attempt-1', 3);
+    // Assert
+    // Retryable transport failure also queues. Never sent
+    expect(result).toEqual({
+      outcome: "queued",
+      idempotencyKey: "idempotency-key",
+    });
+    expect(markQueued).toHaveBeenCalledWith("attempt-1", 3);
   });
 
-  test('marks permanent transport failures and throws an app error', async () => {
+  test("marks permanent transport failures and throws an app error", async () => {
+    // Arrange
     const markFailed = jest.fn();
     const service = createSubmissionService({
       attempts: {
@@ -156,22 +182,27 @@ describe('createSubmissionService', () => {
         enqueue: jest.fn(),
       },
       transport: {
-        submit: jest.fn().mockResolvedValue({ kind: 'permanent_error', errorCode: 'auth_failed' }),
+        submit: jest.fn().mockResolvedValue({
+          kind: "permanent_error",
+          errorCode: "auth_failed",
+        }),
       },
       network: {
         isOnline: async () => true,
       },
-      createIdempotencyKey: async () => 'idempotency-key',
+      createIdempotencyKey: async () => "idempotency-key",
       now: () => 10,
     });
 
+    // Act and Assert
+    // Permanent failure throws and marks the attempt as failed
     await expect(
       service.acceptAttempt({
-        attemptId: 'attempt-1',
+        attemptId: "attempt-1",
         acceptedRevision: 4,
         payload: {
-          schemaVersion: 'tolksyn.item.v1',
-          attemptId: 'attempt-1',
+          schemaVersion: "tolksyn.item.v1",
+          attemptId: "attempt-1",
           acceptedRevision: 4,
           structuredJson: emptyStructuredItem(),
           barcodeEnrichment: {
@@ -180,13 +211,14 @@ describe('createSubmissionService', () => {
             relatedFieldSuggestions: { eanOrUpc: null },
             conflicts: [],
           },
-          metadata: { source: 'camera' },
+          metadata: { source: "camera" },
         },
       }),
     ).rejects.toMatchObject({
-      code: 'auth_failed',
-      message: 'Submission authentication failed. Check the ingest API key in Settings.',
+      code: "auth_failed",
+      message:
+        "Submission authentication failed. Check the ingest API key in Settings.",
     } satisfies Partial<AppError>);
-    expect(markFailed).toHaveBeenCalledWith('attempt-1', 'auth_failed');
+    expect(markFailed).toHaveBeenCalledWith("attempt-1", "auth_failed");
   });
 });

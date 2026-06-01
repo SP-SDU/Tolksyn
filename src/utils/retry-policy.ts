@@ -1,3 +1,6 @@
+/**
+ * Jitter prevents many queued sends from hitting ingest again at the same instant after an outage.
+ */
 export function computeRetryDelayMs({
   retryCount,
   random,

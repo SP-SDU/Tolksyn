@@ -1,0 +1,18 @@
+\chapter{Conclusion}
+\label{chap:conclusion}
+
+\section{Summary}
+
+The project delivers a coherent prototype for automating product-label registration. It addresses the manual transcription problem by combining camera capture, local barcode detection, vision-language extraction, deterministic merge and validation, human review, structured JSON submission, and offline queueing. The implementation uses a modern Expo and TypeScript stack with clear module boundaries, typed persistence, runtime schema validation, and tests around the highest-risk workflow areas.
+
+The design deliberately keeps a human confirmation step in the loop. This is the correct tradeoff for industrial labels because extraction confidence varies with label quality, lighting, and manufacturer layout. The user remains responsible for acceptance, while the application removes much of the repetitive work involved in transferring label fields into a registration system.
+
+\section{Future Work}
+
+The next development phase should focus on production hardening and deployment. The most valuable additions are integration with a real registration backend, stricter production HTTPS enforcement, richer diagnostics export, more image fixtures from real inventory, more thorough user testing, end-user A/B testing, and production-build performance measurement.
+
+Provider coverage should also be hardened. The prototype supports configurable providers, but a production version should verify all supported providers against the same fixture set, measure extraction accuracy per field, and document provider-specific cost, latency, failure, and privacy implications.
+
+Planning research identified local or offline extraction as a possible future direction, but it should remain a research task rather than a promised feature. The current edge-device and Expo managed-workflow constraints make local VLM execution too risky for this prototype. A sensible future path is first to build a repeatable provider and dataset benchmark, then compare remote providers with small local or edge-hosted models on the same label set, and only then consider on-device integration if accuracy, latency, app size, cold start, and maintenance cost are acceptable.
+
+Further improvements could include manufacturer-specific field suggestions, multiple-image capture for split labels, better confidence visualization, and a server-side dashboard for monitoring accepted payloads.

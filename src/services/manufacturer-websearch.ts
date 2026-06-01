@@ -1,19 +1,26 @@
-import type { RemoteExtractionResult } from '@/api/providers/remote-extraction-types';
-import { sanitizeUntrustedWebText, type AgentQueryCrawlInput, type AgentQueryCrawlResult, type WebFetchResult } from 'agent-query-crawl';
-import type { AppSettings } from '@/types/settings';
-import type { StructuredItem } from '@/types/item-schema';
-import type { BarcodeHit, WebSearchEnrichment } from '@/utils/merge-extraction-result';
-import { isAbortError, throwIfAborted } from '@/utils/abort';
+import type { RemoteExtractionResult } from "@/api/providers/remote-extraction-types";
+import type { StructuredItem } from "@/types/item-schema";
+import type { AppSettings } from "@/types/settings";
+import { isAbortError, throwIfAborted } from "@/utils/abort";
+import type {
+  BarcodeHit,
+  WebSearchEnrichment,
+} from "@/utils/merge-extraction-result";
+import {
+  sanitizeUntrustedWebText,
+  type AgentQueryCrawlInput,
+  type AgentQueryCrawlResult,
+  type WebFetchResult,
+} from "agent-query-crawl";
 
-type ImageInput = {
-  imageUri: string;
-  imageBase64: string;
-  mimeType: string;
-  width: number;
-  height: number;
-};
-
-type EnrichmentInput = ImageInput & {
+type EnrichmentInput = {
+  images: {
+    imageUri: string;
+    imageBase64: string;
+    mimeType: string;
+    width: number;
+    height: number;
+  }[];
   structuredJson: StructuredItem;
   barcodes: BarcodeHit[];
   auxiliaryText?: string;
@@ -21,13 +28,14 @@ type EnrichmentInput = ImageInput & {
   signal?: AbortSignal;
 };
 
-type WebSearchAttempt = WebSearchEnrichment['attempts'][number];
+type WebSearchAttempt = WebSearchEnrichment["attempts"][number];
 
 const WEBSEARCH_LIMITS = {
   maxQueries: 3,
   maxFetchedPagesTotal: 6,
 };
 
+/** Product labels often omit manufacturer, and optional enrichment reduces empty confirm fields. */
 export function createManufacturerWebSearchEnricher({
   settings,
   extractor,
@@ -35,12 +43,23 @@ export function createManufacturerWebSearchEnricher({
 }: {
   settings: { getSettings(): Promise<AppSettings> };
   extractor: {
-    extract(input: ImageInput & { prompt?: string; signal?: AbortSignal }): Promise<RemoteExtractionResult>;
+    extract(input: {
+      images: EnrichmentInput["images"];
+      prompt?: string;
+      signal?: AbortSignal;
+    }): Promise<RemoteExtractionResult>;
   };
-  queryCrawl: { query(input: AgentQueryCrawlInput): Promise<AgentQueryCrawlResult> };
+  queryCrawl: {
+    query(input: AgentQueryCrawlInput): Promise<AgentQueryCrawlResult>;
+  };
 }) {
   return {
-    async enrich(input: EnrichmentInput): Promise<{ structuredJson: StructuredItem; diagnostics: WebSearchEnrichment } | undefined> {
+    async enrich(
+      input: EnrichmentInput,
+    ): Promise<
+      | { structuredJson: StructuredItem; diagnostics: WebSearchEnrichment }
+      | undefined
+    > {
       throwIfAborted(input.signal);
       if (!(await settings.getSettings()).webSearch.enabled) {
         return undefined;
@@ -65,32 +84,40 @@ export function createManufacturerWebSearchEnricher({
             conflicts: [],
             failed: false,
             skipped: true,
-            skipReason: 'Query planner returned no queries.',
+            skipReason: "Query planner returned no queries.",
             durationMs: Math.max(1, Date.now() - startedAt),
           },
         };
       }
 
-      const { searchResults, sources } = await crawlQueries({ queryCrawl, attempts, queries, signal: input.signal });
+      const { searchResults, sources } = await crawlQueries({
+        queryCrawl,
+        attempts,
+        queries,
+        signal: input.signal,
+      });
       throwIfAborted(input.signal);
-      const reconciliationPrompt = buildReconciliationPrompt(input.structuredJson, input.barcodes, searchResults, sources);
+      const reconciliationPrompt = buildReconciliationPrompt(
+        input.structuredJson,
+        input.barcodes,
+        searchResults,
+        sources,
+      );
       const reconciled = await extractor.extract({
-        imageUri: input.imageUri,
-        imageBase64: input.imageBase64,
-        mimeType: input.mimeType,
-        width: input.width,
-        height: input.height,
+        images: input.images,
         prompt: reconciliationPrompt,
         signal: input.signal,
       });
       throwIfAborted(input.signal);
       attempts.push({
-        type: 'reconciliation',
-        status: 'success',
+        type: "reconciliation",
+        status: "success",
         prompt: reconciliationPrompt,
         responseText: reconciled.responseText ?? reconciled.auxiliaryText,
       });
-      const parsedDiagnostics = parseReconciliationDiagnostics(reconciled.auxiliaryText);
+      const parsedDiagnostics = parseReconciliationDiagnostics(
+        reconciled.auxiliaryText,
+      );
 
       return {
         structuredJson: reconciled.structuredJson,
@@ -106,7 +133,10 @@ export function createManufacturerWebSearchEnricher({
           })),
           fieldChanges: parsedDiagnostics.fieldChanges.length
             ? parsedDiagnostics.fieldChanges
-            : changedStructuredFields(input.structuredJson, reconciled.structuredJson),
+            : changedStructuredFields(
+                input.structuredJson,
+                reconciled.structuredJson,
+              ),
           conflicts: parsedDiagnostics.conflicts,
           failed: false,
           durationMs: Math.max(1, Date.now() - startedAt),
@@ -122,7 +152,9 @@ async function crawlQueries({
   queries,
   signal,
 }: {
-  queryCrawl: { query(input: AgentQueryCrawlInput): Promise<AgentQueryCrawlResult> };
+  queryCrawl: {
+    query(input: AgentQueryCrawlInput): Promise<AgentQueryCrawlResult>;
+  };
   attempts: WebSearchAttempt[];
   queries: string[];
   signal?: AbortSignal;
@@ -135,7 +167,8 @@ async function crawlQueries({
 
   for (const query of queries) {
     throwIfAborted(signal);
-    const remainingPages = WEBSEARCH_LIMITS.maxFetchedPagesTotal - sources.length;
+    const remainingPages =
+      WEBSEARCH_LIMITS.maxFetchedPagesTotal - sources.length;
     const result = await queryCrawl.query({
       query,
       limit: Math.max(1, remainingPages),
@@ -147,8 +180,8 @@ async function crawlQueries({
     });
     const output = sanitizeUntrustedWebText(result.resultsText);
     attempts.push({
-      type: 'exa_search',
-      status: 'success',
+      type: "exa_search",
+      status: "success",
       query: result.query,
       responseText: output,
     });
@@ -165,8 +198,8 @@ async function crawlQueries({
       };
       sources.push(sanitizedSource);
       attempts.push({
-        type: 'webfetch',
-        status: 'success',
+        type: "webfetch",
+        status: "success",
         url: sanitizedSource.url,
         excerpt: excerpt(sanitizedSource.text),
       });
@@ -180,28 +213,40 @@ async function planQueries({
   extractor,
   input,
 }: {
-  extractor: { extract(input: ImageInput & { prompt?: string; signal?: AbortSignal }): Promise<RemoteExtractionResult> };
+  extractor: {
+    extract(input: {
+      images: EnrichmentInput["images"];
+      prompt?: string;
+      signal?: AbortSignal;
+    }): Promise<RemoteExtractionResult>;
+  };
   input: EnrichmentInput;
 }): Promise<{ queries: string[]; attempt: WebSearchAttempt }> {
-  const prompt = buildQueryPlanningPrompt(input.structuredJson, input.barcodes, input.auxiliaryText, input.responseText);
+  const prompt = buildQueryPlanningPrompt(
+    input.structuredJson,
+    input.barcodes,
+    input.auxiliaryText,
+    input.responseText,
+  );
   try {
     throwIfAborted(input.signal);
     const planned = await extractor.extract({
-      imageUri: input.imageUri,
-      imageBase64: input.imageBase64,
-      mimeType: input.mimeType,
-      width: input.width,
-      height: input.height,
+      images: input.images,
       prompt,
       signal: input.signal,
     });
     throwIfAborted(input.signal);
 
     return {
-      queries: parseQueries(planned.responseText ?? planned.auxiliaryText).slice(0, WEBSEARCH_LIMITS.maxQueries),
+      queries: parseQueries(
+        planned.responseText ?? planned.auxiliaryText,
+      ).slice(0, WEBSEARCH_LIMITS.maxQueries),
       attempt: {
-        type: 'query_planning',
-        status: parseQueries(planned.responseText ?? planned.auxiliaryText).length ? 'success' : 'failed',
+        type: "query_planning",
+        status: parseQueries(planned.responseText ?? planned.auxiliaryText)
+          .length
+          ? "success"
+          : "failed",
         prompt,
         responseText: planned.responseText ?? planned.auxiliaryText,
       },
@@ -214,8 +259,8 @@ async function planQueries({
     return {
       queries: [],
       attempt: {
-        type: 'query_planning',
-        status: 'failed',
+        type: "query_planning",
+        status: "failed",
         prompt,
         error: error instanceof Error ? error.message : String(error),
       },
@@ -230,20 +275,20 @@ function buildQueryPlanningPrompt(
   responseText?: string,
 ): string {
   return [
-    'Create web search queries for manufacturer and product verification.',
-    'Return one single complete valid JSON object only using the standard structured_json and auxiliary_text_optional envelope.',
-    'Keep structured_json equal to the provided original structured_json.',
+    "Create web search queries for manufacturer and product verification.",
+    "Return one single complete valid JSON object only using the standard structured_json and auxiliary_text_optional envelope.",
+    "Keep structured_json equal to the provided original structured_json.",
     'Put query JSON in auxiliary_text_optional exactly like {"queries":["query one","query two"]}.',
     `Use at most ${WEBSEARCH_LIMITS.maxQueries} queries. Prefer official manufacturer, datasheet, product page, and barcode lookup queries.`,
-    'Original structured_json:',
+    "Original structured_json:",
     JSON.stringify(structuredJson),
-    'Detected barcodes:',
+    "Detected barcodes:",
     JSON.stringify(barcodes),
-    'Auxiliary text:',
-    auxiliaryText ?? '',
-    'Original model response:',
-    responseText ?? '',
-  ].join(' ');
+    "Auxiliary text:",
+    auxiliaryText ?? "",
+    "Original model response:",
+    responseText ?? "",
+  ].join(" ");
 }
 
 function buildReconciliationPrompt(
@@ -253,22 +298,28 @@ function buildReconciliationPrompt(
   sources: WebFetchResult[],
 ): string {
   return [
-    'Update product label extraction using web search evidence.',
-    'Return one single complete valid JSON object only using the standard structured_json and auxiliary_text_optional envelope.',
-    'Original label/image extraction and detected barcodes are primary evidence.',
-    'Prefer original label-derived facts over web results.',
-    'Use web results only to fill null or ambiguous fields, or when official manufacturer/product evidence clearly corroborates a correction.',
-    'If web evidence conflicts with label evidence, keep the original value and mention the conflict in auxiliary_text_optional.',
-    'Original structured_json:',
+    "Update product label extraction using web search evidence.",
+    "Return one single complete valid JSON object only using the standard structured_json and auxiliary_text_optional envelope.",
+    "Original label/image extraction and detected barcodes are primary evidence.",
+    "Prefer original label-derived facts over web results.",
+    "Use web results only to fill null or ambiguous fields, or when official manufacturer/product evidence clearly corroborates a correction.",
+    "If web evidence conflicts with label evidence, keep the original value and mention the conflict in auxiliary_text_optional.",
+    "Original structured_json:",
     JSON.stringify(structuredJson),
-    'Detected barcodes:',
+    "Detected barcodes:",
     JSON.stringify(barcodes),
-    'Exa web search results:',
+    "Exa web search results:",
     JSON.stringify(searchResults),
-    'Fetched source page content:',
-    JSON.stringify(sources.map((source) => ({ url: source.url, contentType: source.contentType, excerpt: excerpt(source.text) }))),
+    "Fetched source page content:",
+    JSON.stringify(
+      sources.map((source) => ({
+        url: source.url,
+        contentType: source.contentType,
+        excerpt: excerpt(source.text),
+      })),
+    ),
     'Put a JSON object in auxiliary_text_optional exactly like {"fieldChanges":[{"field":"manufacturer","before":null,"after":"Phoenix Contact","evidenceUrls":["https://example.com"],"reason":"Official page evidence"}],"conflicts":[]}.',
-  ].join(' ');
+  ].join(" ");
 }
 
 function parseQueries(value: string | undefined): string[] {
@@ -284,27 +335,35 @@ function parseQueries(value: string | undefined): string[] {
 }
 
 function parseQueryRecord(value: unknown): string[] {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
     return [];
   }
 
-  const parsed = value as { queries?: unknown; auxiliary_text_optional?: unknown };
+  const parsed = value as {
+    queries?: unknown;
+    auxiliary_text_optional?: unknown;
+  };
   if (Array.isArray(parsed.queries)) {
-    return parsed.queries
-      .map((query) => String(query).trim())
-      .filter(Boolean);
+    return parsed.queries.map((query) => String(query).trim()).filter(Boolean);
   }
 
-  if (typeof parsed.auxiliary_text_optional === 'string') {
+  if (typeof parsed.auxiliary_text_optional === "string") {
     return parseQueries(parsed.auxiliary_text_optional);
   }
 
   return parseQueryRecord(parsed.auxiliary_text_optional);
 }
 
-function changedStructuredFields(before: StructuredItem, after: StructuredItem): WebSearchEnrichment['fieldChanges'] {
+function changedStructuredFields(
+  before: StructuredItem,
+  after: StructuredItem,
+): WebSearchEnrichment["fieldChanges"] {
   return Object.keys(after)
-    .filter((field) => before[field as keyof StructuredItem] !== after[field as keyof StructuredItem])
+    .filter(
+      (field) =>
+        before[field as keyof StructuredItem] !==
+        after[field as keyof StructuredItem],
+    )
     .map((field) => ({
       field,
       before: before[field as keyof StructuredItem],
@@ -313,7 +372,9 @@ function changedStructuredFields(before: StructuredItem, after: StructuredItem):
     }));
 }
 
-function parseReconciliationDiagnostics(value: string | undefined): Pick<WebSearchEnrichment, 'fieldChanges' | 'conflicts'> {
+function parseReconciliationDiagnostics(
+  value: string | undefined,
+): Pick<WebSearchEnrichment, "fieldChanges" | "conflicts"> {
   if (!value) {
     return { fieldChanges: [], conflicts: [] };
   }
@@ -328,9 +389,16 @@ function parseReconciliationDiagnostics(value: string | undefined): Pick<WebSear
       fieldChanges: Array.isArray(parsed.fieldChanges)
         ? parsed.fieldChanges
             .map((item) => normalizeFieldChange(item))
-            .filter((item): item is WebSearchEnrichment['fieldChanges'][number] => Boolean(item))
+            .filter(
+              (item): item is WebSearchEnrichment["fieldChanges"][number] =>
+                Boolean(item),
+            )
         : [],
-      conflicts: Array.isArray(parsed.conflicts) ? parsed.conflicts.map((item) => normalizeConflict(item)).filter(Boolean) : [],
+      conflicts: Array.isArray(parsed.conflicts)
+        ? parsed.conflicts
+            .map((item) => normalizeConflict(item))
+            .filter(Boolean)
+        : [],
     };
   } catch {
     return { fieldChanges: [], conflicts: [] };
@@ -338,19 +406,19 @@ function parseReconciliationDiagnostics(value: string | undefined): Pick<WebSear
 }
 
 function normalizeConflict(value: unknown): string {
-  if (typeof value === 'string') {
+  if (typeof value === "string") {
     return value;
   }
 
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
     return String(value);
   }
 
   const record = value as Record<string, unknown>;
-  const field = typeof record.field === 'string' ? record.field : 'Conflict';
+  const field = typeof record.field === "string" ? record.field : "Conflict";
   const parts = [field];
-  if (typeof record.reason === 'string' && record.reason.trim().length > 0) {
-    parts.push(record.reason.trim().replace(/[.。]+$/g, ''));
+  if (typeof record.reason === "string" && record.reason.trim().length > 0) {
+    parts.push(record.reason.trim().replace(/[.。]+$/g, ""));
   }
   if (record.labelValue != null) {
     parts.push(`Label: ${String(record.labelValue)}`);
@@ -359,16 +427,18 @@ function normalizeConflict(value: unknown): string {
     parts.push(`Web: ${String(record.webValue)}`);
   }
 
-  return `${parts[0]}: ${parts.slice(1).join('. ')}.`;
+  return `${parts[0]}: ${parts.slice(1).join(". ")}.`;
 }
 
-function normalizeFieldChange(value: unknown): WebSearchEnrichment['fieldChanges'][number] | null {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+function normalizeFieldChange(
+  value: unknown,
+): WebSearchEnrichment["fieldChanges"][number] | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
     return null;
   }
 
   const record = value as Record<string, unknown>;
-  if (typeof record.field !== 'string') {
+  if (typeof record.field !== "string") {
     return null;
   }
 
@@ -376,8 +446,10 @@ function normalizeFieldChange(value: unknown): WebSearchEnrichment['fieldChanges
     field: record.field,
     before: normalizeFieldValue(record.before),
     after: normalizeFieldValue(record.after),
-    evidenceUrls: Array.isArray(record.evidenceUrls) ? record.evidenceUrls.map((item) => String(item)) : [],
-    reason: typeof record.reason === 'string' ? record.reason : undefined,
+    evidenceUrls: Array.isArray(record.evidenceUrls)
+      ? record.evidenceUrls.map((item) => String(item))
+      : [],
+    reason: typeof record.reason === "string" ? record.reason : undefined,
   };
 }
 
@@ -386,7 +458,7 @@ function normalizeFieldValue(value: unknown): string | number | null {
     return null;
   }
 
-  if (typeof value === 'string' || typeof value === 'number') {
+  if (typeof value === "string" || typeof value === "number") {
     return value;
   }
 

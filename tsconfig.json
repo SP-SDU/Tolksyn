@@ -3,23 +3,11 @@
   "compilerOptions": {
     "strict": true,
     "skipLibCheck": true,
-    "types": [
-      "jest"
-    ],
+    "types": ["jest"],
     "paths": {
-      "@/*": [
-        "./src/*",
-        "./*"
-      ]
+      "@/*": ["./src/*", "./*"]
     }
   },
-  "include": [
-    "**/*.ts",
-    "**/*.tsx",
-    "nativewind-env.d.ts"
-  ],
-  "exclude": [
-    "opensrc",
-    "temp"
-  ]
+  "include": ["**/*.ts", "**/*.tsx", "nativewind-env.d.ts"],
+  "exclude": ["opensrc", "temp"]
 }

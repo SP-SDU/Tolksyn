@@ -1,20 +1,27 @@
-import { fireEvent, render, screen } from '@testing-library/react-native';
-import { Text } from 'react-native';
+import { fireEvent, render, screen } from "@testing-library/react-native";
+import { Text } from "react-native";
 
-import { DiagnosticDisclosure } from '@/components/ui/diagnostic-disclosure';
+import { DiagnosticDisclosure } from "@/components/ui/diagnostic-disclosure";
 
-describe('DiagnosticDisclosure', () => {
-  it('keeps diagnostic details collapsed until requested', () => {
+describe("DiagnosticDisclosure", () => {
+  it("keeps diagnostic details collapsed until requested", () => {
+    // Arrange
+    // Act
     render(
       <DiagnosticDisclosure label="Diagnostics">
         <Text>Raw provider response</Text>
       </DiagnosticDisclosure>,
     );
 
-    expect(screen.queryByText('Raw provider response')).toBeNull();
+    // Assert
+    // Content hidden by default to avoid overwhelming the user
+    expect(screen.queryByText("Raw provider response")).toBeNull();
 
-    fireEvent.press(screen.getByText('Diagnostics'));
+    // Act
+    fireEvent.press(screen.getByText("Diagnostics"));
 
-    expect(screen.getByText('Raw provider response')).toBeTruthy();
+    // Assert
+    // Content revealed on press (opt-in for technical detail)
+    expect(screen.getByText("Raw provider response")).toBeTruthy();
   });
 });

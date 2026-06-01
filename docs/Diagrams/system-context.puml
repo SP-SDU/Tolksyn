@@ -10,6 +10,6 @@ cloud "Configured ingest endpoint\nMock or future production API" as Ingest
 
 Staff --> App : Capture/import label\nReview and accept JSON
 App --> LocalDb : Store image metadata,\ndraft, history, queue
-App --> Provider : HTTPS image-to-JSON\nwhen remote extraction is used
+App <-> Provider : HTTPS image-to-JSON\nwhen remote extraction is used
 App --> Ingest : HTTPS POST reviewed payload\nor queue when unavailable
 @enduml

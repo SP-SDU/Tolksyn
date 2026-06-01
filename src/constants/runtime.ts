@@ -1,3 +1,4 @@
+/** Shared caps prevent unbounded web fetch and vision payloads on mobile networks. */
 export const RuntimeLimits = {
   maxWebResponseBytes: 5 * 1024 * 1024,
   webFetchTimeoutMs: 30_000,

@@ -1,10 +1,10 @@
-export type ToastTone = 'info' | 'success' | 'warning' | 'error';
+export type ToastTone = "info" | "success" | "warning" | "error";
 
 export type ToastEntry = {
   id: string;
   text: string;
   tone: ToastTone;
-  mode: 'message' | 'progress';
+  mode: "message" | "progress";
   durationMs: number;
 };
 
@@ -46,15 +46,25 @@ export function nextToast(state: ToastState): ToastState {
   };
 }
 
-export function upsertProgressToast(state: ToastState, entry: ToastEntry): ToastState {
-  const nextQueue = state.queue.filter((item) => item.id !== entry.id && item.mode !== 'progress');
+/** Only one pipeline progress message should be visible at a time during capture. */
+export function upsertProgressToast(
+  state: ToastState,
+  entry: ToastEntry,
+): ToastState {
+  const nextQueue = state.queue.filter(
+    (item) => item.id !== entry.id && item.mode !== "progress",
+  );
   return {
     active: entry,
     queue: nextQueue,
   };
 }
 
-export function replaceProgressWithMessage(state: ToastState, progressId: string, message: ToastEntry): ToastState {
+export function replaceProgressWithMessage(
+  state: ToastState,
+  progressId: string,
+  message: ToastEntry,
+): ToastState {
   const withoutProgress = {
     active: state.active?.id === progressId ? undefined : state.active,
     queue: state.queue.filter((item) => item.id !== progressId),

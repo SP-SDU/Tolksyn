@@ -1,0 +1,32 @@
+\chapter{Background}
+\label{chap:background}
+
+\section{Mobile Application Platform}
+
+The prototype is built as a React Native application. React Native enables native mobile interfaces using JavaScript and React concepts \cite{react-native}. Expo Router provides file-based routing for React Native and web applications, which matches the required Capture, Confirm and Edit, History, and Settings screens \cite{expo-router}. The rationale and constraints behind choosing Expo managed workflow are documented in Chapter~\ref{chap:methodology}, Section~\ref{sec:technology-selection}.
+
+\section{Existing Solutions}
+
+Existing products show that camera-based capture, OCR, barcode reading, validation, and export are established approaches to reducing manual data entry. Scandit Express is a smart data-capture app with barcode, text, ID, and complete-label scanning. It can inject scan data into existing applications and can export captured data through configurable CSV files or Google Sheets \cite{scandit-express}. This is closest to Tolksyn at the capture level, but Scandit Express is a general scanning and keyboard-wedge product rather than a Buy2Sell-specific registration workflow with a fixed JSON schema and review-before-submit flow.
+
+Klippa, now presented as Doxis AI.dp, provides AI-powered OCR and document data extraction. Its OCR product supports upload through app, web, and email channels, extraction of key information, validation, and export to formats such as JSON, CSV, XML, and XLS \cite{klippa-ocr}. Nanonets similarly presents an OCR API for capturing, categorizing, and transforming unstructured documents, with pre-trained extractors for invoices, receipts, purchase orders, passports, identity cards, and related document types \cite{nanonets-ocr-api}. These products operate primarily as general document-processing platforms. Tolksyn differs by targeting industrial product labels, combining local barcode evidence with vision-language schema extraction, and storing reviewed attempts and queued submissions on the device.
+
+The existing systems confirm that capture-to-structured-data workflows are already relevant in industry. They do not remove the need for a project-specific solution, because Buy2Sell's workflow requires product-label fields, explicit empty values for unsupported fields, local history, offline queueing, configurable provider credentials, and a reviewed JSON ingest payload.
+
+\section{Vision-Language Extraction}
+
+The core recognition problem is not only optical character recognition. Product labels contain layout, abbreviations, model numbers, manufacturer names, country information, barcodes, and sometimes technical identifiers. A pure OCR pipeline can transcribe characters, but would still need a downstream mapping layer to decide which recognized text belongs to which registration field. The implementation therefore uses a vision-language extraction step to map visible label evidence into a structured JSON schema.
+
+This distinction matters because transcription and registration are different tasks. OCR can make label text machine-readable, but inventory registration also requires field selection, normalization, and omission of values that are not visible or reliable. The project therefore treats model output as draft structured data, while deterministic barcode decoding, schema validation, and human review remain separate control points.
+
+Planning still considered OCR and text-recognition approaches. CRNN represents neural scene-text recognition for image-based sequences \cite{crnn}, while Tesseract represents a classical OCR engine that was relevant as a baseline OCR option \cite{tesseract}. Gemini document processing and ML Kit Text Recognition v2 were also relevant practical options during planning \cite{gemini-doc-processing,mlkit-text-recognition}. These sources informed the design direction, but the implementation keeps deterministic barcode decoding separate and uses a VLM-first extraction boundary for schema mapping.
+
+\section{Persistence, Offline Operation, and Secure Settings}
+
+The mobile workflow has to survive common workshop conditions: unstable connectivity, repeated captures, and configuration changes. Local persistence is therefore part of the technical background, not only an implementation detail. Expo SQLite provides local storage on Expo-supported platforms \cite{expo-sqlite}, while Drizzle ORM provides a typed SQL layer used by the repositories \cite{drizzle} (Table~\ref{tab:glossary}). This supports attempt history, queued submissions, and settings persistence without depending on a production backend during the prototype phase.
+
+Security is also part of the architecture boundary. The prototype uses a bring-your-own-key model for provider and ingest credentials, so secrets must be separated from ordinary settings. Expo SecureStore provides native secure key-value storage on iOS and Android \cite{expo-securestore}. Web deployments cannot provide identical Keychain or Keystore guarantees, so the implementation and future-work sections treat browser secret handling as a limitation rather than assuming native-equivalent protection.
+
+\section{Architecture Documentation}
+
+The project uses C4-style architecture modelling, where the system is described through increasingly detailed views such as context, containers, components, and code \cite{c4-model}. The diagrams in this thesis are generated from PlantUML sources and rendered for inclusion in the thesis. Only the rendered diagram assets are included in the appendix and final thesis. The PlantUML source files remain project working files.

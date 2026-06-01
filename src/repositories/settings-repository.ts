@@ -1,25 +1,30 @@
-import { eq } from 'drizzle-orm';
-import type { ExpoSQLiteDatabase } from 'drizzle-orm/expo-sqlite';
-import { Platform } from 'react-native';
+import { eq } from "drizzle-orm";
+import type { ExpoSQLiteDatabase } from "drizzle-orm/expo-sqlite";
+import { Platform } from "react-native";
 
-import { settingsTable } from '@/db/schema';
-import { createProviderCatalog } from '@/services/provider-catalog';
-import type * as schema from '@/db/schema';
-import { defaultSettings, type AppSettings, type ProviderAuthMap } from '@/types/settings';
+import type * as schema from "@/db/schema";
+import { settingsTable } from "@/db/schema";
+import { createProviderCatalog } from "@/services/provider-catalog";
+import {
+  defaultSettings,
+  type AppSettings,
+  type ProviderAuthMap,
+} from "@/types/settings";
 
-const SETTINGS_KEY = 'tolksyn.settings';
-const WEB_SETTINGS_KEY = 'tolksyn.settings.web';
-const PROVIDER_SECRET_KEY = 'tolksyn.secret.provider_api_key';
-const PROVIDER_AUTH_SECRET_KEY = 'tolksyn.secret.provider_auth';
-const INGEST_SECRET_KEY = 'tolksyn.secret.ingest_api_key';
+const SETTINGS_KEY = "tolksyn.settings";
+const WEB_SETTINGS_KEY = "tolksyn.settings.web";
+const PROVIDER_SECRET_KEY = "tolksyn.secret.provider_api_key";
+const PROVIDER_AUTH_SECRET_KEY = "tolksyn.secret.provider_auth";
+const INGEST_SECRET_KEY = "tolksyn.secret.ingest_api_key";
 
+/** Only non-secret preferences go in SQLite/localStorage so credential export paths stay safe. */
 type PersistedProvider = {
   id: string;
   model: string;
   modelVariant?: string | null;
   timeoutMs: number;
   showExperimentalProviders?: boolean;
-  authModeByProvider: Record<string, 'api' | 'oauth'>;
+  authModeByProvider: Record<string, "api" | "oauth">;
 };
 
 type PersistedSettings = {
@@ -27,19 +32,19 @@ type PersistedSettings = {
   ingest: {
     endpointUrl: string;
   };
-  barcode: AppSettings['barcode'];
-  webSearch: AppSettings['webSearch'];
+  barcode: AppSettings["barcode"];
+  webSearch: AppSettings["webSearch"];
 };
 
 type LegacyProvider = {
-  kind?: 'openai_compatible' | 'gemini';
+  kind?: "openai_compatible" | "gemini";
   id?: string;
   endpointUrl?: string;
   model?: string;
   modelVariant?: string | null;
   timeoutMs?: number;
   showExperimentalProviders?: boolean;
-  authModeByProvider?: Record<string, 'api' | 'oauth'>;
+  authModeByProvider?: Record<string, "api" | "oauth">;
 };
 
 type LegacyPersistedSettings = {
@@ -47,8 +52,8 @@ type LegacyPersistedSettings = {
   ingest?: {
     endpointUrl?: string;
   };
-  barcode?: AppSettings['barcode'];
-  webSearch?: AppSettings['webSearch'];
+  barcode?: AppSettings["barcode"];
+  webSearch?: AppSettings["webSearch"];
 };
 
 type DbLike = ExpoSQLiteDatabase<typeof schema>;
@@ -75,8 +80,10 @@ export function createSettingsRepository({
       const persisted = await loadPersisted(db, secrets, providerCatalog);
       const auth = await loadAuth(secrets);
       const id = persisted.provider.id;
-      const mode = persisted.provider.authModeByProvider[id] ?? providerCatalog.authMode(id);
-      const ingestApiKey = (await secrets.getItem(INGEST_SECRET_KEY)) ?? '';
+      const mode =
+        persisted.provider.authModeByProvider[id] ??
+        providerCatalog.authMode(id);
+      const ingestApiKey = (await secrets.getItem(INGEST_SECRET_KEY)) ?? "";
 
       return {
         provider: {
@@ -84,7 +91,8 @@ export function createSettingsRepository({
           model: persisted.provider.model,
           modelVariant: persisted.provider.modelVariant ?? null,
           timeoutMs: persisted.provider.timeoutMs,
-          showExperimentalProviders: persisted.provider.showExperimentalProviders ?? false,
+          showExperimentalProviders:
+            persisted.provider.showExperimentalProviders ?? false,
           authModeByProvider: {
             ...persisted.provider.authModeByProvider,
             [id]: mode,
@@ -102,7 +110,9 @@ export function createSettingsRepository({
 
     async saveSettings(settings: AppSettings): Promise<void> {
       const id = settings.provider.id;
-      const mode = settings.provider.authModeByProvider[id] ?? providerCatalog.authMode(id);
+      const mode =
+        settings.provider.authModeByProvider[id] ??
+        providerCatalog.authMode(id);
       const auth = cleanAuth(settings.provider.auth, id, mode);
       const persisted: PersistedSettings = {
         provider: {
@@ -110,7 +120,9 @@ export function createSettingsRepository({
           model: settings.provider.model.trim(),
           modelVariant: settings.provider.modelVariant,
           timeoutMs: settings.provider.timeoutMs,
-          showExperimentalProviders: Boolean(settings.provider.showExperimentalProviders),
+          showExperimentalProviders: Boolean(
+            settings.provider.showExperimentalProviders,
+          ),
           authModeByProvider: {
             ...settings.provider.authModeByProvider,
             [id]: mode,
@@ -128,7 +140,7 @@ export function createSettingsRepository({
         },
       };
 
-      if (Platform.OS === 'web') {
+      if (Platform.OS === "web") {
         await secrets.setItem(WEB_SETTINGS_KEY, JSON.stringify(persisted));
       } else {
         await upsertSetting(db, SETTINGS_KEY, JSON.stringify(persisted));
@@ -146,13 +158,17 @@ async function loadPersisted(
 ): Promise<PersistedSettings> {
   const web = await secrets.getItem(WEB_SETTINGS_KEY);
   const parsedWeb = await parsePersisted(web, secrets, catalog);
-  if (Platform.OS === 'web' && parsedWeb) {
+  if (Platform.OS === "web" && parsedWeb) {
     return parsedWeb;
   }
 
   let rowValue: string | null = null;
   try {
-    const rows = await db.select().from(settingsTable).where(eq(settingsTable.key, SETTINGS_KEY)).limit(1);
+    const rows = await db
+      .select()
+      .from(settingsTable)
+      .where(eq(settingsTable.key, SETTINGS_KEY))
+      .limit(1);
     rowValue = rows[0]?.value ?? null;
   } catch {
     rowValue = null;
@@ -160,7 +176,7 @@ async function loadPersisted(
 
   const parsedDb = await parsePersisted(rowValue, secrets, catalog);
   if (parsedDb) {
-    if (Platform.OS === 'web') {
+    if (Platform.OS === "web") {
       await secrets.setItem(WEB_SETTINGS_KEY, JSON.stringify(parsedDb));
     }
 
@@ -195,16 +211,19 @@ async function parsePersisted(
   const mode = raw.provider?.authModeByProvider?.[id] ?? catalog.authMode(id);
   const providerDefaults = await catalog.defaultsFor(id, mode);
   const migrated: PersistedSettings = {
-      provider: {
-        id,
-        model: raw.provider?.model ?? providerDefaults.model,
-        modelVariant: raw.provider?.modelVariant ?? defaults.provider.modelVariant,
-        timeoutMs: raw.provider?.timeoutMs ?? defaults.provider.timeoutMs,
-        showExperimentalProviders: raw.provider?.showExperimentalProviders ?? defaults.provider.showExperimentalProviders,
-        authModeByProvider: {
-          ...defaults.provider.authModeByProvider,
-          ...(raw.provider?.authModeByProvider ?? {}),
-          [id]: mode,
+    provider: {
+      id,
+      model: raw.provider?.model ?? providerDefaults.model,
+      modelVariant:
+        raw.provider?.modelVariant ?? defaults.provider.modelVariant,
+      timeoutMs: raw.provider?.timeoutMs ?? defaults.provider.timeoutMs,
+      showExperimentalProviders:
+        raw.provider?.showExperimentalProviders ??
+        defaults.provider.showExperimentalProviders,
+      authModeByProvider: {
+        ...defaults.provider.authModeByProvider,
+        ...(raw.provider?.authModeByProvider ?? {}),
+        [id]: mode,
       },
     },
     ingest: {
@@ -219,7 +238,11 @@ async function parsePersisted(
   return migrated;
 }
 
-async function migrateLegacyApiSecret(secrets: SecretStore, id: string): Promise<void> {
+/** Older installs stored a single API key, and migrate once so multi-provider auth keeps working. */
+async function migrateLegacyApiSecret(
+  secrets: SecretStore,
+  id: string,
+): Promise<void> {
   const legacy = await secrets.getItem(PROVIDER_SECRET_KEY);
   if (!legacy?.trim()) {
     return;
@@ -231,7 +254,7 @@ async function migrateLegacyApiSecret(secrets: SecretStore, id: string): Promise
   }
 
   auth[id] = {
-    type: 'api',
+    type: "api",
     key: legacy,
   };
   await saveAuth(secrets, auth);
@@ -257,29 +280,33 @@ function fromDefaults(): PersistedSettings {
   };
 }
 
-function mapLegacyId(kind: 'openai_compatible' | 'gemini' | undefined): string {
-  if (kind === 'gemini') {
-    return 'google';
+function mapLegacyId(kind: "openai_compatible" | "gemini" | undefined): string {
+  if (kind === "gemini") {
+    return "google";
   }
 
-  return 'openai';
+  return "openai";
 }
 
-function cleanAuth(map: ProviderAuthMap, id: string, mode: 'api' | 'oauth'): ProviderAuthMap {
+function cleanAuth(
+  map: ProviderAuthMap,
+  id: string,
+  mode: "api" | "oauth",
+): ProviderAuthMap {
   const next: ProviderAuthMap = { ...map };
   const auth = next[id];
   if (!auth) {
     return next;
   }
 
-  if (mode === 'api') {
-    if (auth.type !== 'api' || !auth.key.trim()) {
+  if (mode === "api") {
+    if (auth.type !== "api" || !auth.key.trim()) {
       delete next[id];
     }
     return next;
   }
 
-  if (auth.type !== 'oauth') {
+  if (auth.type !== "oauth") {
     delete next[id];
   }
 
@@ -299,7 +326,10 @@ async function loadAuth(secrets: SecretStore): Promise<ProviderAuthMap> {
   }
 }
 
-async function saveAuth(secrets: SecretStore, auth: ProviderAuthMap): Promise<void> {
+async function saveAuth(
+  secrets: SecretStore,
+  auth: ProviderAuthMap,
+): Promise<void> {
   const keys = Object.keys(auth).filter((key) => auth[key]);
   if (!keys.length) {
     if (secrets.deleteItem) {
@@ -311,12 +341,13 @@ async function saveAuth(secrets: SecretStore, auth: ProviderAuthMap): Promise<vo
   await secrets.setItem(PROVIDER_AUTH_SECRET_KEY, JSON.stringify(auth));
 }
 
-async function upsertSetting(db: DbLike, key: string, value: string): Promise<void> {
-  await db
-    .insert(settingsTable)
-    .values({ key, value })
-    .onConflictDoUpdate({
-      target: settingsTable.key,
-      set: { value },
-    });
+async function upsertSetting(
+  db: DbLike,
+  key: string,
+  value: string,
+): Promise<void> {
+  await db.insert(settingsTable).values({ key, value }).onConflictDoUpdate({
+    target: settingsTable.key,
+    set: { value },
+  });
 }

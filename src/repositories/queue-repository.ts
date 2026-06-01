@@ -1,9 +1,9 @@
-import { asc, eq, max } from 'drizzle-orm';
-import type { ExpoSQLiteDatabase } from 'drizzle-orm/expo-sqlite';
+import { asc, eq, max } from "drizzle-orm";
+import type { ExpoSQLiteDatabase } from "drizzle-orm/expo-sqlite";
 
-import { queueItemsTable } from '@/db/schema';
-import type * as schema from '@/db/schema';
-import type { QueueItem, QueueRepository } from '@/services/queue-worker';
+import type * as schema from "@/db/schema";
+import { queueItemsTable } from "@/db/schema";
+import type { QueueItem, QueueRepository } from "@/services/queue-worker";
 
 export type PersistedQueueItem = QueueItem & {
   attemptId: string;
@@ -30,7 +30,7 @@ export function createQueueRepository(db: DbLike): QueueRepository & {
       const item: PersistedQueueItem = {
         ...input,
         sequence: nextSequence,
-        status: 'queued',
+        status: "queued",
         nextAttemptAt: 0,
         retryCount: 0,
       };
@@ -43,7 +43,7 @@ export function createQueueRepository(db: DbLike): QueueRepository & {
       const rows = await db
         .select()
         .from(queueItemsTable)
-        .where(eq(queueItemsTable.status, 'queued'))
+        .where(eq(queueItemsTable.status, "queued"))
         .orderBy(asc(queueItemsTable.sequence))
         .limit(1);
       const row = rows[0];
@@ -53,6 +53,7 @@ export function createQueueRepository(db: DbLike): QueueRepository & {
       }
 
       const item = deserializeQueueItem(row);
+      // Respect backoff so a failing ingest does not spin-retry inside one drain pass.
       return item.nextAttemptAt <= now ? item : null;
     },
 
@@ -60,7 +61,7 @@ export function createQueueRepository(db: DbLike): QueueRepository & {
       await db
         .update(queueItemsTable)
         .set({
-          status: 'sent',
+          status: "sent",
         })
         .where(eq(queueItemsTable.id, id));
     },
@@ -80,7 +81,7 @@ export function createQueueRepository(db: DbLike): QueueRepository & {
       await db
         .update(queueItemsTable)
         .set({
-          status: 'failed',
+          status: "failed",
           lastErrorCode: errorCode,
         })
         .where(eq(queueItemsTable.id, id));
@@ -104,11 +105,13 @@ function serializeQueueItem(item: PersistedQueueItem) {
   };
 }
 
-function deserializeQueueItem(row: typeof queueItemsTable.$inferSelect): PersistedQueueItem {
+function deserializeQueueItem(
+  row: typeof queueItemsTable.$inferSelect,
+): PersistedQueueItem {
   return {
     id: row.id,
     sequence: row.sequence,
-    status: row.status as QueueItem['status'],
+    status: row.status as QueueItem["status"],
     nextAttemptAt: row.nextAttemptAt,
     retryCount: row.retryCount,
     payload: JSON.parse(row.payload),
@@ -121,6 +124,8 @@ function deserializeQueueItem(row: typeof queueItemsTable.$inferSelect): Persist
 }
 
 async function getNextSequence(db: DbLike): Promise<number> {
-  const row = await db.select({ max: max(queueItemsTable.sequence) }).from(queueItemsTable);
+  const row = await db
+    .select({ max: max(queueItemsTable.sequence) })
+    .from(queueItemsTable);
   return (row[0]?.max ?? 0) + 1;
 }

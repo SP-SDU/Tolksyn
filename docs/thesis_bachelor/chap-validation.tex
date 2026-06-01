@@ -1,0 +1,123 @@
+\chapter{Validation}
+\label{chap:validation}
+
+\section{Testing Strategy}
+
+Testing follows the project preference for high-value integration and contract tests. Jest is the configured test runner, and Jest's standard workflow supports running tests through a package script \cite{jest}. React Native Testing Library supports tests that resemble user interaction rather than implementation details \cite{rntl}. The project also uses \path{jest-expo} so Expo and React Native modules can be tested in the app context.
+
+Integration tests are preferred over narrow unit tests for most behavior because the highest risks sit between modules: camera or gallery input becomes persisted image data, extraction and barcode results are merged, queue items survive repository boundaries, and settings change provider behavior. Isolated unit tests are still useful for pure schema, merge, retry, and idempotency functions, but many Expo APIs require mocks under \path{jest-expo}. Testing only mocked internals would give weak evidence, so the suite emphasizes service, repository, API-route, and UI component boundaries.
+
+\section{Automated Coverage Areas}
+
+The repository contains tests for provider catalog behavior, extraction retry, OAuth flows, manufacturer web search, settings repositories, secure store behavior, queue worker logic, queue replay, capture pipeline, gallery import, barcode detection, submission, toast state, schemas, idempotency, retry policy, and selected UI components. This coverage aligns with the risks in the primary loop: model failure, offline behavior, malformed JSON, queue consistency, and user confirmation, which Table~\ref{tab:validation-matrix} maps to representative tests.
+
+\begin{table}[htbp]
+\centering
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{0.22\textwidth}>{\raggedright\arraybackslash}p{0.34\textwidth}X}
+\toprule
+Area & Representative tests & Validated behavior \\
+\midrule
+Capture pipeline & \path{capture-pipeline.test.ts}, \path{gallery-import.test.ts} & Image processing, attempt creation, extraction, barcode merge, retry handling. \\
+Provider integration & \path{provider-catalog.test.ts}, \path{extraction-retry.test.ts}, \path{provider-oauth.test.ts} & Model discovery, fallback behavior, auth device flows, invalid responses. \\
+Queue and ingest & \path{queue-worker.test.ts}, \path{queue-replay.integration.test.ts}, \path{submission-service.test.ts} & Offline queueing, FIFO drain, retry scheduling, idempotent submission. \\
+Persistence & \path{attempt-repository.test.ts}, \path{queue-repository.test.ts}, \path{settings-repository.test.ts} & Repository CRUD behavior, settings persistence, status transitions. \\
+Schema and utilities & \path{item-schema.test.ts}, \path{idempotency.test.ts}, \path{retry-policy.test.ts} & Runtime validation, stable keys, backoff and merge behavior. \\
+UI components & \path{button.test.tsx}, \path{diagnostic-disclosure.test.tsx} & Reusable component rendering and user-facing diagnostic display. \\
+\bottomrule
+\end{tabularx}
+\caption{Validation matrix.}
+\label{tab:validation-matrix}
+\end{table}
+
+The tests are most useful where they verify behavior across a boundary. \path{tests/services/capture-pipeline.test.ts} exercises the same orchestration used by the Capture screen. The test suite checks that attempts are created after image persistence, that extraction and barcode evidence are merged, that web-search enrichment can update diagnostics, that enrichment failure does not destroy the original extraction, and that aborting after attempt creation removes the partial attempt. This directly validates the pipeline consequence described in Chapter~\ref{chap:implementation}: the user should either receive a reviewable attempt or a controlled cancellation, not a hidden half-written record.
+
+The extraction tests validate the model-output boundary. \path{tests/api/remote-extractor.test.ts} checks that the AI SDK call contains both the text prompt and image file part, and that missing credentials or unsupported image models fail before a provider call is attempted. \path{tests/services/extraction-retry.test.ts} verifies the repair-loop behavior: invalid or schema-breaking model output records diagnostics and is retried, while final exhaustion returns an empty fallback structured item rather than throwing an unhandled error through the UI. These tests do not prove extraction accuracy. They prove that malformed provider behavior is contained.
+
+The persistence and queue tests validate recovery assumptions. \path{tests/repositories/queue-repository.test.ts} and \path{tests/services/queue-worker.test.ts} check the queue head, retry scheduling, sent/failed transitions, and ordering. \path{tests/services/queue-replay.integration.test.ts} covers the combined replay path. \path{tests/api/ingest-transport.test.ts} checks HTTP outcome classification, including retryable statuses and permanent auth/configuration failures. Together these tests support the claim that accepted payloads are not discarded when delivery is temporarily unavailable. They do not prove behavior against a real production backend. That remains outside the prototype boundary.
+
+\section{Acceptance Validation}
+
+Acceptance validation focuses on the full operator journey: open Capture, grant camera permission, capture or import a label, wait for extraction, review fields, correct uncertain values, accept, and verify that the attempt is sent or queued. The most important acceptance criterion is that the user can finish registration without manually retyping every visible label field.
+
+\section{Performance and Reliability}
+
+The requirements target confirmation within 6 seconds for most attempts under stable network conditions, UI response under 100 ms, and cold start under 3 seconds \cite{requirements-register}. The architecture supports these targets by parallelizing barcode detection and model extraction, keeping local persistence lightweight, limiting history to 20 attempts, and using background queue replay rather than blocking the review flow on network availability.
+
+\path{processImage} reduces one avoidable delay by running barcode detection and extraction in parallel, and the image store reduces image size by normalizing to a 1200 px wide WebP plus a thumbnail. The dominant latency still depends on remote provider response time, network conditions, image content, and selected model. The empirical KPI evaluation in Section~\ref{sec:kpi-evaluation} therefore focuses on extraction correctness, while automated tests validate the reliability behavior around retries, fallback responses, and queue preservation.
+
+Lighthouse reports for the Capture, Confirm, History, and Settings routes are retained in Appendix~\ref{app:lighthouse}. Low web performance scores from these captures should be interpreted cautiously because the Expo development server does not apply the same compression, minification, tree-shaking, and static asset handling as a production web export. The Lighthouse artifacts are useful for accessibility, best-practice, and route inspection evidence, while the KPI evaluation provides separate evidence for extraction correctness.
+
+\section{KPI Evaluation}
+\label{sec:kpi-evaluation}
+
+An empirical evaluation was performed to test KPI-001, the pre-review extraction-accuracy requirement, against Buy2Sell product-label images. The evaluation used 88 NDA-protected images originating from Buy2Sell. The original images are not embedded in the thesis because they may contain company-sensitive information. Instead, Appendix~\ref{app:kpi-evidence} contains anonymized per-image and per-field result evidence.
+
+The measured quantity is field-level semantic correctness. This is the appropriate unit because different labels expose different facts: a label may show a manufacturer and product number but no country of origin, while another may include quantity, item group, or a reference code. Counting every schema field for every image would incorrectly penalize the extractor for fields that are not visible. The denominator is therefore the number of visible, answerable fields that entered the review set. Manual-only registration fields, such as condition and working condition, were excluded because they are not label-evidence fields.
+
+The evaluation follows the same extraction contract implemented in the application. The prompt contract in \path{src/api/providers/extraction-prompt.ts} requires one parseable JSON object with \path{structured_json} and \path{auxiliary_text_optional}. The parser in \path{parseProviderJsonEnvelope} accepts provider output only after JSON parsing and schema validation. The schema normalization in \path{src/types/item-schema.ts} converts empty text to \path{null}, normalizes numeric fields, and keeps the same structured shape for every attempt. This matters for the KPI: schema validation can prove that an output has the right keys and types, but it cannot prove that a manufacturer, product number, or reference value is true. The KPI evaluation supplies that semantic check by comparing the normalized extraction output against reviewed label evidence.
+
+The OpenAI provider was configured with \path{gpt-5.3-codex}. This is a powerful vision-language model, and that model choice likely improves the extraction result compared with weaker or cheaper models. The measured result should therefore be read as the outcome for this provider and model configuration. The system appears especially accurate when the image is sharp and the product label is visible in the frame, because the model receives both the text prompt and the image evidence needed to map visible label content into the JSON schema. Most observed failures were linked to blurred or unclear images.
+
+The scoring process used normalized field comparison followed by semantic adjudication for non-exact matches. Exact string or numeric matches were counted directly. Barcode-like and code-like fields were normalized so that harmless punctuation or spacing differences did not create false errors. Where a value differed textually but appeared semantically equivalent, the discrepancy was recorded and adjudicated as correct or incorrect. Examples include formatting differences in version codes or non-material prefix and suffix differences in product numbers. This prevents the metric from treating every character-level difference as a product-registration error while still preserving a field-level discrepancy record in the anonymized evidence.
+
+The review phase produced correction files for 18 images. In this evaluation context, a correction means that at least one VLM-extracted field for that image was changed to match information visible in the image. It does not mean that the reviewer added new registration information outside the label evidence. The activity is therefore comparable to the application's confirmation screen because both involve checking extracted fields, but the KPI measurement is narrower: it scores only whether the VLM extraction matched the visible label. If no correction was present, the extraction was treated as accepted after review. Manual review is itself a measurement step: reviewing 88 images and their corresponding JSON outputs is detailed work, and reviewer fatigue or human oversight can affect whether every small mistake is noticed. Some incorrect or partially incorrect fields may therefore have been missed. The statistic should therefore be interpreted as the measured result of this reviewed evaluation procedure, with human review forming part of the measurement method, as summarized in Table~\ref{tab:kpi-evaluation-setup}.
+
+\begin{table}[htbp]
+\centering
+\begin{tabularx}{\textwidth}{P{0.32\textwidth}Y}
+\toprule
+\textbf{Evaluation setting} & \textbf{Value} \\
+\midrule
+Evaluation images & 88 Buy2Sell product-label images \\
+Provider & OpenAI \\
+Model & \path{gpt-5.3-codex} \\
+Extraction mode & Remote vision-language extraction \\
+Barcode handling & Local barcode detection merged before review \\
+Scoring method & Normalized field-level comparison with semantic adjudication for non-exact matches \\
+Evidence artifact & Anonymized KPI result PDF in Appendix~\ref{app:kpi-evidence} \\
+\bottomrule
+\end{tabularx}
+\caption{KPI evaluation setup.}
+\label{tab:kpi-evaluation-setup}
+\end{table}
+
+The evaluation measured pre-review extraction accuracy for KPI-001, shown in Table~\ref{tab:kpi-extraction-accuracy}. Accuracy was computed as the number of correct scored fields divided by the total number of scored fields. A field entered the denominator only when it was present in the reviewed label evidence or in the extraction output. This keeps the metric tied to visible product-label information instead of the full application schema. KPI-002 is a separate time-reduction evaluation target because it requires timed comparison between manual registration and app-assisted registration, it is not calculated from the field-correctness evidence artifact.
+
+\begin{table}[htbp]
+\centering
+\begin{tabular}{p{4cm} r r r}
+\hline
+\textbf{Field} & \textbf{Correct} & \textbf{Total} & \textbf{Accuracy} \\
+\hline
+Manufacturer & 79 & 80 & 98.8\% \\
+Product number & 72 & 72 & 100.0\% \\
+Product text & 83 & 86 & 96.5\% \\
+Product version & 50 & 51 & 98.0\% \\
+EAN or UPC & 18 & 18 & 100.0\% \\
+Country of origin & 53 & 53 & 100.0\% \\
+Item category & 78 & 78 & 100.0\% \\
+Packaging & 13 & 13 & 100.0\% \\
+Quantity & 44 & 44 & 100.0\% \\
+Batch size & 2 & 2 & 100.0\% \\
+Item group & 5 & 5 & 100.0\% \\
+Reference & 23 & 25 & 92.0\% \\
+Link & 3 & 3 & 100.0\% \\
+\hline
+\textbf{All scored fields} & \textbf{523} & \textbf{530} & \textbf{98.7\%} \\
+\hline
+\end{tabular}
+\caption{Field-level pre-review extraction accuracy.}
+\label{tab:kpi-extraction-accuracy}
+\end{table}
+
+The prototype reached 98.7\% field-level accuracy across the scored fields, exceeding the KPI-001 target of at least 85\%. The strongest fields were those with compact, label-local evidence: product numbers, barcodes, country of origin, item category, packaging, and quantity were extracted correctly in every scored occurrence. The remaining errors were concentrated in fields where small visual or semantic differences matter, such as product text, product version, manufacturer naming, and reference values. This is consistent with the implementation boundary: the schema and parser can enforce structure, but similar-looking text and ambiguous manufacturer wording still require reviewed evidence.
+
+The result supports the design decision to keep human confirmation before submission. The model can produce a highly accurate draft when the label is visible and legible, but the seven incorrect scored fields show why extracted data should not become authoritative without review. In the implemented workflow, the confirmation screen is therefore not a formality, it is the control point that converts probabilistic model output into an accepted registration payload.
+
+\section{Negative and Regression Test Cases}
+
+The most important negative tests are not only malformed input tests, but workflow disruption tests. The application must handle provider timeouts, invalid JSON, missing credentials, camera permission denial, corrupt images, unsupported barcode formats, duplicate barcode values, offline submission, repeated retry, app restart during queue replay, and schema evolution. These scenarios should remain part of the regression suite.
+
+\section{Verification Results}
+
+The repository exposes three primary verification commands: \texttt{npm\ run\ test}, \texttt{npm\ run\ lint}, and \texttt{npm\ run\ typecheck}. On 1 June 2026, \texttt{npm\ run\ test} completed successfully with 42 passed test suites and 143 passed tests. \texttt{npm\ run\ typecheck} completed \texttt{tsc\ -{}-noEmit} successfully, and \texttt{npm\ run\ lint} completed \texttt{expo\ lint} successfully. These results validate the automated regression suite and static checks. The KPI measurements in Section~\ref{sec:kpi-evaluation} provide separate empirical evidence for extraction accuracy.

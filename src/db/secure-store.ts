@@ -1,10 +1,11 @@
-import { Platform } from 'react-native';
-import * as SecureStore from 'expo-secure-store';
+import * as SecureStore from "expo-secure-store";
+import { Platform } from "react-native";
 
-const WEB_PREFIX = 'tolksyn.';
+const WEB_PREFIX = "tolksyn.";
 const webSecrets = new Map<string, string>();
 
-if (Platform.OS === 'web' && typeof window !== 'undefined') {
+// Hydrate cache at startup so synchronous secret reads work before the first async round trip.
+if (Platform.OS === "web" && typeof window !== "undefined") {
   for (let index = 0; index < window.localStorage.length; index += 1) {
     const key = window.localStorage.key(index);
     if (!key?.startsWith(WEB_PREFIX)) {
@@ -18,15 +19,16 @@ if (Platform.OS === 'web' && typeof window !== 'undefined') {
   }
 }
 
+/** Credentials must bypass SQLite because settings rows are readable during export and web localStorage sync. */
 export const secureSecretStore = {
   async getItem(key: string): Promise<string | null> {
-    if (Platform.OS === 'web') {
+    if (Platform.OS === "web") {
       const cached = webSecrets.get(key);
       if (cached != null) {
         return cached;
       }
 
-      if (typeof window !== 'undefined') {
+      if (typeof window !== "undefined") {
         const value = window.localStorage.getItem(key);
         if (value !== null) {
           webSecrets.set(key, value);
@@ -41,9 +43,9 @@ export const secureSecretStore = {
   },
 
   async setItem(key: string, value: string): Promise<void> {
-    if (Platform.OS === 'web') {
+    if (Platform.OS === "web") {
       webSecrets.set(key, value);
-      if (typeof window !== 'undefined') {
+      if (typeof window !== "undefined") {
         window.localStorage.setItem(key, value);
       }
       return;
@@ -53,9 +55,9 @@ export const secureSecretStore = {
   },
 
   async deleteItem(key: string): Promise<void> {
-    if (Platform.OS === 'web') {
+    if (Platform.OS === "web") {
       webSecrets.delete(key);
-      if (typeof window !== 'undefined') {
+      if (typeof window !== "undefined") {
         window.localStorage.removeItem(key);
       }
       return;
@@ -65,8 +67,8 @@ export const secureSecretStore = {
   },
 };
 
-export async function clearWebKeys(prefix = 'tolksyn.'): Promise<void> {
-  if (Platform.OS !== 'web' || typeof window === 'undefined') {
+export async function clearWebKeys(prefix = "tolksyn."): Promise<void> {
+  if (Platform.OS !== "web" || typeof window === "undefined") {
     return;
   }
 

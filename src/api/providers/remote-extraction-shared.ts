@@ -1,90 +1,142 @@
-import { AppError } from '@/types/app-error';
-import { emptyStructuredItem, validateStructuredItem } from '@/types/item-schema';
+import { AppError } from "@/types/app-error";
+import {
+  emptyStructuredItem,
+  validateStructuredItem,
+} from "@/types/item-schema";
+
+import {
+  AUXILIARY_ENVELOPE_KEY,
+  normalizeAuxiliaryText,
+  normalizeStructuredObjectKeys,
+  parseLooseJson,
+  readEnvelopeValue,
+  STRUCTURED_ENVELOPE_KEY,
+  toObjectValue,
+} from "./remote-extraction-repair";
 
 const MIN_EXTRACTION_TIMEOUT_MS = 120_000;
 
+/**
+ * Converts provider, fetch, and SDK failures into application error codes.
+ * Retry behavior depends on AppError.code, so this keeps transport-specific
+ * errors from leaking into the retry layer.
+ */
 export function normalizeRemoteError(error: unknown): AppError {
   if (error instanceof AppError) {
     return error;
   }
 
   if (
-    (error instanceof Error && error.name === 'AbortError') ||
-    (typeof error === 'object' && error !== null && 'name' in error && error.name === 'AbortError')
+    (error instanceof Error && error.name === "AbortError") ||
+    (typeof error === "object" &&
+      error !== null &&
+      "name" in error &&
+      error.name === "AbortError")
   ) {
-    return new AppError('timeout', 'The extraction request timed out.', error);
+    return new AppError("timeout", "The extraction request timed out.", error);
   }
 
   if (
     (error instanceof TypeError && /network/i.test(error.message)) ||
     (error instanceof Error && /network request failed/i.test(error.message))
   ) {
-    return new AppError('network_unavailable', 'The extraction request failed due to network unavailability.', error);
+    return new AppError(
+      "network_unavailable",
+      "The extraction request failed due to network unavailability.",
+      error,
+    );
   }
 
   if (error instanceof Error) {
-    return new AppError('internal', error.message || 'The extraction request failed.', error);
+    return new AppError(
+      "internal",
+      error.message || "The extraction request failed.",
+      error,
+    );
   }
 
-  return new AppError('internal', 'The extraction request failed.', error);
+  return new AppError("internal", "The extraction request failed.", error);
 }
 
+/**
+ * Enforces a lower timeout bound because remote vision extraction can be slow
+ * even when the provider is behaving correctly.
+ */
 export function extractionTimeoutMs(timeoutMs: number): number {
   return Math.max(1, timeoutMs, MIN_EXTRACTION_TIMEOUT_MS);
 }
 
-
+/**
+ * Parses a provider response into the strict internal extraction shape.
+ *
+ * The provider-facing boundary is intentionally tolerant of common LLM output
+ * mistakes, but validateStructuredItem remains the final authority before data
+ * reaches the confirmation flow.
+ */
 export function parseProviderJsonEnvelope(rawText: unknown) {
-  if (typeof rawText !== 'string' || rawText.trim().length === 0) {
-    throw new AppError('invalid_response', 'Provider response did not contain text output.');
+  if (typeof rawText !== "string" || rawText.trim().length === 0) {
+    throw new AppError(
+      "invalid_response",
+      "Provider response did not contain text output.",
+    );
   }
 
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(rawText);
-  } catch (error) {
-    console.error('[tolksyn] Provider returned malformed JSON:', rawText);
-    throw new AppError('invalid_response', 'Provider response did not contain valid JSON.', error);
+  const parsed = parseLooseJson(rawText);
+  if (!parsed.ok) {
+    console.error("[tolksyn] Provider returned malformed JSON:", rawText);
+    throw new AppError(
+      "invalid_response",
+      "Provider response did not contain valid JSON.",
+      parsed.error,
+    );
   }
 
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    throw new AppError('schema_violation', 'Provider returned JSON in an unexpected shape.');
+  const envelope = parsed.value;
+
+  if (!envelope || typeof envelope !== "object" || Array.isArray(envelope)) {
+    throw new AppError(
+      "schema_violation",
+      "Provider returned JSON in an unexpected shape.",
+    );
   }
 
-  const record = parsed as {
-    structured_json?: unknown;
-    auxiliary_text_optional?: unknown;
-  };
+  const record = envelope as Record<string, unknown>;
+  const structuredRaw = readEnvelopeValue(record, STRUCTURED_ENVELOPE_KEY);
+  const auxiliaryRaw = readEnvelopeValue(record, AUXILIARY_ENVELOPE_KEY);
+  const structuredObject = toObjectValue(structuredRaw);
 
-  if (!record.structured_json || typeof record.structured_json !== 'object' || Array.isArray(record.structured_json)) {
-    throw new AppError('schema_violation', 'Provider returned an invalid structured_json object.');
+  if (
+    !structuredObject ||
+    typeof structuredObject !== "object" ||
+    Array.isArray(structuredObject)
+  ) {
+    throw new AppError(
+      "schema_violation",
+      "Provider returned an invalid structured_json object.",
+    );
   }
+
+  // Repair only provider naming and simple scalar formatting mistakes.
+  // Missing, incompatible, or semantically invalid fields are still rejected below.
+  const normalizedStructured = normalizeStructuredObjectKeys(structuredObject);
 
   const validation = validateStructuredItem({
     ...emptyStructuredItem(),
-    ...record.structured_json,
+    ...normalizedStructured,
   });
+
   if (!validation.success) {
-    throw new AppError('schema_violation', 'Provider JSON failed schema validation.', validation.error);
+    throw new AppError(
+      "schema_violation",
+      "Provider JSON failed schema validation.",
+      validation.error,
+    );
   }
 
   return {
     structuredJson: validation.data,
-    auxiliaryText: normalizeAuxiliaryText(record.auxiliary_text_optional),
+    auxiliaryText: normalizeAuxiliaryText(auxiliaryRaw),
   };
-}
-
-function normalizeAuxiliaryText(value: unknown): string | undefined {
-  if (typeof value === 'string') {
-    const trimmed = value.trim();
-    return trimmed.length > 0 ? trimmed : undefined;
-  }
-
-  if (value && typeof value === 'object') {
-    return JSON.stringify(value);
-  }
-
-  return undefined;
 }
 
 export function providerErrorMessage(error: unknown): string {
