@@ -42,7 +42,20 @@ The prompt contract is defined in \path{src/api/providers/extraction-prompt.ts}.
 
 The code does not rely on the model to be correct. \path{src/api/remote-extractor.ts} reads the selected provider and auth mode from settings, verifies image support through the provider catalog, and then calls the Vercel AI SDK \path{generateText} function with a single user message containing a text prompt and a file part containing the image base64 and media type. Provider retries are set to zero there so provider-level retry behavior does not hide malformed outputs from the application-level repair loop \cite{ai-sdk}.
 
-The response is parsed by \path{parseProviderJsonEnvelope} in \path{src/api/providers/remote-extraction-shared.ts}. The parser rejects empty text, malformed JSON, a missing \path{structured_json} object, and schema-invalid structured data. It then normalizes the optional auxiliary text. This makes the VLM boundary explicit: provider text is untrusted until JSON parsing and Zod validation succeed \cite{zod}. The limitation is that the app validates shape and types, not semantic truth. A schema-valid but wrong manufacturer name still requires user review or dataset-based accuracy evaluation.
+The response is parsed by \path{parseProviderJsonEnvelope} in \path{src/api/providers/remote-extraction-shared.ts}. The parser rejects empty text, malformed JSON, a missing \path{structured_json} object, and schema-invalid structured data. It then normalizes the optional auxiliary text. This makes the VLM boundary explicit: provider text is untrusted until JSON parsing and Zod validation succeed \cite{zod}.
+
+The parser also performs guarded key repair for provider-formatting mistakes. Known aliases are resolved first. If no exact, normalized, or alias match exists, the implementation uses fuzzy matching based on Levenshtein edit distance \cite{levenshtein1966binary,navarro2001guided}. For two strings \(a\) and \(b\), the distance is the minimum number of single-character insertions, deletions, or substitutions needed to transform \(a\) into \(b\). The dynamic-programming recurrence is:
+
+\[
+D_{i,j} =
+\begin{cases}
+i, & j = 0 \\
+j, & i = 0 \\
+\min(D_{i-1,j} + 1,\ D_{i,j-1} + 1,\ D_{i-1,j-1} + c), & i,j > 0
+\end{cases}
+\]
+
+where \(c = 0\) when \(a_i = b_j\), and \(c = 1\) otherwise. The repair accepts a candidate only when the edit distance is below the implementation threshold and no second candidate is equally plausible. This limits fuzzy matching to small schema-key spelling errors, while validation remains the final gate before data reaches the confirmation screen. The limitation is that the app validates shape and types, not semantic truth. A schema-valid but wrong manufacturer name still requires user review or dataset-based accuracy evaluation.
 
 \section{Provider Catalog and Settings}
 
