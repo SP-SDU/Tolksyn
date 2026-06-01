@@ -10,10 +10,13 @@ import {
 
 describe("queue replay integration", () => {
   test("keeps strict FIFO blocking when head item is retryable after restart", async () => {
+    // Arrange
+    // Shared in-memory DB simulates persistent state across restarts
     const sqlite = new Database(":memory:");
     const db1 = createTestDb(sqlite);
     const queue1 = createQueueRepository(db1 as any);
 
+    // enqueuedAt values establish FIFO ordering: queue-1 before queue-2
     await queue1.enqueue({
       id: "queue-1",
       attemptId: "attempt-1",
@@ -31,15 +34,19 @@ describe("queue replay integration", () => {
       enqueuedAt: 11,
     });
 
+    // Second repo instance from the same connection simulates a process restart
     const db2 = createTestDb(sqlite);
     const queue2 = createQueueRepository(db2 as any);
     const delivered: string[] = [];
+    // First submit fails with retryable error so head blocks. Remaining succeed
     const outcomes: QueueSubmissionResult[] = [
       { kind: "retryable_error", errorCode: "network_unavailable" },
       { kind: "success" },
       { kind: "success" },
     ];
 
+    // Act
+    // Head item (queue-1) hits retryable error and blocks
     await drainQueue({
       now: 999,
       repository: queue2,
@@ -52,8 +59,12 @@ describe("queue replay integration", () => {
       computeDelayMs: () => 100,
     });
 
+    // Assert
+    // Only head item was processed (blocked, not skipped)
     expect(delivered).toEqual(["queue-1"]);
 
+    // Act
+    // Drain again after delay, head is retryable again, then queue-2 proceeds
     await drainQueue({
       now: 1100,
       repository: queue2,
@@ -66,6 +77,8 @@ describe("queue replay integration", () => {
       computeDelayMs: () => 100,
     });
 
+    // Assert
+    // Queue-1 retried first (head stays head), queue-2 delivered after
     expect(delivered).toEqual(["queue-1", "queue-1", "queue-2"]);
   });
 });

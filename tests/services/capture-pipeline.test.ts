@@ -3,8 +3,11 @@ import { emptyStructuredItem } from "@/types/item-schema";
 
 describe("processImage", () => {
   test("creates an attempt and saves merged extraction output", async () => {
+    // Arrange
     const create = jest.fn().mockResolvedValue(undefined);
     const saveExtractionResult = jest.fn().mockResolvedValue(undefined);
+
+    // Act
     const result = await processImage({
       source: "camera",
       inputUris: ["file://input.jpg"],
@@ -49,6 +52,8 @@ describe("processImage", () => {
       },
     });
 
+    // Assert
+    // Full pipeline: persist images, detect barcodes, extract, merge, save
     expect(result).toEqual({ attemptId: "attempt-123" });
     expect(create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -59,6 +64,7 @@ describe("processImage", () => {
         ],
       }),
     );
+    // Extraction result includes both AI-extracted data and barcode enrichment
     expect(saveExtractionResult).toHaveBeenCalledWith(
       "attempt-123",
       expect.objectContaining({
@@ -71,9 +77,11 @@ describe("processImage", () => {
   });
 
   test("runs manufacturer web search enrichment after extraction and saves reconciled output", async () => {
+    // Arrange
     const saveExtractionResult = jest.fn().mockResolvedValue(undefined);
     const stages: string[] = [];
 
+    // Act
     await processImage({
       source: "camera",
       inputUris: ["file://input.jpg"],
@@ -157,10 +165,13 @@ describe("processImage", () => {
       onProgress: (stage) => stages.push(stage),
     });
 
+    // Assert
+    // Web search progress stages emitted during pipeline execution
     expect(stages).toEqual(
       expect.arrayContaining(["websearch_started", "websearch_done"]),
     );
 
+    // Final save includes web search enrichment with manufacturer and evidence
     expect(saveExtractionResult).toHaveBeenCalledWith(
       "attempt-websearch",
       expect.objectContaining({
@@ -185,8 +196,11 @@ describe("processImage", () => {
   });
 
   test("keeps extraction result when manufacturer web search enrichment fails", async () => {
+    // Arrange
+    // Web search enricher throws but extraction should still be saved
     const saveExtractionResult = jest.fn().mockResolvedValue(undefined);
 
+    // Act
     await processImage({
       source: "camera",
       inputUris: ["file://input.jpg"],
@@ -231,6 +245,8 @@ describe("processImage", () => {
       },
     });
 
+    // Assert
+    // Extraction result saved even when web search fails
     expect(saveExtractionResult).toHaveBeenCalledWith(
       "attempt-websearch-failed",
       expect.objectContaining({
@@ -247,10 +263,13 @@ describe("processImage", () => {
   });
 
   test("marks attempt as extract_failed when extraction diagnostics report fallback", async () => {
+    // Arrange
+    // Extraction succeeded but reported failed diagnostics (retries exhausted)
     const create = jest.fn().mockResolvedValue(undefined);
     const saveExtractionResult = jest.fn().mockResolvedValue(undefined);
     const markFailed = jest.fn().mockResolvedValue(undefined);
 
+    // Act
     await processImage({
       source: "gallery",
       inputUris: ["file://input.jpg"],
@@ -295,6 +314,8 @@ describe("processImage", () => {
       },
     });
 
+    // Assert
+    // Attempt marked as failed with the diagnostic error message
     expect(markFailed).toHaveBeenCalledWith(
       "attempt-xyz",
       "Provider JSON failed schema validation.",
@@ -302,9 +323,12 @@ describe("processImage", () => {
   });
 
   test("saves failed extraction result instead of throwing raw extractor errors", async () => {
+    // Arrange
+    // Extractor throws a SyntaxError (e.g. malformed JSON from provider)
     const saveExtractionResult = jest.fn().mockResolvedValue(undefined);
     const markFailed = jest.fn().mockResolvedValue(undefined);
 
+    // Act
     const result = await processImage({
       source: "camera",
       inputUris: ["file://input.jpg"],
@@ -339,6 +363,8 @@ describe("processImage", () => {
       },
     });
 
+    // Assert
+    // Pipeline catches the error, saves a failed extraction result, marks attempt failed
     expect(result).toEqual({ attemptId: "attempt-json-error" });
     expect(saveExtractionResult).toHaveBeenCalledWith(
       "attempt-json-error",
@@ -357,10 +383,12 @@ describe("processImage", () => {
   });
 
   test("stops before creating an attempt when cancelled during image persistence", async () => {
+    // Arrange
     const controller = new AbortController();
     const create = jest.fn().mockResolvedValue(undefined);
     const saveExtractionResult = jest.fn().mockResolvedValue(undefined);
 
+    // Act
     const promise = processImage({
       source: "camera",
       inputUris: ["file://input.jpg"],
@@ -369,6 +397,7 @@ describe("processImage", () => {
       createAttemptId: () => "attempt-cancel-before-create",
       imageStore: {
         persistImages: jest.fn().mockImplementation(async () => {
+          // Abort fires during the first async operation
           controller.abort();
 
           return [
@@ -404,16 +433,20 @@ describe("processImage", () => {
       },
     });
 
+    // Assert
+    // AbortError thrown. No attempt was created
     await expect(promise).rejects.toMatchObject({ name: "AbortError" });
     expect(create).not.toHaveBeenCalled();
     expect(saveExtractionResult).not.toHaveBeenCalled();
   });
 
   test("deletes a partial attempt and skips saving output when cancelled after creation", async () => {
+    // Arrange
     const controller = new AbortController();
     const deleteById = jest.fn().mockResolvedValue(undefined);
     const saveExtractionResult = jest.fn().mockResolvedValue(undefined);
 
+    // Act
     const promise = processImage({
       source: "gallery",
       inputUris: ["file://input.jpg"],
@@ -439,6 +472,7 @@ describe("processImage", () => {
       },
       barcodeDetector: {
         detect: jest.fn().mockImplementation(async () => {
+          // Abort triggered during barcode detection, after attempt creation
           controller.abort();
           throw new DOMException("Aborted", "AbortError");
         }),
@@ -457,12 +491,15 @@ describe("processImage", () => {
       },
     });
 
+    // Assert
+    // AbortError thrown. Partial attempt cleaned up via deleteById
     await expect(promise).rejects.toMatchObject({ name: "AbortError" });
     expect(saveExtractionResult).not.toHaveBeenCalled();
     expect(deleteById).toHaveBeenCalledWith("attempt-cancel-after-create");
   });
 
   test("persists and extracts multiple images for one attempt", async () => {
+    // Arrange
     const create = jest.fn().mockResolvedValue(undefined);
     const saveExtractionResult = jest.fn().mockResolvedValue(undefined);
     const extract = jest.fn().mockResolvedValue({
@@ -478,6 +515,7 @@ describe("processImage", () => {
       },
     });
 
+    // Act
     await processImage({
       source: "camera",
       inputUris: ["file://input-1.jpg", "file://input-2.jpg"],
@@ -517,6 +555,8 @@ describe("processImage", () => {
       },
     });
 
+    // Assert
+    // Both images persisted and passed to extractor
     expect(create).toHaveBeenCalledWith(
       expect.objectContaining({
         id: "attempt-multi",

@@ -400,7 +400,7 @@ export function CaptureScreen() {
                   accessibilityRole="button"
                   accessibilityLabel="Remove image"
                   onPress={() => removePendingImage(image.id)}
-                  className="absolute right-1 top-1 h-6 w-6 items-center justify-center rounded-full border-2 border-border bg-paper"
+                  className="absolute right-1 top-1 h-6 w-6 items-center justify-center border-2 border-border bg-paper"
                 >
                   <Text className="text-xs font-black leading-4 text-foreground">
                     ×

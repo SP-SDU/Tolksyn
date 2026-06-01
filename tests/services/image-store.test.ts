@@ -44,6 +44,8 @@ jest.mock("expo-file-system", () => {
 
 describe("createImageStore", () => {
   it("persists normalized and thumbnail images as WebP", async () => {
+    // Arrange
+    // Two manipulator calls: normalize to 1200px, then thumbnail to 240px
     jest
       .mocked(ImageManipulator.manipulateAsync)
       .mockResolvedValueOnce({
@@ -59,12 +61,15 @@ describe("createImageStore", () => {
         height: 160,
       });
 
+    // Act
     const results = await createImageStore().persistImages({
       inputUris: ["input.jpg"],
       attemptId: "attempt-1",
     });
     const result = results[0];
 
+    // Assert
+    // First call resizes to 1200px max dimension
     expect(ImageManipulator.manipulateAsync).toHaveBeenNthCalledWith(
       1,
       "input.jpg",
@@ -74,6 +79,7 @@ describe("createImageStore", () => {
         format: ImageManipulator.SaveFormat.WEBP,
       }),
     );
+    // Second call creates a compact thumbnail from the normalized output
     expect(ImageManipulator.manipulateAsync).toHaveBeenNthCalledWith(
       2,
       "normalized.webp",
@@ -83,6 +89,7 @@ describe("createImageStore", () => {
         format: ImageManipulator.SaveFormat.WEBP,
       }),
     );
+    // Output metadata reflects WebP format and attempt-based naming
     expect(result.mimeType).toBe("image/webp");
     expect(result.imageUri).toContain("attempt-1-0.webp");
     expect(result.thumbnailUri).toContain("attempt-1-0.thumb.webp");

@@ -5,6 +5,8 @@ import {
 
 describe("provider catalog", () => {
   test("marks only default providers as non-experimental", () => {
+    // Arrange and Act and Assert
+    // Default providers ship with the app. Experimental ones are opt-in
     expect(isExperimentalProvider("openai")).toBe(false);
     expect(isExperimentalProvider("google")).toBe(false);
     expect(isExperimentalProvider("anthropic")).toBe(false);
@@ -13,6 +15,7 @@ describe("provider catalog", () => {
   });
 
   test("uses fetched provider defaults when provider exists in catalog", async () => {
+    // Arrange
     const secrets = createSecretStore();
     const fetch = jest.fn().mockResolvedValue({
       ok: true,
@@ -39,14 +42,18 @@ describe("provider catalog", () => {
       now: () => 1_000,
     });
 
+    // Act
     const defaults = await catalog.defaultsFor("openai");
 
+    // Assert
+    // Latest model from catalog used as default for the provider
     expect(defaults).toEqual({
       model: "gpt-5",
     });
   });
 
   test("defaults OpenAI endpoint to codex responses for oauth auth mode", async () => {
+    // Arrange
     const secrets = createSecretStore();
     const fetch = jest.fn().mockResolvedValue({
       ok: true,
@@ -73,14 +80,19 @@ describe("provider catalog", () => {
       now: () => 1_000,
     });
 
+    // Act
     const defaults = await catalog.defaultsFor("openai", "oauth");
 
+    // Assert
+    // OAuth mode selects the codex model by default
     expect(defaults).toEqual({
       model: "gpt-5.3-codex",
     });
   });
 
   test("returns codex endpoint fallback for openai oauth without fetched provider", async () => {
+    // Arrange
+    // Empty catalog response means no remote provider data
     const secrets = createSecretStore();
     const fetch = jest.fn().mockResolvedValue({
       ok: true,
@@ -93,12 +105,16 @@ describe("provider catalog", () => {
       now: () => 1_000,
     });
 
+    // Act
     const defaults = await catalog.defaultsFor("openai", "oauth");
 
+    // Assert
+    // Hardcoded fallback used when catalog has no provider entry
     expect(defaults.model).toBe("gpt-4.1-mini");
   });
 
   test("drops gpt-4.1 models and keeps newer OpenAI models", async () => {
+    // Arrange
     const secrets = createSecretStore();
     const fetch = jest.fn().mockResolvedValue({
       ok: true,
@@ -131,13 +147,18 @@ describe("provider catalog", () => {
       now: () => 1_000,
     });
 
+    // Act
     const models = await catalog.modelOptions("openai");
 
+    // Assert
+    // gpt-4.1 filtered out. Newer models retained
     expect(models.some((item) => item.id === "gpt-5.3-codex")).toBe(true);
     expect(models.some((item) => item.id === "gpt-4.1")).toBe(false);
   });
 
   test("uses local web github-copilot models proxy endpoint", async () => {
+    // Arrange
+    // 3 fetches: catalog, token exchange, then models via proxy
     const fetch = jest
       .fn()
       .mockResolvedValueOnce({
@@ -207,9 +228,11 @@ describe("provider catalog", () => {
       now: () => 1_000,
     });
 
+    // Act and Assert
     try {
       await catalog.modelOptions("github-copilot", "oauth");
 
+      // On web, models requested through the local proxy, not directly
       expect(fetch).toHaveBeenNthCalledWith(
         2,
         "http://localhost:8081/api/proxy/github-copilot/models",
@@ -225,6 +248,7 @@ describe("provider catalog", () => {
   });
 
   test("includes gpt-5 base models in oauth mode", async () => {
+    // Arrange
     const secrets = createSecretStore();
     const fetch = jest.fn().mockResolvedValue({
       ok: true,
@@ -257,13 +281,17 @@ describe("provider catalog", () => {
       now: () => 1_000,
     });
 
+    // Act
     const models = await catalog.modelOptions("openai", "oauth");
 
+    // Assert
+    // gpt-5.x base models available in oauth mode
     expect(models.some((m) => m.id === "gpt-5.5")).toBe(true);
     expect(models.some((m) => m.id === "gpt-5.4")).toBe(true);
   });
 
   test("includes codex models in oauth mode", async () => {
+    // Arrange
     const secrets = createSecretStore();
     const fetch = jest.fn().mockResolvedValue({
       ok: true,
@@ -296,13 +324,17 @@ describe("provider catalog", () => {
       now: () => 1_000,
     });
 
+    // Act
     const models = await catalog.modelOptions("openai", "oauth");
 
+    // Assert
+    // Codex models available in oauth mode
     expect(models.some((m) => m.id === "gpt-5.3-codex")).toBe(true);
     expect(models.some((m) => m.id === "gpt-5.2-codex")).toBe(true);
   });
 
   test("includes mini models in oauth mode", async () => {
+    // Arrange
     const secrets = createSecretStore();
     const fetch = jest.fn().mockResolvedValue({
       ok: true,
@@ -335,13 +367,17 @@ describe("provider catalog", () => {
       now: () => 1_000,
     });
 
+    // Act
     const models = await catalog.modelOptions("openai", "oauth");
 
+    // Assert
+    // Mini models (cost-effective) available in oauth mode
     expect(models.some((m) => m.id === "gpt-5.4-mini")).toBe(true);
     expect(models.some((m) => m.id === "gpt-5-mini")).toBe(true);
   });
 
   test("includes codex-mini and codex-max variants in oauth mode", async () => {
+    // Arrange
     const secrets = createSecretStore();
     const fetch = jest.fn().mockResolvedValue({
       ok: true,
@@ -374,13 +410,17 @@ describe("provider catalog", () => {
       now: () => 1_000,
     });
 
+    // Act
     const models = await catalog.modelOptions("openai", "oauth");
 
+    // Assert
+    // Codex size variants (mini/max) available in oauth mode
     expect(models.some((m) => m.id === "gpt-5.1-codex-mini")).toBe(true);
     expect(models.some((m) => m.id === "gpt-5.1-codex-max")).toBe(true);
   });
 
   test("excludes gpt-4 models from oauth mode", async () => {
+    // Arrange
     const secrets = createSecretStore();
     const fetch = jest.fn().mockResolvedValue({
       ok: true,
@@ -413,13 +453,17 @@ describe("provider catalog", () => {
       now: () => 1_000,
     });
 
+    // Act
     const models = await catalog.modelOptions("openai", "oauth");
 
+    // Assert
+    // gpt-4 models excluded from oauth mode (only gpt-5 and codex)
     expect(models.some((m) => m.id === "gpt-4.1")).toBe(false);
     expect(models.some((m) => m.id === "gpt-4o")).toBe(false);
   });
 
   test("excludes chat models from oauth mode", async () => {
+    // Arrange
     const secrets = createSecretStore();
     const fetch = jest.fn().mockResolvedValue({
       ok: true,
@@ -452,13 +496,17 @@ describe("provider catalog", () => {
       now: () => 1_000,
     });
 
+    // Act
     const models = await catalog.modelOptions("openai", "oauth");
 
+    // Assert
+    // Chat-suffixed models excluded from oauth mode
     expect(models.some((m) => m.id === "gpt-5-chat")).toBe(false);
     expect(models.some((m) => m.id === "gpt-5.1-chat")).toBe(false);
   });
 
   test("excludes image models from oauth mode", async () => {
+    // Arrange
     const secrets = createSecretStore();
     const fetch = jest.fn().mockResolvedValue({
       ok: true,
@@ -491,8 +539,11 @@ describe("provider catalog", () => {
       now: () => 1_000,
     });
 
+    // Act
     const models = await catalog.modelOptions("openai", "oauth");
 
+    // Assert
+    // Image generation models excluded from oauth mode (text-only use case)
     expect(models.some((m) => m.id === "gpt-5-image")).toBe(false);
     expect(models.some((m) => m.id === "sora")).toBe(false);
   });

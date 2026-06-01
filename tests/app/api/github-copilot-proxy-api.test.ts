@@ -4,6 +4,8 @@ import { POST as responsesPost } from "@/app/api/proxy/github-copilot/responses+
 
 describe("github copilot proxy api routes", () => {
   test("forwards models request via token exchange", async () => {
+    // Arrange
+    // Two upstream calls: token exchange then models API
     const mock = jest
       .spyOn(global, "fetch")
       .mockResolvedValueOnce(
@@ -24,6 +26,8 @@ describe("github copilot proxy api routes", () => {
         ),
       );
 
+    // Act
+    // Models endpoint uses the original refresh token to exchange then list models
     const response = await modelsGet(
       new Request("http://localhost:8081/api/proxy/github-copilot/models", {
         headers: {
@@ -32,8 +36,11 @@ describe("github copilot proxy api routes", () => {
       }),
     );
 
+    // Assert
+    // Response includes model data
     expect(response.status).toBe(200);
     expect(await response.text()).toContain("data");
+    // First call: exchange refresh token for a Copilot access token
     expect(mock).toHaveBeenNthCalledWith(
       1,
       "https://api.github.com/copilot_internal/v2/token",
@@ -43,6 +50,7 @@ describe("github copilot proxy api routes", () => {
         }),
       }),
     );
+    // Second call: models API uses the exchanged token, not the original
     expect(mock).toHaveBeenNthCalledWith(
       2,
       "https://api.githubcopilot.com/models",
@@ -57,6 +65,8 @@ describe("github copilot proxy api routes", () => {
   });
 
   test("forwards chat completions request with vision header", async () => {
+    // Arrange
+    // Token exchange then chat completions mock
     const mock = jest
       .spyOn(global, "fetch")
       .mockResolvedValueOnce(
@@ -83,6 +93,8 @@ describe("github copilot proxy api routes", () => {
         ),
       );
 
+    // Act
+    // POST chat completion with base64-encoded JPEG (simulates camera capture)
     const response = await chatPost(
       new Request(
         "http://localhost:8081/api/proxy/github-copilot/chat/completions",
@@ -116,6 +128,8 @@ describe("github copilot proxy api routes", () => {
       ),
     );
 
+    // Assert
+    // Vision-specific headers signal image content to upstream
     expect(response.status).toBe(200);
     expect(mock).toHaveBeenNthCalledWith(
       2,
@@ -134,6 +148,8 @@ describe("github copilot proxy api routes", () => {
   });
 
   test("forwards responses request to responses endpoint", async () => {
+    // Arrange
+    // Token exchange then responses API mock
     const mock = jest
       .spyOn(global, "fetch")
       .mockResolvedValueOnce(
@@ -154,6 +170,8 @@ describe("github copilot proxy api routes", () => {
         ),
       );
 
+    // Act
+    // POST to /responses endpoint
     const response = await responsesPost(
       new Request("http://localhost:8081/api/proxy/github-copilot/responses", {
         method: "POST",
@@ -168,6 +186,8 @@ describe("github copilot proxy api routes", () => {
       }),
     );
 
+    // Assert
+    // Forwarded to the correct responses endpoint URL
     expect(response.status).toBe(200);
     expect(mock).toHaveBeenNthCalledWith(
       2,

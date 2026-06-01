@@ -2,6 +2,7 @@ import { serializeJson } from "@/utils/serialize-json";
 
 describe("serializeJson", () => {
   it("returns a pretty-printed JSON string", () => {
+    // Arrange
     const payload = {
       schemaVersion: "tolksyn.item.v1" as const,
       attemptId: "attempt-123",
@@ -16,8 +17,11 @@ describe("serializeJson", () => {
       metadata: { source: "camera", provider: "remote_ai_sdk" },
     };
 
+    // Act
     const result = serializeJson(payload);
 
+    // Assert
+    // Pretty-printed output must include readable key names and be parseable
     expect(result).toContain('"schemaVersion": "tolksyn.item.v1"');
     expect(result).toContain('"attemptId": "attempt-123"');
     expect(result).toContain('"manufacturer": "Siemens"');
@@ -25,6 +29,7 @@ describe("serializeJson", () => {
   });
 
   it("handles null auxiliaryText and empty metadata", () => {
+    // Arrange
     const payload = {
       schemaVersion: "tolksyn.item.v1" as const,
       attemptId: "attempt-456",
@@ -40,13 +45,18 @@ describe("serializeJson", () => {
       metadata: {},
     };
 
+    // Act
     const result = serializeJson(payload);
     const parsed = JSON.parse(result);
+
+    // Assert
+    // Optional fields omitted in input must be absent from output, not null
     expect(parsed.attemptId).toBe("attempt-456");
     expect(parsed.auxiliaryText).toBeUndefined();
   });
 
   it("outputs valid JSON for a full payload with barcodes", () => {
+    // Arrange
     const payload = {
       schemaVersion: "tolksyn.item.v1" as const,
       attemptId: "attempt-789",
@@ -62,8 +72,11 @@ describe("serializeJson", () => {
       metadata: { source: "gallery", provider: "remote_openai_compatible" },
     };
 
+    // Act
     const result = serializeJson(payload);
     const parsed = JSON.parse(result);
+
+    // Assert
     expect(parsed.barcodeEnrichment.detected).toHaveLength(1);
     expect(parsed.auxiliaryText).toBe("Extracted text");
   });

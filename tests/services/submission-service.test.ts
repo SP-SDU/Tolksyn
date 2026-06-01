@@ -4,6 +4,7 @@ import { emptyStructuredItem } from "@/types/item-schema";
 
 describe("createSubmissionService", () => {
   test("sends immediately when online and transport succeeds", async () => {
+    // Arrange
     const markSent = jest.fn();
     const markQueued = jest.fn();
     const enqueue = jest.fn();
@@ -25,6 +26,7 @@ describe("createSubmissionService", () => {
       now: () => 10,
     });
 
+    // Act
     const result = await service.acceptAttempt({
       attemptId: "attempt-1",
       acceptedRevision: 1,
@@ -43,6 +45,8 @@ describe("createSubmissionService", () => {
       },
     });
 
+    // Assert
+    // Success path: sent immediately, queue never touched
     expect(result).toEqual({
       outcome: "sent",
       idempotencyKey: "idempotency-key",
@@ -56,6 +60,7 @@ describe("createSubmissionService", () => {
   });
 
   test("queues immediately when offline", async () => {
+    // Arrange
     const markQueued = jest.fn();
     const enqueue = jest.fn();
     const service = createSubmissionService({
@@ -75,6 +80,7 @@ describe("createSubmissionService", () => {
       now: () => 10,
     });
 
+    // Act
     const result = await service.acceptAttempt({
       attemptId: "attempt-1",
       acceptedRevision: 2,
@@ -93,6 +99,8 @@ describe("createSubmissionService", () => {
       },
     });
 
+    // Assert
+    // Offline: submission queued without attempting transport
     expect(result).toEqual({
       outcome: "queued",
       idempotencyKey: "idempotency-key",
@@ -108,6 +116,8 @@ describe("createSubmissionService", () => {
   });
 
   test("queues retryable transport failures instead of dropping them", async () => {
+    // Arrange
+    // Online but transport returns a retryable error
     const markQueued = jest.fn();
     const service = createSubmissionService({
       attempts: {
@@ -131,6 +141,7 @@ describe("createSubmissionService", () => {
       now: () => 10,
     });
 
+    // Act
     const result = await service.acceptAttempt({
       attemptId: "attempt-1",
       acceptedRevision: 3,
@@ -149,6 +160,8 @@ describe("createSubmissionService", () => {
       },
     });
 
+    // Assert
+    // Retryable transport failure also queues. Never sent
     expect(result).toEqual({
       outcome: "queued",
       idempotencyKey: "idempotency-key",
@@ -157,6 +170,7 @@ describe("createSubmissionService", () => {
   });
 
   test("marks permanent transport failures and throws an app error", async () => {
+    // Arrange
     const markFailed = jest.fn();
     const service = createSubmissionService({
       attempts: {
@@ -180,6 +194,8 @@ describe("createSubmissionService", () => {
       now: () => 10,
     });
 
+    // Act and Assert
+    // Permanent failure throws and marks the attempt as failed
     await expect(
       service.acceptAttempt({
         attemptId: "attempt-1",

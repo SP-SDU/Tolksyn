@@ -1,6 +1,7 @@
 import { createBarcodeDetector } from "@/services/barcode-detector.web";
 
 describe("web barcode detector", () => {
+  // Arrange: save global references to restore after each test
   const originalBarcodeDetector = (globalThis as { BarcodeDetector?: unknown })
     .BarcodeDetector;
   const originalImage = globalThis.Image;
@@ -19,6 +20,8 @@ describe("web barcode detector", () => {
   });
 
   test("uses native browser BarcodeDetector with normalized formats", async () => {
+    // Arrange
+    // Mock the native BarcodeDetector and related DOM APIs
     const detect = jest
       .fn()
       .mockResolvedValue([{ format: "ean_13", rawValue: "4006381333931" }]);
@@ -43,17 +46,22 @@ describe("web barcode detector", () => {
       }),
     ) as unknown as typeof globalThis.fetch;
 
+    // Act
     const detector = createBarcodeDetector();
     const results = await detector.detect({
       imageUri: "https://example.com/code.jpg",
       allowedTypes: ["ean13", "code93", "upc_e"],
     });
 
+    // Assert
+    // Only formats supported by the browser are requested, not all allowedTypes
     expect(BarcodeDetector).toHaveBeenCalledWith({
       formats: ["ean_13", "code_93"],
     });
     expect(detect).toHaveBeenCalledWith(image);
+    // Format converted from snake_case to camelCase for app consumption
     expect(results).toEqual([{ type: "ean13", data: "4006381333931" }]);
+    // Temp blob URL revoked to avoid memory leak
     expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:barcode-image");
   });
 });

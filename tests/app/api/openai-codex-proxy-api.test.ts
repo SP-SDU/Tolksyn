@@ -6,6 +6,8 @@ describe("openai codex proxy api route", () => {
   });
 
   test("proxies codex responses requests through the package proxy", async () => {
+    // Arrange
+    // Mock upstream to return SSE-style streaming response
     jest.spyOn(global, "fetch").mockResolvedValue(
       new Response('{"ok":true}', {
         status: 200,
@@ -13,6 +15,8 @@ describe("openai codex proxy api route", () => {
       }),
     );
 
+    // Act
+    // Send POST request with OAuth token and account ID
     const response = await POST(
       new Request("http://localhost:8081/api/proxy/openai/codex/responses", {
         method: "POST",
@@ -28,9 +32,13 @@ describe("openai codex proxy api route", () => {
       }),
     );
 
+    // Assert
+    // Response proxied back faithfully
     expect(response.status).toBe(200);
+    // no-store prevents caching of streaming AI responses
     expect(response.headers.get("Cache-Control")).toBe("no-store");
     expect(await response.text()).toBe('{"ok":true}');
+    // Verify the request hits the correct OpenAI backend endpoint
     expect(global.fetch).toHaveBeenCalledWith(
       "https://chatgpt.com/backend-api/codex/responses",
       expect.objectContaining({ method: "POST" }),
@@ -38,9 +46,12 @@ describe("openai codex proxy api route", () => {
     const headers = new Headers(
       jest.mocked(global.fetch).mock.calls[0]?.[1]?.headers,
     );
+    // Authorization and account ID forwarded from the original request
     expect(headers.get("authorization")).toBe("Bearer oauth-access-token");
     expect(headers.get("chatgpt-account-id")).toBe("acct_123");
+    // originator identifies the calling app to the upstream
     expect(headers.get("originator")).toBe("tolksyn");
+    // Defaults injected: empty instructions, store disabled
     expect(
       JSON.parse(String(jest.mocked(global.fetch).mock.calls[0]?.[1]?.body)),
     ).toEqual({

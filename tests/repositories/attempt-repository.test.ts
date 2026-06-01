@@ -8,6 +8,8 @@ import { emptyStructuredItem } from "@/types/item-schema";
 
 describe("attempt repository", () => {
   test("keeps only the latest 20 attempts in history order", async () => {
+    // Arrange
+    // Create 22 attempts to trigger the pruning limit
     const { db } = createTestDb();
     const repository = createAttemptRepository(db as any);
 
@@ -25,14 +27,18 @@ describe("attempt repository", () => {
       });
     }
 
+    // Act
     const recent = await repository.listRecent(20);
 
+    // Assert
+    // Only 20 retained. Most recent (22) first, oldest retained (3) last
     expect(recent).toHaveLength(20);
     expect(recent[0].id).toBe("attempt-22");
     expect(recent[19].id).toBe("attempt-3");
   });
 
   test("persists extraction results and accepted revisions", async () => {
+    // Arrange
     const { db } = createTestDb();
     const repository = createAttemptRepository(db as any);
 
@@ -44,6 +50,8 @@ describe("attempt repository", () => {
       ],
       createdAt: 100,
     });
+
+    // Act
     await repository.saveExtractionResult("attempt-1", {
       structuredJson: {
         ...emptyStructuredItem(),
@@ -75,8 +83,11 @@ describe("attempt repository", () => {
     });
     await repository.markQueued("attempt-1", 1);
 
+    // Act
     const attempt = await repository.getById("attempt-1");
 
+    // Assert
+    // Full round-trip: created, saved extraction, marked queued, read back
     expect(attempt).toEqual(
       expect.objectContaining({
         id: "attempt-1",
@@ -94,6 +105,7 @@ describe("attempt repository", () => {
   });
 
   test("lists recent attempts without parsing malformed JSON columns", async () => {
+    // Arrange
     const { db } = createTestDb();
     const repository = createAttemptRepository(db as any);
 
@@ -106,6 +118,7 @@ describe("attempt repository", () => {
       createdAt: 200,
     });
 
+    // Corrupt the JSON columns to simulate data corruption
     await db
       .update(schema.attemptsTable)
       .set({
@@ -114,13 +127,17 @@ describe("attempt repository", () => {
       })
       .where(eq(schema.attemptsTable.id, "attempt-bad-json"));
 
+    // Act
     const recent = await repository.listRecent(1);
 
+    // Assert
+    // Malformed JSON columns should not crash the list query
     expect(recent).toHaveLength(1);
     expect(recent[0].id).toBe("attempt-bad-json");
   });
 
   test("returns empty list when history query fails due to malformed sqlite row", async () => {
+    // Arrange
     const db = {
       select() {
         throw new SyntaxError("Unterminated string in JSON at position 36");
@@ -130,13 +147,18 @@ describe("attempt repository", () => {
 
     const repository = createAttemptRepository(db as any);
 
+    // Act
     const recent = await repository.listRecent(20);
 
+    // Assert
+    // Query failure returns empty list instead of crashing. Delete not called
     expect(recent).toEqual([]);
     expect(db.delete).not.toHaveBeenCalled();
   });
 
   test("returns base attempt fallback when getById select fails", async () => {
+    // Arrange
+    // select() throws but findFirst fallback works
     const db = {
       select() {
         throw new SyntaxError("Unterminated string in JSON at position 36");
@@ -161,8 +183,12 @@ describe("attempt repository", () => {
     };
 
     const repository = createAttemptRepository(db as any);
+
+    // Act
     const attempt = await repository.getById("attempt-fallback");
 
+    // Assert
+    // Fallback query uses limited column selection to avoid corrupt JSON columns
     expect(db.query.attemptsTable.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
         columns: expect.objectContaining({
@@ -187,6 +213,8 @@ describe("attempt repository", () => {
   });
 
   test("deserializes old plain-string image URIs without JSON array wrapping", async () => {
+    // Arrange
+    // Old-format rows stored image_uri as a plain string, not a JSON array
     const { db, sqlite } = createTestDb();
     const repository = createAttemptRepository(db as any);
 
@@ -195,8 +223,11 @@ describe("attempt repository", () => {
       values ('old-style', 'camera', 'file://old-image.jpg', 'file://old-thumb.jpg', 300, 300, 'ready_for_review', 0)
     `);
 
+    // Act
     const result = await repository.getById("old-style");
 
+    // Assert
+    // Plain string URIs deserialized into the expected object format
     expect(result?.images).toEqual([
       {
         imageUri: "file://old-image.jpg",
@@ -206,6 +237,7 @@ describe("attempt repository", () => {
   });
 
   test("logs pruning failures as warning messages without error stack objects", async () => {
+    // Arrange
     const warn = jest
       .spyOn(console, "warn")
       .mockImplementation(() => undefined);
@@ -222,6 +254,7 @@ describe("attempt repository", () => {
     };
     const repository = createAttemptRepository(db as any, {} as any);
 
+    // Act
     await repository.create({
       id: "attempt-prune-warning",
       source: "gallery",
@@ -231,6 +264,8 @@ describe("attempt repository", () => {
       createdAt: 123,
     });
 
+    // Assert
+    // Pruning failure logged as a warning, not an error (non-fatal)
     expect(error).not.toHaveBeenCalled();
     expect(warn).toHaveBeenCalledWith(
       "[tolksyn] Attempt pruning skipped:",

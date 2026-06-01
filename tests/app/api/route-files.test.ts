@@ -3,6 +3,9 @@ import path from "node:path";
 
 describe("api route files", () => {
   test("does not keep non-route shared helpers inside app api routes", () => {
+    // Arrange
+    // Act and Assert
+    // shared.ts files inside routes would cause Expo Router conflicts
     expect(
       listFiles(path.join(process.cwd(), "src", "app", "api")).filter((file) =>
         file.endsWith("shared.ts"),

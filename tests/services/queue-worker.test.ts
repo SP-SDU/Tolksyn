@@ -53,6 +53,8 @@ class MemoryQueueRepository implements QueueRepository {
 
 describe("drainQueue", () => {
   test("drains ready items in FIFO order", async () => {
+    // Arrange
+    // Two items both ready at now=0. Transport always succeeds
     const repository = new MemoryQueueRepository([
       {
         id: "1",
@@ -81,6 +83,7 @@ describe("drainQueue", () => {
       },
     };
 
+    // Act
     await drainQueue({
       now: 0,
       repository,
@@ -88,6 +91,8 @@ describe("drainQueue", () => {
       computeDelayMs: () => 500,
     });
 
+    // Assert
+    // Items delivered in sequence order. Both marked sent
     expect(delivered).toEqual(["1", "2"]);
     expect(repository.snapshot().map((item) => item.status)).toEqual([
       "sent",
@@ -96,6 +101,8 @@ describe("drainQueue", () => {
   });
 
   test("stops on retryable transport failure and reschedules the head item", async () => {
+    // Arrange
+    // Head item will fail with retryable error. Second item should not be processed
     const repository = new MemoryQueueRepository([
       {
         id: "1",
@@ -122,6 +129,7 @@ describe("drainQueue", () => {
       },
     };
 
+    // Act
     await drainQueue({
       now: 1000,
       repository,
@@ -129,6 +137,8 @@ describe("drainQueue", () => {
       computeDelayMs: () => 250,
     });
 
+    // Assert
+    // Head item rescheduled with incremented retryCount. Item 2 untouched
     expect(repository.snapshot()).toEqual([
       expect.objectContaining({
         id: "1",
@@ -146,6 +156,8 @@ describe("drainQueue", () => {
   });
 
   test("marks permanent failures without retrying later items ahead of them", async () => {
+    // Arrange
+    // Head item gets permanent error. Second item should still be processed
     const repository = new MemoryQueueRepository([
       {
         id: "1",
@@ -176,6 +188,7 @@ describe("drainQueue", () => {
       },
     };
 
+    // Act
     await drainQueue({
       now: 0,
       repository,
@@ -183,6 +196,8 @@ describe("drainQueue", () => {
       computeDelayMs: () => 500,
     });
 
+    // Assert
+    // Head marked failed. Second item sent (permanent error does not block later items)
     expect(repository.snapshot()).toEqual([
       expect.objectContaining({
         id: "1",
