@@ -165,10 +165,10 @@ The validation chapter summarizes test areas. This appendix lists the automated 
 Area & Test files \\
 \midrule
 App and API routing & \path{tests/app/page-metadata.test.tsx}, \path{tests/app/api/route-files.test.ts}, \path{tests/app/api/webfetch-proxy-api.test.ts}, \path{tests/app/api/openai-codex-proxy-api.test.ts}, \path{tests/app/api/github-copilot-proxy-api.test.ts}, \path{tests/app/api/github-copilot-oauth-api.test.ts}, \path{tests/app/api/exa-mcp-proxy-api.test.ts} \\
-Remote extraction and ingest & \path{tests/api/remote-extractor.test.ts}, \path{tests/api/ingest-transport.test.ts}, \path{tests/api/providers/extraction-prompt.test.ts} \\
+Remote extraction and ingest & \path{tests/api/remote-extractor.test.ts}, \path{tests/api/ingest-transport.test.ts}, \path{tests/api/providers/extraction-prompt.test.ts}, \path{tests/api/providers/remote-extraction-shared.test.ts} \\
 Services & \path{tests/services/capture-pipeline.test.ts}, \path{tests/services/gallery-import.test.ts}, \path{tests/services/image-store.test.ts}, \path{tests/services/barcode-detector-web.test.ts}, \path{tests/services/provider-catalog.test.ts}, \path{tests/services/provider-oauth.test.ts}, \path{tests/services/extraction-retry.test.ts}, \path{tests/services/manufacturer-websearch.test.ts}, \path{tests/services/queue-worker.test.ts}, \path{tests/services/queue-replay.integration.test.ts}, \path{tests/services/submission-service.test.ts}, \path{tests/services/toast-state.test.ts} \\
 Repositories and storage & \path{tests/repositories/attempt-repository.test.ts}, \path{tests/repositories/queue-repository.test.ts}, \path{tests/repositories/settings-repository.test.ts}, \path{tests/repositories/settings-repository-web.test.ts}, \path{tests/db/secure-store.test.ts} \\
-Types and utilities & \path{tests/types/app-error.test.ts}, \path{tests/types/item-schema.test.ts}, \path{tests/types/provider-error-normalization.test.ts}, \path{tests/types/user-feedback.test.ts}, \path{tests/utils/idempotency.test.ts}, \path{tests/utils/merge-extraction-result.test.ts}, \path{tests/utils/retry-policy.test.ts} \\
+Types and utilities & \path{tests/types/app-error.test.ts}, \path{tests/types/item-schema.test.ts}, \path{tests/types/provider-error-normalization.test.ts}, \path{tests/types/user-feedback.test.ts}, \path{tests/utils/confirm-defaults.test.ts}, \path{tests/utils/idempotency.test.ts}, \path{tests/utils/merge-extraction-result.test.ts}, \path{tests/utils/retry-policy.test.ts}, \path{tests/utils/serialize-csv.test.ts}, \path{tests/utils/serialize-json.test.ts} \\
 Components & \path{tests/components/accessibility.test.tsx}, \path{tests/components/button.test.tsx}, \path{tests/components/diagnostic-disclosure.test.tsx}, \path{tests/components/option-picker.test.tsx} \\
 \bottomrule
 \end{tabularx}
@@ -185,7 +185,6 @@ The following pages include selected PDF artifacts directly in the thesis append
 \includepdf[pages=-,pagecommand={}]{artifacts/meeting-notes-2026-02-23.pdf}
 \includepdf[pages=-,pagecommand={}]{artifacts/project-requirements.pdf}
 \includepdf[pages=-,pagecommand={}]{artifacts/gantt-chart.pdf}
-% removed expo-app-folder-structure-best-practices.pdf
 \includepdf[pages=-,pagecommand={}]{artifacts/figma-design.pdf}
 \includepdf[pages=-,pagecommand={}]{artifacts/kpi-anonymized.pdf}
 \includepdf[pages=1,pagecommand={}]{artifacts/lighthouse-capture.pdf}

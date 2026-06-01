@@ -142,6 +142,61 @@ describe("extractWithRetries", () => {
     );
   });
 
+  test("includes structured field error details in repair prompt", async () => {
+    const extract = jest
+      .fn()
+      .mockRejectedValueOnce(
+        new AppError("schema_violation", "Provider JSON failed schema validation.", {
+          fieldErrors: {
+            quantity: ["Expected a number"],
+            link: ["Expected a valid URL"],
+          },
+        }),
+      )
+      .mockResolvedValueOnce({
+        structuredJson: emptyStructuredItem(),
+        barcodes: [],
+        metadata: {
+          provider: "remote_openai_compatible",
+          durationMs: 1,
+          imageWidth: 100,
+          imageHeight: 100,
+        },
+      });
+
+    await extractWithRetries({
+      fallbackProvider: "remote_openai_compatible",
+      input: {
+        apiKey: "k",
+        model: "m",
+        images: [
+          {
+            imageBase64: "abc",
+            mimeType: "image/jpeg",
+            width: 100,
+            height: 100,
+          },
+        ],
+        timeoutMs: 5000,
+        prompt: "Return strict JSON.",
+      },
+      extract,
+    });
+
+    expect(extract).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        prompt: expect.stringContaining("quantity: Expected a number"),
+      }),
+    );
+    expect(extract).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        prompt: expect.stringContaining("link: Expected a valid URL"),
+      }),
+    );
+  });
+
   test("preserves abort semantics when cancellation wins a provider error race", async () => {
     // Arrange
     const controller = new AbortController();

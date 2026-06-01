@@ -64,6 +64,7 @@ export async function extractWithRetries({
 
       const code = error instanceof AppError ? error.code : "internal";
       const message = providerErrorMessage(error);
+      const repairDetails = buildRepairErrorDetails(error);
       attempts.push({
         attempt: index,
         prompt,
@@ -94,6 +95,7 @@ export async function extractWithRetries({
         basePrompt,
         attempt: index + 1,
         error: lastError,
+        details: repairDetails,
       });
     }
   }
@@ -129,18 +131,63 @@ function buildRepairPrompt({
   basePrompt,
   attempt,
   error,
+  details,
 }: {
   basePrompt: string;
   attempt: number;
   error: string;
+  details?: string;
 }) {
   return [
     basePrompt,
     `RETRY ATTEMPT ${attempt}.`,
     `Previous error: ${error}`,
+    details ? `Validation details: ${details}` : "",
     "Fix your previous output and return one single valid JSON object only.",
     "No markdown, no prose, no code fences, no partial fragments.",
   ]
     .filter(Boolean)
     .join(" ");
+}
+
+function buildRepairErrorDetails(error: unknown): string | undefined {
+  if (!(error instanceof AppError) || !error.cause) {
+    return undefined;
+  }
+
+  const fieldErrors = extractFieldErrors(error.cause);
+  if (!fieldErrors) {
+    return undefined;
+  }
+
+  const lines = Object.entries(fieldErrors)
+    .map(([field, messages]) => {
+      if (!Array.isArray(messages) || messages.length === 0) {
+        return undefined;
+      }
+
+      return `${field}: ${messages.map((message) => String(message)).join(", ")}`;
+    })
+    .filter((line): line is string => Boolean(line));
+
+  if (!lines.length) {
+    return undefined;
+  }
+
+  return lines.join("; ");
+}
+
+function extractFieldErrors(
+  value: unknown,
+): Record<string, unknown[] | string[]> | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+
+  const record = value as { fieldErrors?: unknown };
+  if (!record.fieldErrors || typeof record.fieldErrors !== "object") {
+    return undefined;
+  }
+
+  return record.fieldErrors as Record<string, unknown[] | string[]>;
 }
