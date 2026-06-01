@@ -10,6 +10,7 @@ import type { MergeExtractionResult } from "@/utils/merge-extraction-result";
 
 const MAX_ATTEMPTS = 20;
 
+/** Each status gates which UI actions and queue transitions are valid for one attempt. */
 export type AttemptStatus =
   | "captured"
   | "ready_for_review"
@@ -128,6 +129,7 @@ export function createAttemptRepository(
     },
 
     async deleteById(id: string): Promise<void> {
+      // Raw SQL delete avoids drizzle edge cases on some expo-sqlite builds.
       if (sqlite?.runAsync) {
         try {
           await sqlite.runAsync("delete from attempts where id = ?", id);
@@ -454,6 +456,7 @@ async function pruneAttempts(
   sqlite?: SQLiteDatabase,
   hooks?: { onPrune?: (ids: string[]) => void | Promise<void> },
 ): Promise<void> {
+  // History screen shows the newest MAX_ATTEMPTS rows, and older rows are dropped on write.
   try {
     const rows = sqlite?.getAllAsync
       ? await sqlite.getAllAsync<{ id: string }>(

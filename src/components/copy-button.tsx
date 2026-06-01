@@ -19,6 +19,7 @@ export function CopyButton({
       accessibilityLabel="Copy"
       onPress={async () => {
         try {
+          // Treat false as failure: some platforms report false even when the clipboard updated.
           const copied = await Clipboard.setStringAsync(value);
           if (copied) {
             onCopied?.();

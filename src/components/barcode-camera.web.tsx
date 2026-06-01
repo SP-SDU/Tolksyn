@@ -6,6 +6,7 @@ import type {
   BarcodeCameraProps,
 } from "@/components/barcode-camera";
 
+// Browsers lack live barcode callbacks, and post-capture detection still fills eanOrUpc.
 export const BarcodeCamera = forwardRef<
   BarcodeCameraHandle,
   BarcodeCameraProps

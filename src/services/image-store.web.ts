@@ -11,6 +11,7 @@ type PersistedImage = {
   height: number;
 };
 
+/** Web has no durable per-app filesystem comparable to native document storage. */
 export function createImageStore() {
   return {
     async persistImages(input: {

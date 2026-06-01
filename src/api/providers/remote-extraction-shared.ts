@@ -6,6 +6,7 @@ import {
 
 const MIN_EXTRACTION_TIMEOUT_MS = 120_000;
 
+/** Retry policy keys off AppError.code, not raw SDK exception types or message text. */
 export function normalizeRemoteError(error: unknown): AppError {
   if (error instanceof AppError) {
     return error;
@@ -47,6 +48,7 @@ export function extractionTimeoutMs(timeoutMs: number): number {
   return Math.max(1, timeoutMs, MIN_EXTRACTION_TIMEOUT_MS);
 }
 
+/** Bad envelopes should trigger repair retry instead of writing corrupt drafts to confirm. */
 export function parseProviderJsonEnvelope(rawText: unknown) {
   if (typeof rawText !== "string" || rawText.trim().length === 0) {
     throw new AppError(

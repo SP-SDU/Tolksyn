@@ -53,6 +53,7 @@ export function createQueueRepository(db: DbLike): QueueRepository & {
       }
 
       const item = deserializeQueueItem(row);
+      // Respect backoff so a failing ingest does not spin-retry inside one drain pass.
       return item.nextAttemptAt <= now ? item : null;
     },
 

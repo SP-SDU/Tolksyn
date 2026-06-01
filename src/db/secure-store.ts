@@ -4,6 +4,7 @@ import { Platform } from "react-native";
 const WEB_PREFIX = "tolksyn.";
 const webSecrets = new Map<string, string>();
 
+// Hydrate cache at startup so synchronous secret reads work before the first async round trip.
 if (Platform.OS === "web" && typeof window !== "undefined") {
   for (let index = 0; index < window.localStorage.length; index += 1) {
     const key = window.localStorage.key(index);
@@ -18,6 +19,7 @@ if (Platform.OS === "web" && typeof window !== "undefined") {
   }
 }
 
+/** Credentials must bypass SQLite because settings rows are readable during export and web localStorage sync. */
 export const secureSecretStore = {
   async getItem(key: string): Promise<string | null> {
     if (Platform.OS === "web") {

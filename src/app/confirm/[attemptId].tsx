@@ -7,6 +7,7 @@ export default function ConfirmRoute() {
   const { attemptId: rawAttemptId } = useLocalSearchParams<{
     attemptId?: string | string[];
   }>();
+  // Dynamic segments arrive as string[] on some platforms. Using the raw value breaks confirm routing.
   const attemptId = Array.isArray(rawAttemptId)
     ? rawAttemptId[0]
     : rawAttemptId;

@@ -19,6 +19,9 @@ function createPendingImage(
   };
 }
 
+/**
+ * Users can mix camera and gallery shots before Process, and staging avoids re-import on retry.
+ */
 export function usePendingImages() {
   const [pendingImages, setPendingImages] = useState<PendingImage[]>([]);
 
@@ -61,7 +64,7 @@ export function usePendingImages() {
     const inputUris = pendingImages.map((img) => img.uri);
     const source = pendingImages.every((img) => img.source === "camera")
       ? "camera"
-      : "gallery";
+      : "gallery"; // any gallery import marks the batch as gallery-sourced
     return { inputUris, source };
   }, [pendingImages]);
 

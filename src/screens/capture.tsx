@@ -31,6 +31,7 @@ import type { BarcodeHit } from "@/utils/merge-extraction-result";
 
 type PipelineStage = "idle" | "running" | "done" | "failed";
 
+// Blob URLs can stay identical across frames, and without busting duplicate detection blocks valid re-shots.
 function isSameCapturedImage(
   a: string | null | undefined,
   b: string | null | undefined,
@@ -131,6 +132,7 @@ export function CaptureScreen() {
         return;
       }
 
+      // Cache-bust so a new shutter press is not treated as the same blob URL as the last capture.
       const capturedUri =
         Platform.OS === "web" && !picture.uri.startsWith("data:")
           ? `${picture.uri}${picture.uri.includes("?") ? "&" : "?"}captureId=${Date.now()}-${Math.random().toString(36).slice(2)}`
@@ -173,6 +175,7 @@ export function CaptureScreen() {
     setIsProcessing(true);
     resetPipelineState();
 
+    // Yield before the pipeline so the processing overlay paints instead of a frozen preview.
     await nextPaint();
 
     let completed = false;
@@ -263,6 +266,7 @@ export function CaptureScreen() {
     clearPendingImages();
 
     const succeeded = await runProcessing({ source, inputUris, liveBarcodes });
+    // Abort or extraction failure: put the queue back so the user can retry without re-importing.
     if (!succeeded) {
       restorePendingImages(imagesToProcess);
     }

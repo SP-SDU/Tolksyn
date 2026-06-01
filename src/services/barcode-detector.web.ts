@@ -16,6 +16,7 @@ type WebBarcodeDetectorConstructor = {
   getSupportedFormats?: () => Promise<readonly string[]>;
 };
 
+/** Missing BarcodeDetector should not block capture, and confirm can still accept manual EAN entry. */
 export function createBarcodeDetector() {
   return {
     async detect({

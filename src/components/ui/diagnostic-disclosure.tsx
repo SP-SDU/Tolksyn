@@ -3,6 +3,7 @@ import { Pressable, Text, View, type ViewProps } from "react-native";
 
 import { cn } from "@/components/ui/cn";
 
+/** Operators need confirm fields first, and raw model traces are for debugging failed extraction. */
 export function DiagnosticDisclosure({
   label,
   children,

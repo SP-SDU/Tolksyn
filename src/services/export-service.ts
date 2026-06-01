@@ -40,7 +40,7 @@ async function exportFile(
     return;
   }
 
-  // Use the Expo SDK 55 File System API
+  // Expo SDK 55 moved exports off legacy writeAsStringAsync paths.
   const exportsDir = new Directory(Paths.document, "tolksyn", "exports") as any;
   exportsDir.create({ idempotent: true, intermediates: true });
 

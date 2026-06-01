@@ -22,6 +22,7 @@ export default function TabLayout() {
           borderTopWidth: AppDesign.border.solid,
         },
         headerShown: false,
+        // Light haptic on iOS confirms tab switches during fast capture workflows.
         tabBarButton: HapticTab,
       }}
     >

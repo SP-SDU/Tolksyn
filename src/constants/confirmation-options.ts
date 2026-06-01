@@ -33,6 +33,7 @@ export const CONFIRM_ENUM_OPTIONS: Partial<
   ],
 };
 
+/** Warehouse staff often repeat manufacturer and bin, and prior attempts seed faster confirm. */
 export const CONFIRM_AUTOCOMPLETE_FIELDS = [
   "manufacturer",
   "productNumber",

@@ -39,6 +39,7 @@ const numericFieldNames = [
 type TextFieldName = (typeof textFieldNames)[number];
 type NumericFieldName = (typeof numericFieldNames)[number];
 
+/** Ingest rejects partial objects, and null marks unknown fields without dropping keys. */
 export type StructuredItem = Record<TextFieldName, string | null> &
   Record<NumericFieldName, number | null>;
 
@@ -130,6 +131,7 @@ export function emptyStructuredItem(): StructuredItem {
   };
 }
 
+/** Confirm text fields and model JSON disagree on empty vs omitted, so validation needs one shape. */
 export function normalizeStructuredItemInput(
   input: Partial<Record<keyof StructuredItem, unknown>>,
 ): Record<keyof StructuredItem, string | number | null> {

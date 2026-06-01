@@ -3,6 +3,7 @@ import { View, type ViewStyle } from "react-native";
 
 import { AppDesign } from "@/constants/design";
 
+// CSS keyframes keep the same finder path as native without pulling RN Animated onto web.
 const KEYFRAMES = `
 @keyframes scan-finder {
   0% {

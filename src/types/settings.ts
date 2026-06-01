@@ -1,5 +1,6 @@
 import type { ProviderAuthMode } from "@/services/provider-catalog";
 
+/** OAuth tokens and API keys must never be written into the settings SQLite row. */
 export type ProviderAuth =
   | {
       type: "api";
@@ -53,6 +54,7 @@ export function defaultSettings(): AppSettings {
       auth: {},
     },
     ingest: {
+      // Android emulator alias for host machine localhost during local dev.
       endpointUrl: "http://10.0.2.2:8787/ingest",
       apiKey: "",
     },

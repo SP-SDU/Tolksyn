@@ -7,6 +7,7 @@ import {
 
 import { cn } from "@/components/ui/cn";
 
+/** Nesting a live camera preview inside ScrollView breaks layout when the keyboard opens. */
 export function Screen({
   className,
   ...props

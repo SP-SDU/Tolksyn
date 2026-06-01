@@ -32,6 +32,7 @@ export interface SubmissionTransport {
   submit(item: QueueItem): Promise<QueueSubmissionResult>;
 }
 
+/** One queue item per drain call so reschedule backoff is not immediately bypassed. */
 export async function drainQueue({
   now,
   repository,

@@ -3,6 +3,7 @@ import { Animated, Easing, View } from "react-native";
 
 import { AppDesign } from "@/constants/design";
 
+// Timings match scan-animation.web so the finder motion feels the same on every platform.
 const scanSteps = [
   { value: 1, durationMs: 760 },
   { value: 2, durationMs: 820 },

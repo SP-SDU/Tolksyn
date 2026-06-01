@@ -81,8 +81,10 @@ export type MergeExtractionResult = MergeExtractionInput & {
   };
 };
 
+// QR and Code128 belong in detected barcodes but must not auto-fill retail eanOrUpc.
 const barcodeSuggestionTypes = new Set(["ean13", "ean8", "upc_a", "upc_e"]);
 
+/** Conflicting EAN/UPC reads must surface on confirm instead of silently picking one. */
 export function mergeExtractionResult(
   input: MergeExtractionInput,
 ): MergeExtractionResult {

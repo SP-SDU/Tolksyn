@@ -1,3 +1,4 @@
+/** isAbortError expects platform-native AbortError shapes, and a plain Error breaks cancel handling. */
 export function createAbortError() {
   if (typeof DOMException !== "undefined") {
     return new DOMException("Aborted", "AbortError");
@@ -23,6 +24,7 @@ export function throwIfAborted(signal: AbortSignal | undefined) {
   }
 }
 
+/** Nested work must abort without tearing down the parent capture signal listeners. */
 export function linkAbortSignal(signal: AbortSignal | undefined) {
   const controller = new AbortController();
 

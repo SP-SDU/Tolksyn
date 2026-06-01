@@ -26,6 +26,7 @@ import { emptyStructuredItem } from "@/types/item-schema";
 import { applyConfirmDefaults } from "@/utils/confirm-defaults";
 import type { WebSearchEnrichment } from "@/utils/merge-extraction-result";
 
+// NaN would fail ingest validation, and blank numeric inputs mean "unknown" like null elsewhere.
 const numericFields = new Set([
   "quantity",
   "batchSize",
@@ -36,6 +37,7 @@ const numericFields = new Set([
   "lengthMm",
 ]);
 
+/** Accept is the human gate before ingest, and revision bumps prevent duplicate sends on re-accept. */
 export function ConfirmScreen({ attemptId }: { attemptId: string }) {
   const runtime = useAppRuntime();
   const router = useRouter();
@@ -67,6 +69,7 @@ export function ConfirmScreen({ attemptId }: { attemptId: string }) {
         const fallbackDraft = next?.extractionDiagnostics?.failed
           ? emptyStructuredItem()
           : null;
+        // Mid-edit return must not wipe operator corrections with a fresh extraction reread.
         const initialDraft = (next?.draftStructuredJson ??
           next?.extractionResult?.structuredJson ??
           fallbackDraft) as StructuredItem | null;
@@ -151,6 +154,7 @@ export function ConfirmScreen({ attemptId }: { attemptId: string }) {
       const payload = {
         schemaVersion: "tolksyn.item.v1" as const,
         attemptId: currentAttempt.id,
+        // Each accept after edits needs a fresh idempotency key so ingest treats it as a new submission.
         acceptedRevision: currentAttempt.acceptedRevision + 1,
         structuredJson: currentDraft,
         barcodeEnrichment: currentAttempt.extractionResult

@@ -44,6 +44,7 @@ export function OptionPicker({
           role="dialog"
           accessibilityLabel={title}
           className="max-h-[78%] gap-3 border-4 border-border bg-background p-4"
+          // Backdrop dismiss must not fire when the user taps a row inside the sheet.
           onPress={(event) => event.stopPropagation()}
         >
           <View className="flex-row items-center justify-between gap-3">
@@ -70,6 +71,7 @@ export function OptionPicker({
             />
           ) : null}
           <FlatList
+            // Without handled taps, the first row tap only dismisses the search keyboard.
             keyboardShouldPersistTaps="handled"
             data={items}
             keyExtractor={(item) => item.id}

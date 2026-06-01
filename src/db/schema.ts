@@ -1,5 +1,6 @@
 import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
+/** Local attempt rows let confirm and history work offline without re-running extraction. */
 export const attemptsTable = sqliteTable("attempts", {
   id: text("id").primaryKey(),
   source: text("source").notNull(),
@@ -14,6 +15,7 @@ export const attemptsTable = sqliteTable("attempts", {
   errorCode: text("error_code"),
 });
 
+/** Accepted payloads wait here when offline, and sequence keeps send order stable across restarts. */
 export const queueItemsTable = sqliteTable("queue_items", {
   id: text("id").primaryKey(),
   sequence: integer("sequence").notNull(),

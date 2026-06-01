@@ -16,6 +16,7 @@ export const SUPPORTED_BARCODE_TYPES: BarcodeType[] = [
   "pdf417",
 ];
 
+/** Same symbology uses different string labels in expo-camera vs the browser BarcodeDetector. */
 export const EXPO_TO_WEB_BARCODE_TYPE: Record<string, string> = {
   aztec: "aztec",
   codabar: "codabar",

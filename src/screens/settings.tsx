@@ -39,6 +39,7 @@ type OAuthState = {
   status?: string;
 };
 
+/** Draft settings let users finish OAuth before overwriting stored provider credentials. */
 export function SettingsScreen() {
   const runtime = useAppRuntime();
   const toast = useToast();
@@ -92,6 +93,7 @@ export function SettingsScreen() {
     };
   }, [runtime]);
 
+  // OAuth completes in an external browser, so refetch on focus keeps connected state fresh.
   useFocusEffect(load);
   useEffect(load, [load]);
 
@@ -182,7 +184,7 @@ export function SettingsScreen() {
       return false;
     }
 
-    // || !draft.ingest.apiKey.trim() is not used as it blocks oauth providers
+    // Provider OAuth can succeed before ingest is configured, so gate ingest key on Apply, not valid().
     if (!draft.ingest.endpointUrl.trim()) {
       return false;
     }
@@ -300,6 +302,7 @@ export function SettingsScreen() {
       next.provider.authModeByProvider[id] = "oauth";
       setDraft(next);
       setOauth({ busy: false, status: "OAuth connected. Applied." });
+      // Token is useless until persisted, so auto-apply avoids a failed capture right after OAuth.
       await apply(next);
     } catch (error) {
       setOauth({ busy: false });
@@ -430,6 +433,7 @@ export function SettingsScreen() {
     const message =
       "This will remove local attempts, queue, settings, auth tokens, and cached provider catalog on this device.";
 
+    // Alert.alert is unreliable on web, so use the browser confirm dialog instead.
     if (Platform.OS === "web") {
       const ok =
         typeof window !== "undefined"

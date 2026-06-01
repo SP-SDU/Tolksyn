@@ -1,19 +1,17 @@
 import { emptyStructuredItem, type StructuredItem } from "../types/item-schema";
 
 /**
- * Serializes a StructuredItem to a CSV string following US formatting (RFC 4180).
- *
- * Includes a UTF-8 BOM for Excel compatibility.
+ * RFC 4180 CSV for spreadsheet handoff. BOM keeps Excel from mangling UTF-8 product text.
  */
 export function serializeCsv(item: StructuredItem): string {
-  // Use the empty object to guarantee a consistent column order
+  // Column order must match emptyStructuredItem so CSV headers align with warehouse imports.
   const empty = emptyStructuredItem();
   const keys = Object.keys(empty) as (keyof StructuredItem)[];
 
   const header = keys.map(escapeCsv).join(",");
   const row = keys.map((key) => escapeCsv(item[key])).join(",");
 
-  // Add UTF-8 BOM (\uFEFF) at the start for Excel
+  // Excel on Windows assumes ANSI unless a BOM marks the file as UTF-8.
   return "\uFEFF" + header + "\n" + row;
 }
 
@@ -24,14 +22,14 @@ function escapeCsv(value: string | number | null | undefined): string {
 
   const str = String(value);
 
-  // If it contains double quote, comma, or newline, it must be quoted
+  // RFC 4180 requires quoting when the cell contains delimiter or newline characters.
   if (
     str.includes('"') ||
     str.includes(",") ||
     str.includes("\n") ||
     str.includes("\r")
   ) {
-    // Double up inner quotes
+    // Embedded quotes double up per RFC 4180 escaping rules.
     return `"${str.replace(/"/g, '""')}"`;
   }
 

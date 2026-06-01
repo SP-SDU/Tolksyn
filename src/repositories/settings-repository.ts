@@ -17,6 +17,7 @@ const PROVIDER_SECRET_KEY = "tolksyn.secret.provider_api_key";
 const PROVIDER_AUTH_SECRET_KEY = "tolksyn.secret.provider_auth";
 const INGEST_SECRET_KEY = "tolksyn.secret.ingest_api_key";
 
+/** Only non-secret preferences go in SQLite/localStorage so credential export paths stay safe. */
 type PersistedProvider = {
   id: string;
   model: string;
@@ -237,6 +238,7 @@ async function parsePersisted(
   return migrated;
 }
 
+/** Older installs stored a single API key, and migrate once so multi-provider auth keeps working. */
 async function migrateLegacyApiSecret(
   secrets: SecretStore,
   id: string,

@@ -35,6 +35,7 @@ const WEBSEARCH_LIMITS = {
   maxFetchedPagesTotal: 6,
 };
 
+/** Product labels often omit manufacturer, and optional enrichment reduces empty confirm fields. */
 export function createManufacturerWebSearchEnricher({
   settings,
   extractor,

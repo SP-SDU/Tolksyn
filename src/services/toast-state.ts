@@ -46,6 +46,7 @@ export function nextToast(state: ToastState): ToastState {
   };
 }
 
+/** Only one pipeline progress message should be visible at a time during capture. */
 export function upsertProgressToast(
   state: ToastState,
   entry: ToastEntry,

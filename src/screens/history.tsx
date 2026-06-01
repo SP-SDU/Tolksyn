@@ -48,6 +48,7 @@ export function HistoryScreen() {
         </View>
       ) : null}
       {attempts.map((attempt) => {
+        // Failed thumbnail generation should not leave history rows without a preview.
         const thumbnailUri =
           attempt.images[0]?.thumbnailUri ??
           attempt.images[0]?.imageUri ??

@@ -1,3 +1,4 @@
+/** Callers branch on code because provider and network error text is not stable. */
 export type AppErrorCode =
   | "permission_denied"
   | "timeout"
@@ -50,6 +51,7 @@ export async function providerHttpStatusToError(
     normalized.includes("rate limit") ||
     normalized.includes("too many requests");
 
+  // Some providers return 403 with quota/billing wording instead of 429.
   if (status === 429 || (status === 403 && (quotaLike || ratelimitLike))) {
     return new AppError("rate_limited", message);
   }

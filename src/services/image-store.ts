@@ -11,6 +11,7 @@ type PersistedImage = {
   height: number;
 };
 
+/** Downscaled WebP keeps vision token cost and history thumbnail load predictable on device. */
 export function createImageStore() {
   return {
     async persistImages(input: {

@@ -8,6 +8,9 @@ import {
   type WebSearchEnrichment,
 } from "@/utils/merge-extraction-result";
 
+/**
+ * Confirm must stay reachable when barcode or VLM fails, and cancel after create must not orphan files.
+ */
 export async function processImage({
   source,
   inputUris,
@@ -155,6 +158,7 @@ export async function processImage({
     throwIfAborted(signal);
 
     const [detectedBarcodes, extracted] = await Promise.all([
+      // Barcode runs alongside extraction so confirm screen latency stays bounded.
       (async () => {
         onProgress?.("barcode_started");
         try {
@@ -259,6 +263,7 @@ export async function processImage({
 
     return { attemptId };
   } catch (error) {
+    // User cancel after persist should not leave a half-baked attempt in history.
     if ((isAbortError(error) || signal?.aborted) && created) {
       await attempts.deleteById?.(attemptId);
     }

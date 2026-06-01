@@ -1,5 +1,6 @@
 import { AppError } from "@/types/app-error";
 
+/** Provider error strings can leak internals, and users only see vetted copy here. */
 export function getUserFacingErrorMessage(
   error: unknown,
   fallback: string,

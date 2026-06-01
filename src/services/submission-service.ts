@@ -5,6 +5,7 @@ import type {
   BarcodeHit,
 } from "@/utils/merge-extraction-result";
 
+/** schemaVersion lets ingest evolve without breaking idempotent replay from older app builds. */
 export type SubmissionPayload = {
   schemaVersion: "tolksyn.item.v1";
   attemptId: string;
@@ -103,6 +104,7 @@ export function createSubmissionService({
       }
 
       if (result.kind === "retryable_error") {
+        // Transient ingest failures join the offline queue instead of blocking confirm UX.
         await enqueueAttempt({
           attemptId,
           acceptedRevision,

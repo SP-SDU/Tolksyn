@@ -28,6 +28,7 @@ const API_PROVIDER_FACTORIES: Record<
   anthropic: (apiKey) => createAnthropic({ apiKey }),
 };
 
+/** Misconfigured vision models should fail before capture work, not after image persist. */
 export function createRemoteExtractor(settingsRepository: {
   getSettings(): Promise<AppSettings>;
   providerCatalog?: ReturnType<typeof createProviderCatalog>;

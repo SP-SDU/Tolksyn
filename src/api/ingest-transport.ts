@@ -4,6 +4,7 @@ import { AppError } from "@/types/app-error";
 import type { AppSettings } from "@/types/settings";
 import { isRetryableHttpStatus } from "@/utils/retry-policy";
 
+/** Queue replay must use the same POST contract and idempotency semantics as live accept. */
 export function createIngestTransport(settingsRepository: {
   getSettings(): Promise<AppSettings>;
 }) {

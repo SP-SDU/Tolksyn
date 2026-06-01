@@ -140,6 +140,7 @@ export function Button({
         if (releaseTimerRef.current) {
           clearTimeout(releaseTimerRef.current);
         }
+        // Without a short hold, quick taps never show the pressed affordance.
         releaseTimerRef.current = setTimeout(() => setPressed(false), 140);
         onPressOut?.(event);
       }}

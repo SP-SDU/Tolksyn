@@ -55,6 +55,7 @@ const WEB_CACHE_KEY = "tolksyn.settings.provider_catalog.web";
 const PROVIDER_AUTH_SECRET_KEY = "tolksyn.secret.provider_auth";
 const TTL_MS = 1000 * 60 * 5;
 
+/** models.dev changes often, and cache keeps settings responsive when the catalog fetch fails. */
 const AUTH_METHODS: Record<string, ProviderAuthMode[]> = {
   openai: ["api", "oauth"],
   "github-copilot": ["oauth"],

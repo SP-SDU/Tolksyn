@@ -11,6 +11,9 @@ import { AppError } from "@/types/app-error";
 import { emptyStructuredItem } from "@/types/item-schema";
 import { createAbortError, isAbortError, throwIfAborted } from "@/utils/abort";
 
+/**
+ * Repair prompts recover parseable JSON, and empty output still lets the operator fill confirm manually.
+ */
 export async function extractWithRetries({
   fallbackProvider,
   input,

@@ -20,6 +20,7 @@ import { useColorScheme } from "@/hooks/use-color-scheme";
 import { AppRuntimeProvider } from "@/providers/app-provider";
 import { ToastProvider } from "@/providers/toast-provider";
 
+// Confirm deep links should land in tabs context, not strand users without capture/history.
 export const unstable_settings = {
   anchor: "(tabs)",
 };
@@ -56,6 +57,7 @@ function RootLayoutWithDatabase() {
     throw migration.error;
   }
 
+  // Repositories query tables that do not exist until migrations finish.
   if (!migration.success) {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>

@@ -44,6 +44,7 @@ const AppRuntimeContext = createContext<ReturnType<
   typeof createRuntime
 > | null>(null);
 
+/** Heavy AI modules load here so tab screens stay fast and tests can inject mocks. */
 export function AppRuntimeProvider({ children }: React.PropsWithChildren) {
   const sqlite = useSQLiteContext();
   useDrizzleStudio(sqlite);
@@ -110,6 +111,7 @@ function createRuntime(sqlite: Parameters<typeof createDb>[0]) {
   }> | null = null;
   const extractor: RemoteExtractor = {
     async extract(input) {
+      // First extraction pays the AI SDK bundle cost, and deferring keeps tab launch responsive.
       if (!loadedExtractor) {
         const { createRemoteExtractor } =
           await import("@/api/remote-extractor");
@@ -126,6 +128,7 @@ function createRuntime(sqlite: Parameters<typeof createDb>[0]) {
           createAgentQueryCrawl({
             fetch,
             search: {
+              // Exa MCP is blocked cross-origin from the browser, so the dev-server proxy carries auth.
               proxyBaseUrl:
                 Platform.OS === "web" ? "/api/proxy/exa/mcp" : undefined,
             },

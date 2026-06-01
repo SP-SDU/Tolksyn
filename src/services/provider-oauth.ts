@@ -22,6 +22,7 @@ export type OAuthStartOptions = {
   enterpriseUrl?: string;
 };
 
+/** GitHub device OAuth cannot reach github.com from the browser without same-origin proxy routes. */
 export function createProviderOAuth({
   fetch,
   now,
@@ -123,6 +124,7 @@ function githubProxyUrl(
   const suffix = enterpriseUrl
     ? `?enterpriseUrl=${encodeURIComponent(enterpriseUrl)}`
     : "";
+  // Browser CORS blocks direct GitHub device endpoints, so same-origin API routes forward them.
   if (value.endsWith("/login/device/code")) {
     return `${origin}/api/oauth/github-copilot/device/code${suffix}`;
   }

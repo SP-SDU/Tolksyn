@@ -29,6 +29,7 @@ type ToastApi = {
 
 const ToastContext = createContext<ToastApi | null>(null);
 
+/** Progress toasts must not auto-dismiss while extraction is still running. */
 export function ToastProvider({ children }: PropsWithChildren) {
   const [state, setState] = useState(initialToastState);
 

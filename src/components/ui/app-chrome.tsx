@@ -105,6 +105,7 @@ export function StatusPill({
   );
 }
 
+/** Fixed footer actions sit above the tab bar, so screens need extra bottom padding. */
 export function StickyActionBar({
   className,
   ...props

@@ -31,6 +31,7 @@ const structuredFields = [
   "link",
 ];
 
+/** Repair retries must demand the same key set or partial JSON would pass validation. */
 export function buildExtractionPrompt() {
   return [
     "Extract product label data to a strict JSON object.",
