@@ -1,8 +1,5 @@
 import { AppError } from "@/types/app-error";
-import {
-  emptyStructuredItem,
-  validateStructuredItem,
-} from "@/types/item-schema";
+import { validateStructuredItem } from "@/types/item-schema";
 
 import {
   AUXILIARY_ENVELOPE_KEY,
@@ -27,11 +24,10 @@ export function normalizeRemoteError(error: unknown): AppError {
   }
 
   if (
-    (error instanceof Error && error.name === "AbortError") ||
-    (typeof error === "object" &&
-      error !== null &&
-      "name" in error &&
-      error.name === "AbortError")
+    typeof error === "object" &&
+    error !== null &&
+    "name" in error &&
+    error.name === "AbortError"
   ) {
     return new AppError("timeout", "The extraction request timed out.", error);
   }
@@ -63,7 +59,7 @@ export function normalizeRemoteError(error: unknown): AppError {
  * even when the provider is behaving correctly.
  */
 export function extractionTimeoutMs(timeoutMs: number): number {
-  return Math.max(1, timeoutMs, MIN_EXTRACTION_TIMEOUT_MS);
+  return Math.max(timeoutMs, MIN_EXTRACTION_TIMEOUT_MS);
 }
 
 /**
@@ -105,11 +101,7 @@ export function parseProviderJsonEnvelope(rawText: unknown) {
   const auxiliaryRaw = readEnvelopeValue(record, AUXILIARY_ENVELOPE_KEY);
   const structuredObject = toObjectValue(structuredRaw);
 
-  if (
-    !structuredObject ||
-    typeof structuredObject !== "object" ||
-    Array.isArray(structuredObject)
-  ) {
+  if (!structuredObject) {
     throw new AppError(
       "schema_violation",
       "Provider returned an invalid structured_json object.",
@@ -120,10 +112,7 @@ export function parseProviderJsonEnvelope(rawText: unknown) {
   // Missing, incompatible, or semantically invalid fields are still rejected below.
   const normalizedStructured = normalizeStructuredObjectKeys(structuredObject);
 
-  const validation = validateStructuredItem({
-    ...emptyStructuredItem(),
-    ...normalizedStructured,
-  });
+  const validation = validateStructuredItem(normalizedStructured);
 
   if (!validation.success) {
     throw new AppError(
@@ -140,10 +129,6 @@ export function parseProviderJsonEnvelope(rawText: unknown) {
 }
 
 export function providerErrorMessage(error: unknown): string {
-  if (error instanceof AppError) {
-    return error.message;
-  }
-
   if (error instanceof Error) {
     return error.message;
   }

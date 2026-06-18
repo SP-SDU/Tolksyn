@@ -30,6 +30,10 @@ describe("mergeExtractionResult", () => {
     expect(result.structuredJson.manufacturer).toBe("Phoenix Contact");
     expect(result.structuredJson.productNumber).toBe("2865463");
     expect(result.barcodeEnrichment.detected).toHaveLength(1);
+    expect(result.barcodeEnrichment.primary).toEqual({
+      type: "ean13",
+      data: "4046356160483",
+    });
     expect(result.barcodeEnrichment.relatedFieldSuggestions.eanOrUpc).toBe(
       "4046356160483",
     );
@@ -99,5 +103,35 @@ describe("mergeExtractionResult", () => {
       "4046356160483",
     );
     expect(result.barcodeEnrichment.conflicts).toEqual([]);
+  });
+
+  test("treats all EAN and UPC barcode types as retail identifier candidates", () => {
+    const result = mergeExtractionResult({
+      structuredJson: {
+        ...emptyStructuredItem(),
+        eanOrUpc: null,
+      },
+      barcodes: [
+        { type: "ean8", data: "12345670" },
+        { type: "upc_a", data: "042100005264" },
+        { type: "upc_e", data: "01234565" },
+      ],
+      metadata: {
+        provider: "remote_openai_compatible",
+        durationMs: 500,
+        imageWidth: 1000,
+        imageHeight: 1000,
+      },
+    });
+
+    expect(result.barcodeEnrichment.relatedFieldSuggestions.eanOrUpc).toBe(
+      "12345670",
+    );
+    expect(result.barcodeEnrichment.conflicts).toEqual([
+      {
+        field: "eanOrUpc",
+        values: ["12345670", "042100005264", "01234565"],
+      },
+    ]);
   });
 });

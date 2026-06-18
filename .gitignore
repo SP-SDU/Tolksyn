@@ -70,3 +70,7 @@ AGENTS.md
 plantuml.jar
 *.atfi
 
+
+# stryker temp files
+.stryker-tmp
+reports/

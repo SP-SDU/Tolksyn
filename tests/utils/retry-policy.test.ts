@@ -35,6 +35,15 @@ describe("retry policy", () => {
     ).toBe(10_000);
   });
 
+  test("uses default retry delay bounds when none are provided", () => {
+    expect(
+      computeRetryDelayMs({
+        retryCount: 1,
+        random: () => 0,
+      }),
+    ).toBe(500);
+  });
+
   test("classifies retryable transport statuses", () => {
     // Arrange and Act and Assert
     // Request Timeout, Too Many Requests, and Server Error are retryable

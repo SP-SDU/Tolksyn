@@ -29,7 +29,7 @@ export function linkAbortSignal(signal: AbortSignal | undefined) {
   const controller = new AbortController();
 
   const abort = () => {
-    controller.abort(signal?.reason);
+    controller.abort(signal!.reason);
   };
 
   if (signal?.aborted) {

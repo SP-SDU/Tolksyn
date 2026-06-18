@@ -29,6 +29,13 @@ describe("serializeCsv", () => {
     expect(header).toContain("link");
   });
 
+  it("uses comma-separated headers in schema order", () => {
+    const result = serializeCsv(emptyStructuredItem());
+    const header = result.split("\n")[0]?.replace(/^\uFEFF/, "");
+
+    expect(header).toBe(Object.keys(emptyStructuredItem()).join(","));
+  });
+
   it("outputs one data row", () => {
     // Arrange
     // Act
@@ -93,6 +100,14 @@ describe("serializeCsv", () => {
     // Assert
     // Null must produce empty cell, not the literal string "null"
     expect(row).not.toContain("null");
+  });
+
+  it("outputs empty cells for every null field", () => {
+    const result = serializeCsv(emptyStructuredItem());
+    const row = result.split("\n")[1];
+    const emptyCellRow = ",".repeat(Object.keys(emptyStructuredItem()).length - 1);
+
+    expect(row).toBe(emptyCellRow);
   });
 
   it("outputs numeric values as-is without quotes", () => {
