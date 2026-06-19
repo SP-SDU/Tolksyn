@@ -2,7 +2,6 @@ import { createProviderOAuth } from "@/services/provider-oauth";
 
 describe("provider oauth", () => {
   test("completes openai device flow and returns oauth credentials", async () => {
-    // Arrange
     // 4 fetch calls: device code, poll (pending), auth code exchange, token exchange
     const fetch = jest
       .fn()
@@ -41,19 +40,15 @@ describe("provider oauth", () => {
       sleep,
     });
 
-    // Act
     const flow = await oauth.start("openai");
 
-    // Assert
     // start() returns the verification URL, user code, and instructions
     expect(flow.url).toBe("https://auth.openai.com/codex/device");
     expect(flow.code).toBe("OPENAI-CODE");
     expect(flow.instructions).toContain("OPENAI-CODE");
 
-    // Act
     const auth = await flow.complete();
 
-    // Assert
     // complete() returns credentials with expiry computed from now plus expires_in
     expect(auth).toEqual({
       type: "oauth",
@@ -66,7 +61,6 @@ describe("provider oauth", () => {
   });
 
   test("completes github-copilot device flow and returns oauth credentials", async () => {
-    // Arrange
     // 3 fetches: device code, poll (pending), token (completed)
     const fetch = jest
       .fn()
@@ -98,18 +92,14 @@ describe("provider oauth", () => {
       sleep,
     });
 
-    // Act
     const flow = await oauth.start("github-copilot");
 
-    // Assert
     expect(flow.url).toBe("https://github.com/login/device");
     expect(flow.code).toBe("GITHUB-CODE");
     expect(flow.instructions).toContain("GITHUB-CODE");
 
-    // Act
     const auth = await flow.complete();
 
-    // Assert
     // GitHub Copilot OAuth returns the same value for refresh and access
     expect(auth).toEqual({
       type: "oauth",
@@ -121,7 +111,6 @@ describe("provider oauth", () => {
   });
 
   test("uses local web oauth proxy endpoints for github-copilot on web", async () => {
-    // Arrange
     // Simulate web platform with a known window origin
     const fetch = jest
       .fn()
@@ -150,7 +139,6 @@ describe("provider oauth", () => {
     };
     process.env.EXPO_OS = "web";
 
-    // Act
     try {
       const oauth = createProviderOAuth({
         fetch: fetch as any,
@@ -160,7 +148,6 @@ describe("provider oauth", () => {
       const flow = await oauth.start("github-copilot");
       const auth = await flow.complete();
 
-      // Assert
       // On web, requests go to local proxy routes, not GitHub directly
       expect(auth).toEqual({
         type: "oauth",
@@ -185,7 +172,6 @@ describe("provider oauth", () => {
   });
 
   test("rejects custom enterprise domain in github-copilot oauth flow", async () => {
-    // Arrange
     const fetch = jest.fn();
 
     const oauth = createProviderOAuth({
@@ -194,7 +180,6 @@ describe("provider oauth", () => {
       sleep: jest.fn().mockResolvedValue(undefined),
     });
 
-    // Act and Assert
     // Enterprise domains blocked at the proxy level. Fetch never called
     await expect(
       oauth.start("github-copilot", {
@@ -208,7 +193,6 @@ describe("provider oauth", () => {
   });
 
   test("returns actionable error when web oauth proxy route is unavailable", async () => {
-    // Arrange
     // 404 from the proxy endpoint
     const fetch = jest.fn().mockResolvedValue({
       ok: false,
@@ -224,7 +208,6 @@ describe("provider oauth", () => {
       },
     };
 
-    // Act and Assert
     try {
       const oauth = createProviderOAuth({
         fetch: fetch as any,

@@ -6,39 +6,31 @@ import { createQueueRepository } from "@/repositories/queue-repository";
 
 describe("queue repository", () => {
   test("persists queued submissions in FIFO order", async () => {
-    // Arrange
     const db = createTestDb();
     const repository = createQueueRepository(db as any);
 
     await seedQueue(repository);
 
-    // Act
     const first = await repository.peekReady(10);
 
-    // Assert
     // queue-1 enqueued first with lower enqueuedAt, so it is returned first
     expect(first?.id).toBe("queue-1");
 
-    // Act
     await repository.markSent("queue-1");
     const second = await repository.peekReady(10);
 
-    // Assert
     // After marking first as sent, queue-2 becomes the next ready item
     expect(second?.id).toBe("queue-2");
   });
 
   test("reschedules retryable failures and keeps item available later", async () => {
-    // Arrange
     const db = createTestDb();
     const repository = createQueueRepository(db as any);
 
     await repository.enqueue(queueItem(1));
 
-    // Act
     await repository.reschedule("queue-1", 50, 1, "network_unavailable");
 
-    // Assert
     // Item not visible before its scheduled retry time
     expect(await repository.peekReady(49)).toBeNull();
     // Item visible at exactly its scheduled time with updated retry state
@@ -52,17 +44,14 @@ describe("queue repository", () => {
   });
 
   test("blocks later ready item when queue head is not ready yet", async () => {
-    // Arrange
     const db = createTestDb();
     const repository = createQueueRepository(db as any);
 
     await seedQueue(repository);
 
-    // Act
     // Head item rescheduled far into the future
     await repository.reschedule("queue-1", 100, 1, "network_unavailable");
 
-    // Assert
     // Even though queue-2 is ready, it is blocked because queue-1 is head
     expect(await repository.peekReady(50)).toBeNull();
   });

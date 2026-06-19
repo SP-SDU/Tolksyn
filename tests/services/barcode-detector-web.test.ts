@@ -1,7 +1,7 @@
 import { createBarcodeDetector } from "@/services/barcode-detector.web";
 
 describe("web barcode detector", () => {
-  // Arrange: save global references to restore after each test
+  // Save global references to restore after each test
   const originalBarcodeDetector = (globalThis as { BarcodeDetector?: unknown })
     .BarcodeDetector;
   const originalImage = globalThis.Image;
@@ -20,7 +20,6 @@ describe("web barcode detector", () => {
   });
 
   test("uses native browser BarcodeDetector with normalized formats", async () => {
-    // Arrange
     // Mock the native BarcodeDetector and related DOM APIs
     const detect = jest
       .fn()
@@ -46,14 +45,12 @@ describe("web barcode detector", () => {
       }),
     ) as unknown as typeof globalThis.fetch;
 
-    // Act
     const detector = createBarcodeDetector();
     const results = await detector.detect({
       imageUri: "https://example.com/code.jpg",
       allowedTypes: ["ean13", "code93", "upc_e"],
     });
 
-    // Assert
     // Only formats supported by the browser are requested, not all allowedTypes
     expect(BarcodeDetector).toHaveBeenCalledWith({
       formats: ["ean_13", "code_93"],

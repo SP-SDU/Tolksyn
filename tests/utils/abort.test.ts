@@ -1,8 +1,4 @@
-import {
-  createAbortError,
-  isAbortError,
-  linkAbortSignal,
-} from "@/services/abort";
+import { createAbortError, isAbortError, linkAbortSignal } from "@/utils/abort";
 
 describe("abort utilities", () => {
   test("creates errors that are recognized as abort errors", () => {

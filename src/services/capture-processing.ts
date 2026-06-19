@@ -1,9 +1,9 @@
-import { isAbortError, throwIfAborted } from "@/services/abort";
 import { mergeExtractionResult } from "@/services/extraction/merge-result";
 import { getErrorMessage } from "@/types/app-error";
 import type { AttemptImage } from "@/types/attempt-image";
 import type { BarcodeHit, WebSearchEnrichment } from "@/types/extraction";
 import { emptyStructuredItem, type StructuredItem } from "@/types/item-schema";
+import { isAbortError, throwIfAborted } from "@/utils/abort";
 
 /**
  * Confirm must stay reachable when barcode or VLM fails, and cancel after create must not orphan files.

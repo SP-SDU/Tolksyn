@@ -1,35 +1,31 @@
 import { useFocusEffect } from "expo-router";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 
 import { scheduleDeferredMount } from "./idle";
 
 export function useProgressiveSections(loading: boolean, sectionCount: number) {
   const [visible, setVisible] = useState(0);
-  const runRef = useRef(0);
 
   useFocusEffect(
     useCallback(() => {
-      const run = ++runRef.current;
-      let cancelNext: (() => void) | null = null;
-      let cancelled = false;
-
       if (loading) {
         setVisible(0);
-
-        return () => {
-          cancelled = true;
-          runRef.current++;
-          cancelNext?.();
-        };
+        return undefined;
       }
 
-      setVisible(Math.min(1, sectionCount));
+      const initialVisible = Math.min(1, sectionCount);
+      setVisible(initialVisible);
+
+      if (sectionCount <= initialVisible) {
+        return undefined;
+      }
+
+      const controller = new AbortController();
+      let cancelNext: () => void;
 
       function advance(stage: number) {
-        cancelNext?.();
-
         cancelNext = scheduleDeferredMount(() => {
-          if (cancelled || runRef.current !== run) return;
+          if (controller.signal.aborted) return;
 
           setVisible((current) => Math.max(current, stage));
 
@@ -39,14 +35,11 @@ export function useProgressiveSections(loading: boolean, sectionCount: number) {
         });
       }
 
-      if (sectionCount > 1) {
-        advance(2);
-      }
+      advance(2);
 
       return () => {
-        cancelled = true;
-        runRef.current++;
-        cancelNext?.();
+        controller.abort();
+        cancelNext();
       };
     }, [loading, sectionCount]),
   );

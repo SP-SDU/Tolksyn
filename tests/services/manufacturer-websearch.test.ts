@@ -4,7 +4,6 @@ import { defaultSettings } from "@/types/settings";
 
 describe("manufacturer websearch enrichment", () => {
   test("plans queries, passes them to agent-query-crawl, and reconciles crawled pages", async () => {
-    // Arrange
     // extractor called twice: first for query planning, second for reconciliation
     const settings = defaultSettings();
     settings.webSearch.enabled = true;
@@ -74,7 +73,6 @@ describe("manufacturer websearch enrichment", () => {
       queryCrawl,
     });
 
-    // Act
     const result = await enricher.enrich({
       images: [
         {
@@ -89,7 +87,6 @@ describe("manufacturer websearch enrichment", () => {
       barcodes: [],
     });
 
-    // Assert
     // Query sent to agent-query-crawl with crawl enabled
     expect(queryCrawl.query).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -147,7 +144,6 @@ describe("manufacturer websearch enrichment", () => {
   });
 
   test("accepts query json from extraction envelope auxiliary text", async () => {
-    // Arrange
     // Query planning reads queries from the extraction envelope auxiliary text
     const settings = defaultSettings();
     settings.webSearch.enabled = true;
@@ -202,7 +198,6 @@ describe("manufacturer websearch enrichment", () => {
       queryCrawl,
     });
 
-    // Act
     const result = await enricher.enrich({
       images: [
         {
@@ -217,7 +212,6 @@ describe("manufacturer websearch enrichment", () => {
       barcodes: [],
     });
 
-    // Assert
     // Query extracted from auxiliary text used for the search
     expect(queryCrawl.query).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -230,7 +224,6 @@ describe("manufacturer websearch enrichment", () => {
   });
 
   test("skips websearch explicitly when query planning returns no direct query json", async () => {
-    // Arrange
     // Response has no queries. Websearch should be skipped
     const settings = defaultSettings();
     settings.webSearch.enabled = true;
@@ -254,7 +247,6 @@ describe("manufacturer websearch enrichment", () => {
       queryCrawl,
     });
 
-    // Act
     const result = await enricher.enrich({
       images: [
         {
@@ -269,7 +261,6 @@ describe("manufacturer websearch enrichment", () => {
       barcodes: [],
     });
 
-    // Assert
     // No query sent. Enrichment skipped with explanation
     expect(queryCrawl.query).not.toHaveBeenCalled();
     expect(result?.structuredJson.manufacturer).toBe("Siemens");
@@ -285,7 +276,6 @@ describe("manufacturer websearch enrichment", () => {
   });
 
   test("uses one shared total crawl-page limit across planned queries", async () => {
-    // Arrange
     // 4 queries planned but only 3 executed due to the shared crawl page budget
     const settings = defaultSettings();
     settings.webSearch.enabled = true;
@@ -339,7 +329,6 @@ describe("manufacturer websearch enrichment", () => {
       queryCrawl,
     });
 
-    // Act
     await enricher.enrich({
       images: [
         {
@@ -354,7 +343,6 @@ describe("manufacturer websearch enrichment", () => {
       barcodes: [],
     });
 
-    // Assert
     // First query gets maxPages=6. Remaining queries get crawl disabled
     expect(queryCrawl.query).toHaveBeenCalledTimes(3);
     expect(queryCrawl.query).toHaveBeenNthCalledWith(

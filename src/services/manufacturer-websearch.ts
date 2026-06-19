@@ -1,4 +1,3 @@
-import { isAbortError, throwIfAborted } from "@/services/abort";
 import type {
   BarcodeHit,
   RemoteExtractionResult,
@@ -6,6 +5,7 @@ import type {
 } from "@/types/extraction";
 import type { StructuredItem } from "@/types/item-schema";
 import type { AppSettings } from "@/types/settings";
+import { isAbortError, throwIfAborted } from "@/utils/abort";
 import {
   sanitizeUntrustedWebText,
   type AgentQueryCrawlInput,

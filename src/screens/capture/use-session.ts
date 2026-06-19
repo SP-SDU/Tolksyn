@@ -8,9 +8,9 @@ import { ToastDurations } from "@/constants/runtime";
 import { usePendingImages } from "@/hooks/use-pending-images";
 import { useAppRuntime } from "@/providers/app-provider";
 import { useToast } from "@/providers/toast-provider";
-import { isAbortError } from "@/services/abort";
 import { getErrorMessage } from "@/types/app-error";
 import type { BarcodeHit } from "@/types/extraction";
+import { isAbortError } from "@/utils/abort";
 
 type Stage = "idle" | "running" | "done" | "failed";
 

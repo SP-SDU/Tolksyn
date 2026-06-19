@@ -10,7 +10,6 @@ import {
 
 describe("queue replay integration", () => {
   test("keeps strict FIFO blocking when head item is retryable after restart", async () => {
-    // Arrange
     // Shared in-memory DB simulates persistent state across restarts
     const sqlite = new Database(":memory:");
     const db1 = createTestDb(sqlite);
@@ -45,7 +44,6 @@ describe("queue replay integration", () => {
       { kind: "success" },
     ];
 
-    // Act
     // Head item (queue-1) hits retryable error and blocks
     await drainReplayQueue({
       now: 999,
@@ -54,11 +52,9 @@ describe("queue replay integration", () => {
       outcomes,
     });
 
-    // Assert
     // Only head item was processed (blocked, not skipped)
     expect(delivered).toEqual(["queue-1"]);
 
-    // Act
     // Drain again after delay, head is retryable again, then queue-2 proceeds
     await drainReplayQueue({
       now: 1100,
@@ -67,7 +63,6 @@ describe("queue replay integration", () => {
       outcomes,
     });
 
-    // Assert
     // Queue-1 retried first (head stays head), queue-2 delivered after
     expect(delivered).toEqual(["queue-1", "queue-1", "queue-2"]);
   });

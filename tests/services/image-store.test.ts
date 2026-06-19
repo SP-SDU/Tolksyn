@@ -44,7 +44,6 @@ jest.mock("expo-file-system", () => {
 
 describe("createImageStore", () => {
   it("persists normalized and thumbnail images as WebP", async () => {
-    // Arrange
     // Two manipulator calls: normalize to 1200px, then thumbnail to 240px
     jest
       .mocked(ImageManipulator.manipulateAsync)
@@ -61,14 +60,12 @@ describe("createImageStore", () => {
         height: 160,
       });
 
-    // Act
     const results = await createImageStore().persistImages({
       inputUris: ["input.jpg"],
       attemptId: "attempt-1",
     });
     const result = results[0];
 
-    // Assert
     // First call resizes to 1200px max dimension
     expect(ImageManipulator.manipulateAsync).toHaveBeenNthCalledWith(
       1,

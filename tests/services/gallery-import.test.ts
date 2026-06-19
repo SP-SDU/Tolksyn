@@ -3,8 +3,6 @@ import { AppError } from "@/types/app-error";
 
 describe("importFromGallery", () => {
   test("throws permission_denied when media library permission is not granted", async () => {
-    // Arrange
-    // Act and Assert
     // Permission denied before reaching the picker
     await expect(
       importFromGallery({
@@ -17,21 +15,16 @@ describe("importFromGallery", () => {
   });
 
   test("returns null when user cancels picker", async () => {
-    // Arrange
-    // Act
     const result = await importFromGallery({
       requestPermission: async () => ({ granted: true }),
       launchPicker: async () => ({ canceled: true }),
     });
 
-    // Assert
     // Cancellation is not an error. Return null so the caller can distinguish
     expect(result).toBeNull();
   });
 
   test("returns selected image uri", async () => {
-    // Arrange
-    // Act
     const result = await importFromGallery({
       requestPermission: async () => ({ granted: true }),
       launchPicker: async () => ({
@@ -40,7 +33,6 @@ describe("importFromGallery", () => {
       }),
     });
 
-    // Assert
     expect(result).toEqual(["file://picked.jpg"]);
   });
 });

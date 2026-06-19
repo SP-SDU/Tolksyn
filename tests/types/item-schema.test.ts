@@ -6,8 +6,6 @@ import {
 
 describe("item schema", () => {
   test("normalizes empty strings and numeric fields", () => {
-    // Arrange
-    // Act
     const normalized = normalizeStructuredItemInput({
       ...emptyStructuredItem(),
       manufacturer: "  Siemens  ",
@@ -18,7 +16,6 @@ describe("item schema", () => {
       externalNote: " ",
     });
 
-    // Assert
     // Whitespace trimmed from text fields. Blanks become null. Numeric strings parsed to numbers
     expect(normalized.manufacturer).toBe("Siemens");
     expect(normalized.quantity).toBe(2);
@@ -29,15 +26,12 @@ describe("item schema", () => {
   });
 
   test("reports schema violations for invalid URLs and numbers", () => {
-    // Arrange
-    // Act
     const result = validateStructuredItem({
       ...emptyStructuredItem(),
       quantity: "nope",
       link: "notaurl",
     });
 
-    // Assert
     // Validation must reject clearly invalid input before submission
     expect(result.success).toBe(false);
     if (result.success) {

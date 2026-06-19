@@ -6,37 +6,28 @@ import {
 
 describe("getErrorMessage", () => {
   test("returns app error message verbatim", () => {
-    // Arrange
-    // Act
     const message = getErrorMessage(
       new AppError("rate_limited", "Provider said no quota"),
       "fallback",
     );
 
-    // Assert
     // Structured error codes carry user-meaningful messages that must be surfaced
     expect(message).toBe("Provider said no quota");
   });
 
   test("returns generic error message verbatim", () => {
-    // Arrange
-    // Act
     const message = getErrorMessage(
       new Error("Socket closed by provider"),
       "fallback",
     );
 
-    // Assert
     // Plain Error messages are preserved so debugging is not degraded
     expect(message).toBe("Socket closed by provider");
   });
 
   test("falls back when no message is available", () => {
-    // Arrange
-    // Act
     const message = getErrorMessage({ nope: true }, "fallback");
 
-    // Assert
     // Non-error objects cannot produce a message. Fallback protects the UI
     expect(message).toBe("fallback");
   });
@@ -44,8 +35,6 @@ describe("getErrorMessage", () => {
 
 describe("providerHttpStatusToError", () => {
   test("maps quota-like 403 payload to rate_limited with provider message", async () => {
-    // Arrange
-    // Act
     const error = await providerHttpStatusToError({
       status: 403,
       text: async () =>
@@ -57,7 +46,6 @@ describe("providerHttpStatusToError", () => {
         }),
     } as Response);
 
-    // Assert
     // 403 with quota wording maps to rate_limited so the UI can show upgrade guidance
     expect(error).toMatchObject({
       code: "rate_limited",
@@ -66,8 +54,6 @@ describe("providerHttpStatusToError", () => {
   });
 
   test("maps auth-like 403 payload to auth_failed with provider message", async () => {
-    // Arrange
-    // Act
     const error = await providerHttpStatusToError({
       status: 403,
       text: async () =>
@@ -78,7 +64,6 @@ describe("providerHttpStatusToError", () => {
         }),
     } as Response);
 
-    // Assert
     // 403 without quota wording maps to auth_failed
     expect(error).toMatchObject({
       code: "auth_failed",
@@ -87,14 +72,11 @@ describe("providerHttpStatusToError", () => {
   });
 
   test("maps 500 responses to network_unavailable", async () => {
-    // Arrange
-    // Act
     const error = await providerHttpStatusToError({
       status: 500,
       text: async () => "upstream server error",
     } as Response);
 
-    // Assert
     // Server errors are transient. Map to retryable network_unavailable
     expect(error).toMatchObject({
       code: "network_unavailable",

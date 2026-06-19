@@ -3,11 +3,8 @@ import { emptyStructuredItem } from "@/types/item-schema";
 
 describe("buildExtractionPrompt", () => {
   test("includes required response keys and all structured fields", () => {
-    // Arrange
-    // Act
     const prompt = buildExtractionPrompt();
 
-    // Assert
     // Top-level response envelope keys
     expect(prompt).toContain("structured_json");
     expect(prompt).toContain("auxiliary_text_optional");
@@ -23,11 +20,8 @@ describe("buildExtractionPrompt", () => {
   });
 
   test("forces strict json-only response guidance", () => {
-    // Arrange
-    // Act
     const prompt = buildExtractionPrompt();
 
-    // Assert
     // The prompt must forbid explanatory text so JSON.parse never fails
     expect(prompt).toContain(
       "Return one single complete valid JSON object only",

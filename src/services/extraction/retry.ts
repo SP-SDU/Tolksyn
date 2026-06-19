@@ -1,9 +1,4 @@
 import { RuntimeLimits } from "@/constants/runtime";
-import {
-  createAbortError,
-  isAbortError,
-  throwIfAborted,
-} from "@/services/abort";
 import { providerErrorMessage } from "@/services/extraction/errors";
 import { buildExtractionPrompt } from "@/services/extraction/prompt";
 import { AppError } from "@/types/app-error";
@@ -14,6 +9,7 @@ import type {
   RemoteExtractionResult,
 } from "@/types/extraction";
 import { emptyStructuredItem } from "@/types/item-schema";
+import { createAbortError, isAbortError, throwIfAborted } from "@/utils/abort";
 
 /**
  * Repair prompts recover parseable JSON, and empty output still lets the operator fill confirm manually.

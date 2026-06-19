@@ -9,7 +9,6 @@ import {
 
 describe("toast state", () => {
   test("enqueues message and promotes next message when dismissed", () => {
-    // Arrange
     const first: ToastEntry = {
       id: "first",
       text: "First",
@@ -25,12 +24,10 @@ describe("toast state", () => {
       durationMs: 2000,
     };
 
-    // Act
     const state1 = enqueueToast(initialToastState, first);
     const state2 = enqueueToast(state1, second);
     const state3 = nextToast(state2);
 
-    // Assert
     // First toast becomes active. Second goes to queue. Dismissal promotes queued item
     expect(state1.active?.id).toBe("first");
     expect(state2.queue.map((item) => item.id)).toEqual(["second"]);
@@ -38,7 +35,6 @@ describe("toast state", () => {
   });
 
   test("upserts progress toast as active and deduplicates queued progress id", () => {
-    // Arrange
     // Pre-populated state has both an active message and a queued progress
     const state = {
       active: {
@@ -59,7 +55,6 @@ describe("toast state", () => {
       ] as ToastEntry[],
     };
 
-    // Act
     // Upsert with same id pulls it from queue and makes it active
     const next = upsertProgressToast(state, {
       id: "capture",
@@ -69,7 +64,6 @@ describe("toast state", () => {
       durationMs: 0,
     });
 
-    // Assert
     expect(next.active?.id).toBe("capture");
     expect(next.active?.text).toContain("running");
     // Duplicate entry removed from queue
@@ -77,7 +71,6 @@ describe("toast state", () => {
   });
 
   test("replaces active progress with completion message", () => {
-    // Arrange
     const state = {
       active: {
         id: "capture",
@@ -89,7 +82,6 @@ describe("toast state", () => {
       queue: [],
     };
 
-    // Act
     // Progress toast replaced by a completion message with a different id
     const next = replaceProgressWithMessage(state, "capture", {
       id: "capture:done",
@@ -99,7 +91,6 @@ describe("toast state", () => {
       durationMs: 2500,
     });
 
-    // Assert
     // Mode changes from progress to message. Duration applied
     expect(next.active?.mode).toBe("message");
     expect(next.active?.text).toBe("Extraction completed");

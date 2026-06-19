@@ -4,40 +4,33 @@ describe("secure secret store", () => {
   });
 
   test("loads persisted web settings key from localStorage", async () => {
-    // Arrange
     setupWebSecureStore({
       ["tolksyn.settings.web"]: '{"provider":{"id":"openai"}}',
     });
 
-    // Act
     const { secureSecretStore } = require("@/db/secure-store");
     const persisted = await secureSecretStore.getItem("tolksyn.settings.web");
 
-    // Assert
     // Web settings read from localStorage when native secure store is unavailable
     expect(persisted).toBe('{"provider":{"id":"openai"}}');
   });
 
   test("clears tolksyn web keys from localStorage and memory cache", async () => {
-    // Arrange
     const localStorage = setupWebSecureStore({
       ["tolksyn.settings.web"]: '{"provider":{"id":"openai"}}',
       ["tolksyn.secret.provider_auth"]: '{"openai":{"type":"api","key":"x"}}',
       ["other.key"]: "keep-me",
     });
 
-    // Act
     const { secureSecretStore, clearWebKeys } = require("@/db/secure-store");
 
-    // Assert: keys exist before clearing
+    // Keys exist before clearing
     expect(await secureSecretStore.getItem("tolksyn.settings.web")).toBe(
       '{"provider":{"id":"openai"}}',
     );
 
-    // Act
     await clearWebKeys("tolksyn.");
 
-    // Assert
     // tolksyn-prefixed keys removed. Unrelated keys preserved
     expect(await secureSecretStore.getItem("tolksyn.settings.web")).toBeNull();
     expect(

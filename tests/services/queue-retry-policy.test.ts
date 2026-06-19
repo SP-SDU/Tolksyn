@@ -2,7 +2,6 @@ import { computeRetryDelayMs } from "@/services/queue-retry-policy";
 
 describe("retry policy", () => {
   test("uses capped exponential backoff with jitter", () => {
-    // Arrange and Act and Assert
     // retryCount=1 with no jitter produces exactly baseDelayMs
     expect(
       computeRetryDelayMs({

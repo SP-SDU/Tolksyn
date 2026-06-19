@@ -4,7 +4,6 @@ import { emptyStructuredItem } from "@/types/item-schema";
 
 describe("extractWithRetries", () => {
   test("retries parse errors and returns success diagnostics on later success", async () => {
-    // Arrange
     // First call fails with schema_violation. Second succeeds
     const extract = jest
       .fn()
@@ -29,7 +28,6 @@ describe("extractWithRetries", () => {
         },
       });
 
-    // Act
     const result = await extractWithRetries({
       fallbackProvider: "remote_openai_compatible",
       input: {
@@ -48,7 +46,6 @@ describe("extractWithRetries", () => {
       extract,
     });
 
-    // Assert
     // One retry occurred. Final attempt succeeded
     expect(extract).toHaveBeenCalledTimes(2);
     expect(result.extractionDiagnostics?.failed).toBe(false);
@@ -56,13 +53,11 @@ describe("extractWithRetries", () => {
   });
 
   test("falls back to empty structured item after retry exhaustion", async () => {
-    // Arrange
     // All calls fail. Retries exhausted
     const extract = jest
       .fn()
       .mockRejectedValue(new AppError("schema_violation", "bad json"));
 
-    // Act
     const result = await extractWithRetries({
       fallbackProvider: "remote_gemini",
       input: {
@@ -81,7 +76,6 @@ describe("extractWithRetries", () => {
       extract,
     });
 
-    // Assert
     // Exhausted 3 retries. Returns empty item with failed=true
     expect(extract).toHaveBeenCalledTimes(3);
     expect(result.metadata.provider).toBe("remote_gemini");
@@ -91,7 +85,6 @@ describe("extractWithRetries", () => {
   });
 
   test("uses caller provided prompt for the first attempt and repair prompt base", async () => {
-    // Arrange
     const extract = jest
       .fn()
       .mockRejectedValueOnce(new AppError("schema_violation", "bad json"))
@@ -106,7 +99,6 @@ describe("extractWithRetries", () => {
         },
       });
 
-    // Act
     await extractWithRetries({
       fallbackProvider: "remote_openai_compatible",
       input: {
@@ -126,7 +118,6 @@ describe("extractWithRetries", () => {
       extract,
     });
 
-    // Assert
     // Original prompt used on first call. Repair prompt includes original context
     expect(extract).toHaveBeenNthCalledWith(
       1,
@@ -202,7 +193,6 @@ describe("extractWithRetries", () => {
   });
 
   test("preserves abort semantics when cancellation wins a provider error race", async () => {
-    // Arrange
     const controller = new AbortController();
     const extract = jest.fn().mockImplementation(async () => {
       // Provider error arrives after cancellation was already requested
@@ -210,7 +200,6 @@ describe("extractWithRetries", () => {
       throw new AppError("schema_violation", "late provider error");
     });
 
-    // Act and Assert
     // Cancellation should take priority over the provider error
     await expect(
       extractWithRetries({

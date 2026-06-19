@@ -23,8 +23,6 @@ describe("OptionPicker", () => {
   });
 
   it("labels modal controls and search input for assistive technology", () => {
-    // Arrange
-    // Act
     render(
       <OptionPicker
         title="Select Provider"
@@ -38,7 +36,6 @@ describe("OptionPicker", () => {
       />,
     );
 
-    // Assert
     // Accessibility labels let screen readers identify dismiss, search, and selection
     expect(screen.getByLabelText("Close Select Provider")).toBeTruthy();
     expect(screen.getByLabelText("Search Select Provider")).toBeTruthy();

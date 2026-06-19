@@ -4,11 +4,9 @@ import { POST as responsesPost } from "@/app/api/proxy/github-copilot/responses+
 
 describe("github copilot proxy api routes", () => {
   test("forwards models request via token exchange", async () => {
-    // Arrange
     // Two upstream calls: token exchange then models API
     const mock = mockCopilotFetch({ data: [] });
 
-    // Act
     // Models endpoint uses the original refresh token to exchange then list models
     const response = await modelsGet(
       new Request("http://localhost:8081/api/proxy/github-copilot/models", {
@@ -18,7 +16,6 @@ describe("github copilot proxy api routes", () => {
       }),
     );
 
-    // Assert
     // Response includes model data
     expect(response.status).toBe(200);
     expect(await response.text()).toContain("data");
@@ -47,7 +44,6 @@ describe("github copilot proxy api routes", () => {
   });
 
   test("forwards chat completions request with vision header", async () => {
-    // Arrange
     // Token exchange then chat completions mock
     const mock = mockCopilotFetch({
       choices: [
@@ -59,7 +55,6 @@ describe("github copilot proxy api routes", () => {
       ],
     });
 
-    // Act
     // POST chat completion with base64-encoded JPEG (simulates camera capture)
     const response = await chatPost(
       new Request(
@@ -94,7 +89,6 @@ describe("github copilot proxy api routes", () => {
       ),
     );
 
-    // Assert
     // Vision-specific headers signal image content to upstream
     expect(response.status).toBe(200);
     expect(mock).toHaveBeenNthCalledWith(
@@ -114,11 +108,9 @@ describe("github copilot proxy api routes", () => {
   });
 
   test("forwards responses request to responses endpoint", async () => {
-    // Arrange
     // Token exchange then responses API mock
     const mock = mockCopilotFetch({ output_text: '{"structured_json":{}}' });
 
-    // Act
     // POST to /responses endpoint
     const response = await responsesPost(
       new Request("http://localhost:8081/api/proxy/github-copilot/responses", {
@@ -134,7 +126,6 @@ describe("github copilot proxy api routes", () => {
       }),
     );
 
-    // Assert
     // Forwarded to the correct responses endpoint URL
     expect(response.status).toBe(200);
     expect(mock).toHaveBeenNthCalledWith(

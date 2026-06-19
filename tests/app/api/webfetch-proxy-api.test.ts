@@ -6,7 +6,6 @@ describe("webfetch proxy api route", () => {
   });
 
   test("forwards http url fetches with browser-like headers", async () => {
-    // Arrange
     // Mock upstream response with HTML containing script tags
     jest.spyOn(global, "fetch").mockResolvedValue(
       new Response(
@@ -18,7 +17,6 @@ describe("webfetch proxy api route", () => {
       ),
     );
 
-    // Act
     // Proxy GET request with target URL as query param
     const response = await GET(
       new Request(
@@ -26,7 +24,6 @@ describe("webfetch proxy api route", () => {
       ),
     );
 
-    // Assert
     // Script tags stripped to prevent XSS in SSR context
     expect(response.status).toBe(200);
     // Content-Type overridden to text/plain so SSR does not parse as HTML
@@ -51,7 +48,6 @@ describe("webfetch proxy api route", () => {
   });
 
   test("rejects oversized upstream responses", async () => {
-    // Arrange
     // 5MB plus 1 body triggers the size boundary check
     const body = "x".repeat(5 * 1024 * 1024 + 1);
     jest.spyOn(global, "fetch").mockResolvedValue(
@@ -61,7 +57,6 @@ describe("webfetch proxy api route", () => {
       }),
     );
 
-    // Act
     // Proxy request for a huge page
     const response = await GET(
       new Request(
@@ -69,20 +64,17 @@ describe("webfetch proxy api route", () => {
       ),
     );
 
-    // Assert
     // Proxy returns 413 Payload Too Large instead of proxying the body
     expect(response.status).toBe(413);
     expect(await response.text()).toBe("Response too large");
   });
 
   test("returns a gateway error when upstream fetch fails", async () => {
-    // Arrange
     // Upstream throws (simulating redirect: "error" rejection upstream)
     jest
       .spyOn(global, "fetch")
       .mockRejectedValue(new Error("redirect blocked"));
 
-    // Act
     // Proxy request to a URL that causes failure
     const response = await GET(
       new Request(
@@ -90,18 +82,15 @@ describe("webfetch proxy api route", () => {
       ),
     );
 
-    // Assert
     // 502 Bad Gateway returned, not leaked error detail
     expect(response.status).toBe(502);
     expect(await response.text()).toBe("Upstream request failed");
   });
 
   test("rejects missing or unsafe urls", async () => {
-    // Arrange
     // Suppress expected validation warnings for clean test output
     jest.spyOn(console, "warn").mockImplementation(() => {});
 
-    // Act and Assert
     // Each case tests a different URL validation rule
     await expect(
       GET(new Request("http://localhost:8081/api/proxy/webfetch")),

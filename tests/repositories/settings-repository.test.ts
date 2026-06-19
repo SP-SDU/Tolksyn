@@ -9,16 +9,13 @@ import { createSecretStore } from "@/tests/helpers/fakes";
 
 describe("settings repository", () => {
   test("defaults manufacturer web search to disabled", async () => {
-    // Arrange
     const repo = createSettingsRepository({
       db: createTestDb() as any,
       secrets: createSecretStore(),
     });
 
-    // Act
     const settings = await repo.getSettings();
 
-    // Assert
     // Web search is opt-in. Disabled by default
     expect(settings.webSearch).toEqual({
       enabled: false,
@@ -26,7 +23,6 @@ describe("settings repository", () => {
   });
 
   test("migrates legacy provider key into per-provider auth map", async () => {
-    // Arrange
     // Pre-populate with old-format provider settings and legacy global API key
     const db = createTestDb();
     const secret = createSecretStore({
@@ -54,11 +50,9 @@ describe("settings repository", () => {
       }),
     });
 
-    // Act
     const repo = createSettingsRepository({ db: db as any, secrets: secret });
     const settings = await repo.getSettings();
 
-    // Assert
     // Legacy kind mapped to provider id. Global key migrated to per-provider auth
     expect(settings.provider.id).toBe("google");
     expect(settings.provider.showExperimentalProviders).toBe(false);
@@ -71,12 +65,10 @@ describe("settings repository", () => {
   });
 
   test("persists provider auth in secure store and excludes secrets from sqlite settings row", async () => {
-    // Arrange
     const db = createTestDb();
     const secret = createSecretStore();
     const repo = createSettingsRepository({ db: db as any, secrets: secret });
 
-    // Act
     await repo.saveSettings({
       provider: {
         id: "openai",
@@ -115,7 +107,6 @@ describe("settings repository", () => {
       },
     });
 
-    // Assert
     // Secrets excluded from the SQLite row so plaintext access is limited
     const rows = await db
       .select()

@@ -17,7 +17,6 @@ describe("remote extractor", () => {
   });
 
   test("uses the Vercel AI SDK for API-key extraction", async () => {
-    // Arrange
     generateTextMock.mockResolvedValueOnce({
       text: JSON.stringify({ structured_json: emptyStructuredItem() }),
     } as Awaited<ReturnType<typeof generateText>>);
@@ -31,12 +30,10 @@ describe("remote extractor", () => {
       providerCatalog: { supportsImage: async () => true },
     } as any);
 
-    // Act
     const result = await extractor.extract({
       images: sampleExtractionImages(),
     });
 
-    // Assert
     // Vercel AI SDK called with a user message containing text prompt and image file
     expect(generateTextMock).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -60,7 +57,6 @@ describe("remote extractor", () => {
   });
 
   test("requires auth for supported API-key provider", async () => {
-    // Arrange
     // Empty API key for an API-key authed provider
     const settings = defaultSettings();
     settings.provider.id = "google";
@@ -68,21 +64,18 @@ describe("remote extractor", () => {
     settings.provider.authModeByProvider.google = "api";
     settings.provider.auth.google = { type: "api", key: "" };
 
-    // Act and Assert
     // Missing key should fail immediately without calling the AI SDK
     await expectExtractionFailure(settings, { code: "auth_failed" });
     expect(generateTextMock).not.toHaveBeenCalled();
   });
 
   test("fails before generation when models.dev lists a provider without an enabled AI SDK adapter", async () => {
-    // Arrange
     const settings = defaultSettings();
     settings.provider.id = "perplexity";
     settings.provider.model = "sonar-pro";
     settings.provider.authModeByProvider.perplexity = "api";
     settings.provider.auth.perplexity = { type: "api", key: "perplexity-key" };
 
-    // Act and Assert
     // Provider without AI SDK adapter fails before calling generateText
     await expectExtractionFailure(settings, {
       code: "unsupported",

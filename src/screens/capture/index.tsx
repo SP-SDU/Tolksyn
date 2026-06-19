@@ -3,7 +3,6 @@ import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 
 import { AppHeader } from "@/components/ui/app-chrome";
-import { Button } from "@/components/ui/button";
 import { ScreenView } from "@/components/ui/screen";
 import { scheduleDeferredMount } from "@/utils/idle";
 
@@ -24,14 +23,6 @@ export function CaptureScreen() {
         eyebrow="Tolksyn"
         title="Capture"
         meta="Frame the label. Capture once. Review before sending."
-        action={
-          <Button
-            variant="secondary"
-            size="sm"
-            label="Settings"
-            onPress={() => router.push("/settings")}
-          />
-        }
       />
       <CameraPanel
         session={session}

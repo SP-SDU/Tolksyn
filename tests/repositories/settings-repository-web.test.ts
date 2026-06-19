@@ -4,7 +4,6 @@ import { createSecretStore } from "@/tests/helpers/fakes";
 
 describe("settings repository web fallback", () => {
   test("loads persisted settings from secret store when sqlite value is malformed", async () => {
-    // Arrange
     // Simulate a database with truncated JSON so SQLite read fails
     // Valid settings stored in secret store as web fallback
     const valid = JSON.stringify({
@@ -77,11 +76,9 @@ describe("settings repository web fallback", () => {
       },
     };
 
-    // Act
     const repo = createSettingsRepository({ db: db as any, secrets });
     const settings = await repo.getSettings();
 
-    // Assert
     // Fallback settings used. Web search enabled. OAuth auth loaded from secret store
     expect(settings.provider.id).toBe("github-copilot");
     expect(settings.provider.showExperimentalProviders).toBe(true);

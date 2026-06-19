@@ -3,8 +3,6 @@ import { emptyStructuredItem } from "@/types/item-schema";
 
 describe("mergeExtractionResult", () => {
   test("keeps extracted fields and enriches with barcode suggestions", () => {
-    // Arrange
-    // Act
     const result = mergeExtractionResult({
       structuredJson: {
         ...emptyStructuredItem(),
@@ -25,7 +23,6 @@ describe("mergeExtractionResult", () => {
       },
     });
 
-    // Assert
     // Extracted fields preserved. Duplicate barcodes deduplicated. Suggestion from first barcode
     expect(result.structuredJson.manufacturer).toBe("Phoenix Contact");
     expect(result.structuredJson.productNumber).toBe("2865463");
@@ -41,8 +38,6 @@ describe("mergeExtractionResult", () => {
   });
 
   test("keeps conflicting barcodes without overwriting extracted values", () => {
-    // Arrange
-    // Act
     const result = mergeExtractionResult({
       structuredJson: {
         ...emptyStructuredItem(),
@@ -60,7 +55,6 @@ describe("mergeExtractionResult", () => {
       },
     });
 
-    // Assert
     // Extraction value takes priority. Barcode suggestions become conflicts, not overwrites
     expect(result.structuredJson.eanOrUpc).toBe("1111111111111");
     expect(result.barcodeEnrichment.conflicts).toEqual([
@@ -72,8 +66,6 @@ describe("mergeExtractionResult", () => {
   });
 
   test("keeps multiple barcode types in enrichment without conflicts", () => {
-    // Arrange
-    // Act
     const result = mergeExtractionResult({
       structuredJson: {
         ...emptyStructuredItem(),
@@ -92,7 +84,6 @@ describe("mergeExtractionResult", () => {
       },
     });
 
-    // Assert
     // Different barcode types all stored. No conflicts since extracted eanOrUpc was null
     expect(result.barcodeEnrichment.detected).toEqual([
       { type: "ean13", data: "4046356160483" },

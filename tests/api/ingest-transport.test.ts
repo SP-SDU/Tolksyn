@@ -8,7 +8,6 @@ describe("createIngestTransport", () => {
   });
 
   test("maps hung ingest requests to retryable timeout errors", async () => {
-    // Arrange
     jest.useFakeTimers();
     jest.spyOn(global, "fetch").mockImplementation(
       (_url, init) =>
@@ -29,7 +28,6 @@ describe("createIngestTransport", () => {
       getSettings: async () => settings,
     });
 
-    // Act
     const result = transport.submit({
       idempotencyKey: "key",
       payload: { ok: true },
@@ -37,7 +35,6 @@ describe("createIngestTransport", () => {
     await Promise.resolve();
     jest.advanceTimersByTime(30_000);
 
-    // Assert
     // AbortError from the timeout signal is mapped to a retryable error, not a crash
     await expect(result).resolves.toEqual({
       kind: "retryable_error",

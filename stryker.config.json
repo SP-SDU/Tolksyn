@@ -22,6 +22,8 @@
     "src/utils/merge-extraction-result.ts",
     "src/utils/retry-policy.ts",
     "src/utils/serialize-csv.ts",
+    "src/utils/idle.ts",
+    "src/utils/progressive-sections.ts",
     "!src/**/*.d.ts"
   ]
 }
