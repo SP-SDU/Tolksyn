@@ -6,6 +6,51 @@ import {
 import { createSecretStore } from "@/tests/helpers/fakes";
 
 describe("provider catalog", () => {
+  test("coalesces concurrent provider catalog loads", async () => {
+    const secrets = createSecretStore();
+    const fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        openai: {
+          id: "openai",
+          name: "OpenAI",
+          api: "https://api.openai.com/v1/chat/completions",
+          models: {
+            "gpt-5": {
+              id: "gpt-5",
+              name: "GPT-5",
+              release_date: "2025-12-04",
+              reasoning: true,
+            },
+          },
+        },
+      }),
+    });
+    const catalog = createProviderCatalog({
+      secrets,
+      fetch: fetch as any,
+      now: () => 1_000,
+    });
+
+    const [left, right] = await Promise.all([catalog.all(), catalog.all()]);
+
+    expect(left).toEqual(right);
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  test("coalesces concurrent catalog fallback after fetch failure", async () => {
+    const catalog = createProviderCatalog({
+      secrets: createSecretStore(),
+      fetch: jest.fn().mockRejectedValue(new Error("offline")) as any,
+      now: () => 1_000,
+    });
+
+    const [left, right] = await Promise.all([catalog.all(), catalog.all()]);
+
+    expect(left.length).toBeGreaterThan(0);
+    expect(right).toEqual(left);
+  });
+
   test("marks only default providers as non-experimental", () => {
     // Arrange and Act and Assert
     // Default providers ship with the app. Experimental ones are opt-in

@@ -2,6 +2,7 @@ import { useFocusEffect } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import {
   useCallback,
+  useDeferredValue,
   useEffect,
   useMemo,
   useState,
@@ -36,9 +37,10 @@ type OAuthState = {
 export function useSession() {
   const runtime = useAppRuntime();
   const toast = useToast();
-  const [saved, setSaved] = useState<AppSettings>(defaultSettings());
-  const [draft, setDraft] = useState<AppSettings>(defaultSettings());
+  const [saved, setSaved] = useState<AppSettings>(() => defaultSettings());
+  const [draft, setDraft] = useState<AppSettings>(() => defaultSettings());
   const [providers, setProviders] = useState<ProviderItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [clearing, setClearing] = useState(false);
   const [oauth, setOauth] = useState<OAuthState>({ busy: false });
@@ -59,6 +61,7 @@ export function useSession() {
     setSaved,
     setDraft,
     setProviders,
+    setLoading,
     setOauth,
     closePickers,
     setQuery,
@@ -228,6 +231,7 @@ export function useSession() {
     models,
     thinkingLevels,
     providerList,
+    loading,
     dirty,
     valid,
     applyHint,
@@ -291,6 +295,7 @@ function useSettingsLoader({
   setSaved,
   setDraft,
   setProviders,
+  setLoading,
   setOauth,
   closePickers,
   setQuery,
@@ -299,6 +304,7 @@ function useSettingsLoader({
   setSaved: StateSetter<AppSettings>;
   setDraft: StateSetter<AppSettings>;
   setProviders: StateSetter<ProviderItem[]>;
+  setLoading: StateSetter<boolean>;
   setOauth: StateSetter<OAuthState>;
   closePickers: () => void;
   setQuery: StateSetter<string>;
@@ -316,6 +322,7 @@ function useSettingsLoader({
         setSaved(cloneSettings(nextSettings));
         setDraft(cloneSettings(nextSettings));
         setProviders(nextProviders);
+        setLoading(false);
         closePickers();
         setOauth({ busy: false });
         setQuery("");
@@ -325,6 +332,7 @@ function useSettingsLoader({
             "Settings failed",
             getErrorMessage(error, "Unable to load settings."),
           );
+          setLoading(false);
         }
       }
     })();
@@ -336,6 +344,7 @@ function useSettingsLoader({
     closePickers,
     runtime,
     setDraft,
+    setLoading,
     setOauth,
     setProviders,
     setQuery,
@@ -343,7 +352,6 @@ function useSettingsLoader({
   ]);
 
   useFocusEffect(load);
-  useEffect(load, [load]);
 }
 
 function useSettingsCatalog({
@@ -359,6 +367,7 @@ function useSettingsCatalog({
 }) {
   const [models, setModels] = useState<ProviderModel[]>([]);
   const [thinkingLevels, setThinkingLevels] = useState<string[]>([]);
+  const deferredQuery = useDeferredValue(query);
   const id = draft.provider.id;
   const methods = runtime.providerCatalog.authMethods(id);
   const mode = draft.provider.authModeByProvider[id] ?? methods[0];
@@ -374,26 +383,20 @@ function useSettingsCatalog({
   useEffect(() => {
     let active = true;
 
-    void runtime.providerCatalog
-      .modelOptions(id, draft.provider.authModeByProvider[id])
-      .then((nextModels) => {
-        if (active) setModels(nextModels);
-      });
+    void runtime.providerCatalog.modelOptions(id, mode).then((nextModels) => {
+      if (active) setModels(nextModels);
+    });
 
     return () => {
       active = false;
     };
-  }, [draft.provider.authModeByProvider, id, runtime]);
+  }, [id, mode, runtime]);
 
   useEffect(() => {
     let active = true;
 
     void runtime.providerCatalog
-      .thinkingLevels(
-        id,
-        draft.provider.model,
-        draft.provider.authModeByProvider[id],
-      )
+      .thinkingLevels(id, draft.provider.model, mode)
       .then((nextLevels) => {
         if (active) setThinkingLevels(nextLevels);
       });
@@ -401,19 +404,19 @@ function useSettingsCatalog({
     return () => {
       active = false;
     };
-  }, [draft.provider.authModeByProvider, draft.provider.model, id, runtime]);
+  }, [draft.provider.model, id, mode, runtime]);
 
   const visibleProviders = useMemo(() => {
     if (draft.provider.showExperimentalProviders) return providers;
     return providers.filter((item) => !isExperimentalProvider(item.id));
   }, [providers, draft.provider.showExperimentalProviders]);
   const providerList = useMemo(() => {
-    const value = query.trim().toLowerCase();
+    const value = deferredQuery.trim().toLowerCase();
     if (!value) return visibleProviders;
     return visibleProviders.filter((item) =>
       `${item.name} ${item.id}`.toLowerCase().includes(value),
     );
-  }, [visibleProviders, query]);
+  }, [visibleProviders, deferredQuery]);
 
   return {
     id,

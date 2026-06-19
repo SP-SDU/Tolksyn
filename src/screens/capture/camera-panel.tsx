@@ -8,10 +8,22 @@ import { SUPPORTED_BARCODE_TYPES } from "@/constants/barcode";
 
 import type { Session } from "./use-session";
 
-export function CameraPanel({ session }: { session: Session }) {
+export function CameraPanel({
+  session,
+  focused = true,
+  cameraReady = true,
+}: {
+  session: Session;
+  focused?: boolean;
+  cameraReady?: boolean;
+}) {
   return (
     <View className="relative flex-1 overflow-hidden border-4 border-border bg-black">
-      <CameraContent session={session} />
+      <CameraContent
+        session={session}
+        focused={focused}
+        cameraReady={cameraReady}
+      />
       {!session.processingImageUris?.length && !session.pendingImages.length ? (
         <View
           pointerEvents="none"
@@ -25,7 +37,15 @@ export function CameraPanel({ session }: { session: Session }) {
   );
 }
 
-function CameraContent({ session }: { session: Session }) {
+function CameraContent({
+  session,
+  focused,
+  cameraReady,
+}: {
+  session: Session;
+  focused: boolean;
+  cameraReady: boolean;
+}) {
   if (session.processingImageUris?.length) {
     return (
       <>
@@ -44,15 +64,32 @@ function CameraContent({ session }: { session: Session }) {
   }
 
   if (session.permission?.granted) {
+    if (!focused || !cameraReady) {
+      return (
+        <View className="flex-1 items-center justify-center gap-3 px-6">
+          <Text className="text-center text-base font-semibold text-paper">
+            Preparing camera preview.
+          </Text>
+        </View>
+      );
+    }
+
     return (
       <BarcodeCamera
         ref={session.cameraRef}
         style={styles.camera}
         accessibilityLabel="Live camera preview for product label capture"
         facing="back"
+        active={focused}
         barcodeTypes={SUPPORTED_BARCODE_TYPES}
-        onBarcodeScanned={(event) =>
-          session.handleBarcodeScanned({ type: event.type, data: event.data })
+        onBarcodeScanned={
+          focused && !session.isProcessing
+            ? (event) =>
+                session.handleBarcodeScanned({
+                  type: event.type,
+                  data: event.data,
+                })
+            : undefined
         }
       />
     );

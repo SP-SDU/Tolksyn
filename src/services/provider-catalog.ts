@@ -426,6 +426,7 @@ export function createProviderCatalog({
 }) {
   const getNow = now ?? (() => Date.now());
   let memory: CacheData | null = null;
+  let inflight: Promise<ProviderItem[]> | null = null;
 
   async function copilotModels(
     provider: ProviderItem,
@@ -516,21 +517,35 @@ export function createProviderCatalog({
       return cached.providers;
     }
 
-    try {
-      const providers = await fetchProviders(fetch);
-      memory = {
-        fetchedAt: getNow(),
-        providers,
-      };
-      await saveCached(secrets, memory);
-      return providers;
-    } catch {
-      if (cached) {
-        memory = cached;
-        return cached.providers;
-      }
+    if (!force && inflight) {
+      return inflight;
+    }
 
-      return FALLBACK_PROVIDERS;
+    const request = (async () => {
+      try {
+        const providers = await fetchProviders(fetch);
+        memory = {
+          fetchedAt: getNow(),
+          providers,
+        };
+        await saveCached(secrets, memory);
+        return providers;
+      } catch {
+        if (cached) {
+          memory = cached;
+          return cached.providers;
+        }
+
+        return FALLBACK_PROVIDERS;
+      }
+    })();
+
+    inflight = request;
+
+    try {
+      return await request;
+    } finally {
+      if (inflight === request) inflight = null;
     }
   }
 

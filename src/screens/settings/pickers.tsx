@@ -4,11 +4,11 @@ import { formatThinkingLevel } from "./format";
 import type { Session } from "./use-session";
 
 export function Pickers({ session }: { session: Session }) {
-  return (
-    <>
+  if (session.providerOpen) {
+    return (
       <OptionPicker
         title="Select Provider"
-        open={session.providerOpen}
+        open
         items={session.providerList.map((item) => ({
           id: item.id,
           label: `${item.name} (${item.id})`,
@@ -19,9 +19,14 @@ export function Pickers({ session }: { session: Session }) {
         onClose={() => session.setProviderOpen(false)}
         onSelect={(nextId) => void session.selectProvider(nextId)}
       />
+    );
+  }
+
+  if (session.modelOpen) {
+    return (
       <OptionPicker
         title="Select Model"
-        open={session.modelOpen}
+        open
         items={session.models.map((item) => ({
           id: item.id,
           label: `${item.name} (${item.id})`,
@@ -30,9 +35,14 @@ export function Pickers({ session }: { session: Session }) {
         onClose={() => session.setModelOpen(false)}
         onSelect={(modelId) => void session.selectModel(modelId)}
       />
+    );
+  }
+
+  if (session.thinkingOpen) {
+    return (
       <OptionPicker
         title="Select Thinking"
-        open={session.thinkingOpen}
+        open
         items={[
           { id: "__auto__", label: "Auto" },
           ...session.thinkingLevels.map((item) => ({
@@ -46,6 +56,8 @@ export function Pickers({ session }: { session: Session }) {
           session.selectThinkingLevel(value === "__auto__" ? null : value)
         }
       />
-    </>
-  );
+    );
+  }
+
+  return null;
 }
