@@ -27,6 +27,7 @@ import {
   type AppSettings,
   type ProviderAuth,
 } from "@/types/settings";
+import { scheduleDeferredMount } from "@/utils/idle";
 
 type OAuthState = {
   busy: boolean;
@@ -81,7 +82,7 @@ export function useSession() {
     thinkingLevels,
     setThinkingLevels,
     providerList,
-  } = useSettingsCatalog({ runtime, draft, providers, query });
+  } = useSettingsCatalog({ runtime, draft, providers, query, loading });
   const { dirty, valid, applyHint } = useSettingsValidation({
     saved,
     draft,
@@ -311,13 +312,12 @@ function useSettingsLoader({
 }) {
   const load = useCallback(() => {
     let active = true;
+    let cancelDeferredRefresh: (() => void) | undefined;
 
     void (async () => {
       try {
-        const [nextSettings, nextProviders] = await Promise.all([
-          runtime.settings.getSettings(),
-          runtime.providerCatalog.all(),
-        ]);
+        const nextProviders = runtime.providerCatalog.fallbackSnapshot();
+        const nextSettings = await runtime.settings.getSettings();
         if (!active) return;
         setSaved(cloneSettings(nextSettings));
         setDraft(cloneSettings(nextSettings));
@@ -326,6 +326,14 @@ function useSettingsLoader({
         closePickers();
         setOauth({ busy: false });
         setQuery("");
+        cancelDeferredRefresh = scheduleDeferredMount(() => {
+          void runtime.providerCatalog
+            .all()
+            .then((freshProviders) => {
+              if (active) setProviders(freshProviders);
+            })
+            .catch(() => {});
+        });
       } catch (error) {
         if (active) {
           Alert.alert(
@@ -339,6 +347,7 @@ function useSettingsLoader({
 
     return () => {
       active = false;
+      cancelDeferredRefresh?.();
     };
   }, [
     closePickers,
@@ -359,11 +368,13 @@ function useSettingsCatalog({
   draft,
   providers,
   query,
+  loading,
 }: {
   runtime: SettingsRuntime;
   draft: AppSettings;
   providers: ProviderItem[];
   query: string;
+  loading: boolean;
 }) {
   const [models, setModels] = useState<ProviderModel[]>([]);
   const [thinkingLevels, setThinkingLevels] = useState<string[]>([]);
@@ -376,35 +387,49 @@ function useSettingsCatalog({
   const connected = auth?.type === "oauth";
   const supported = runtime.providerCatalog.isSupportedProvider(id);
   const providerName = providers.find((item) => item.id === id)?.name ?? id;
+  const provider = providers.find((item) => item.id === id);
+  const effectiveModels = models.length ? models : (provider?.models ?? []);
   const modelName =
-    models.find((item) => item.id === draft.provider.model)?.name ??
+    effectiveModels.find((item) => item.id === draft.provider.model)?.name ??
     draft.provider.model;
+  const effectiveThinkingLevels = thinkingLevels.length
+    ? thinkingLevels
+    : (effectiveModels.find((item) => item.id === draft.provider.model)
+        ?.variants ?? []);
 
   useEffect(() => {
-    let active = true;
+    if (loading) return undefined;
 
-    void runtime.providerCatalog.modelOptions(id, mode).then((nextModels) => {
-      if (active) setModels(nextModels);
+    let active = true;
+    const cancel = scheduleDeferredMount(() => {
+      void runtime.providerCatalog.modelOptions(id, mode).then((nextModels) => {
+        if (active) setModels(nextModels);
+      });
     });
 
     return () => {
       active = false;
+      cancel();
     };
-  }, [id, mode, runtime]);
+  }, [id, loading, mode, runtime]);
 
   useEffect(() => {
-    let active = true;
+    if (loading) return undefined;
 
-    void runtime.providerCatalog
-      .thinkingLevels(id, draft.provider.model, mode)
-      .then((nextLevels) => {
-        if (active) setThinkingLevels(nextLevels);
-      });
+    let active = true;
+    const cancel = scheduleDeferredMount(() => {
+      void runtime.providerCatalog
+        .thinkingLevels(id, draft.provider.model, mode)
+        .then((nextLevels) => {
+          if (active) setThinkingLevels(nextLevels);
+        });
+    });
 
     return () => {
       active = false;
+      cancel();
     };
-  }, [draft.provider.model, id, mode, runtime]);
+  }, [draft.provider.model, id, loading, mode, runtime]);
 
   const visibleProviders = useMemo(() => {
     if (draft.provider.showExperimentalProviders) return providers;
@@ -427,9 +452,9 @@ function useSettingsCatalog({
     supported,
     providerName,
     modelName,
-    models,
+    models: effectiveModels,
     setModels,
-    thinkingLevels,
+    thinkingLevels: effectiveThinkingLevels,
     setThinkingLevels,
     providerList,
   };

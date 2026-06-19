@@ -4,7 +4,10 @@ import { Platform } from "react-native";
 
 import type * as schema from "@/db/schema";
 import { settingsTable } from "@/db/schema";
-import { createProviderCatalog } from "@/services/provider-catalog";
+import {
+  createProviderCatalog,
+  fallbackProviderModel,
+} from "@/services/provider-catalog";
 import {
   defaultSettings,
   type AppSettings,
@@ -217,11 +220,10 @@ async function parsePersisted(
   const defaults = fromDefaults();
   const id = raw.provider?.id ?? mapLegacyId(raw.provider?.kind);
   const mode = raw.provider?.authModeByProvider?.[id] ?? catalog.authMode(id);
-  const providerDefaults = await catalog.defaultsFor(id, mode);
   const migrated: PersistedSettings = {
     provider: {
       id,
-      model: raw.provider?.model ?? providerDefaults.model,
+      model: raw.provider?.model ?? fallbackProviderModel(id),
       modelVariant:
         raw.provider?.modelVariant ?? defaults.provider.modelVariant,
       timeoutMs: raw.provider?.timeoutMs ?? defaults.provider.timeoutMs,

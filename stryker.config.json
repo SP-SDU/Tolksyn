@@ -16,14 +16,7 @@
     "/temp"
   ],
   "mutate": [
-    "src/api/providers/extraction-prompt.ts",
-    "src/api/providers/remote-extraction-shared.ts",
-    "src/utils/abort.ts",
-    "src/utils/merge-extraction-result.ts",
-    "src/utils/retry-policy.ts",
-    "src/utils/serialize-csv.ts",
-    "src/utils/idle.ts",
-    "src/utils/progressive-sections.ts",
+    "src/**/*.{ts,tsx}",
     "!src/**/*.d.ts"
   ]
 }

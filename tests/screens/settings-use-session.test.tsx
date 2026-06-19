@@ -1,0 +1,171 @@
+import { act, renderHook, waitFor } from "@testing-library/react-native";
+
+import { useSession } from "@/screens/settings/use-session";
+import { defaultSettings } from "@/types/settings";
+
+const mockDeferredMounts: Array<{
+  callback: () => void;
+  cancel: jest.Mock;
+}> = [];
+
+const mockRuntime = {
+  settings: {
+    getSettings: jest.fn(),
+    saveSettings: jest.fn(),
+  },
+  providerCatalog: {
+    fallbackSnapshot: jest.fn(),
+    all: jest.fn(),
+    snapshot: jest.fn(),
+    authMethods: jest.fn(),
+    authMode: jest.fn(),
+    isSupportedProvider: jest.fn(),
+    defaultsFor: jest.fn(),
+    modelOptions: jest.fn(),
+    thinkingLevels: jest.fn(),
+  },
+  oauth: {
+    start: jest.fn(),
+  },
+  clearLocalData: jest.fn(),
+};
+
+const mockToast = {
+  show: jest.fn(),
+};
+
+jest.mock("expo-router", () => ({
+  useFocusEffect: (cb: () => void | (() => void)) => {
+    const React = jest.requireActual("react");
+    React.useEffect(() => {
+      const cleanup = cb();
+      return cleanup;
+    }, [cb]);
+  },
+}));
+
+jest.mock("@/providers/app-provider", () => ({
+  useAppRuntime: () => mockRuntime,
+}));
+
+jest.mock("@/providers/toast-provider", () => ({
+  useToast: () => mockToast,
+}));
+
+jest.mock("@/utils/idle", () => ({
+  scheduleDeferredMount: jest.fn((callback: () => void) => {
+    const cancel = jest.fn();
+    mockDeferredMounts.push({ callback, cancel });
+    return cancel;
+  }),
+}));
+
+describe("settings session", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockDeferredMounts.length = 0;
+    const settings = defaultSettings();
+    mockRuntime.settings.getSettings.mockResolvedValue(settings);
+    mockRuntime.providerCatalog.all.mockReturnValue(new Promise(() => {}));
+    mockRuntime.providerCatalog.snapshot.mockResolvedValue([
+      {
+        id: "cached-openai",
+        name: "Cached OpenAI",
+        models: [],
+      },
+    ]);
+    mockRuntime.providerCatalog.fallbackSnapshot.mockReturnValue([
+      {
+        id: "openai",
+        name: "OpenAI",
+        models: [
+          {
+            id: settings.provider.model,
+            name: "GPT-5.3 Codex",
+            variants: ["low", "medium", "high"],
+            supportsImage: true,
+            releaseDate: "2026-02-01",
+          },
+        ],
+      },
+    ]);
+    mockRuntime.providerCatalog.authMethods.mockReturnValue(["oauth"]);
+    mockRuntime.providerCatalog.authMode.mockReturnValue("oauth");
+    mockRuntime.providerCatalog.isSupportedProvider.mockReturnValue(true);
+    mockRuntime.providerCatalog.defaultsFor.mockResolvedValue({
+      model: settings.provider.model,
+    });
+    mockRuntime.providerCatalog.modelOptions.mockResolvedValue([
+      {
+        id: settings.provider.model,
+        name: "GPT-5.3 Codex",
+        variants: ["low", "medium", "high"],
+        supportsImage: true,
+        releaseDate: "2026-02-01",
+      },
+    ]);
+    mockRuntime.providerCatalog.thinkingLevels.mockResolvedValue([
+      "low",
+      "medium",
+      "high",
+    ]);
+  });
+
+  test("starts remote provider catalog refresh after deferred mount", async () => {
+    const { result } = renderHook(() => useSession(), {
+      concurrentRoot: false,
+    });
+
+    await waitFor(
+      () => {
+        expect(result.current.loading).toBe(false);
+      },
+      { timeout: 100 },
+    );
+
+    expect(mockRuntime.providerCatalog.all).not.toHaveBeenCalled();
+    await act(async () => {
+      for (const mount of [...mockDeferredMounts]) {
+        mount.callback();
+      }
+      await Promise.resolve();
+    });
+
+    expect(mockRuntime.providerCatalog.all).toHaveBeenCalled();
+  });
+
+  test("does not touch async provider catalog APIs before first settings paint", async () => {
+    const { result } = renderHook(() => useSession(), {
+      concurrentRoot: false,
+    });
+
+    await waitFor(
+      () => {
+        expect(result.current.loading).toBe(false);
+      },
+      { timeout: 100 },
+    );
+
+    expect(mockRuntime.providerCatalog.fallbackSnapshot).toHaveBeenCalled();
+    expect(mockRuntime.providerCatalog.snapshot).not.toHaveBeenCalled();
+    expect(mockRuntime.providerCatalog.all).not.toHaveBeenCalled();
+    expect(mockRuntime.providerCatalog.modelOptions).not.toHaveBeenCalled();
+    expect(mockRuntime.providerCatalog.thinkingLevels).not.toHaveBeenCalled();
+    expect(mockDeferredMounts.length).toBeGreaterThan(0);
+  });
+
+  test("does not schedule catalog work while settings are still loading", () => {
+    mockRuntime.settings.getSettings.mockReturnValue(new Promise(() => {}));
+
+    const { result } = renderHook(() => useSession(), {
+      concurrentRoot: false,
+    });
+
+    expect(result.current.loading).toBe(true);
+    expect(mockRuntime.providerCatalog.fallbackSnapshot).toHaveBeenCalled();
+    expect(mockDeferredMounts).toHaveLength(0);
+    expect(mockRuntime.providerCatalog.all).not.toHaveBeenCalled();
+    expect(mockRuntime.providerCatalog.modelOptions).not.toHaveBeenCalled();
+    expect(mockRuntime.providerCatalog.thinkingLevels).not.toHaveBeenCalled();
+  });
+});

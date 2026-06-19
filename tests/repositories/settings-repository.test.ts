@@ -80,6 +80,54 @@ describe("settings repository", () => {
     expect(settings.ingest.apiKey).toBe("legacy-ingest-key");
   });
 
+  test("does not fetch provider defaults when persisted model exists", async () => {
+    const db = createTestDb();
+    await db.insert(schema.settingsTable).values({
+      key: "tolksyn.settings",
+      value: JSON.stringify({
+        provider: {
+          id: "openai",
+          model: "gpt-5.3-codex",
+          timeoutMs: 6000,
+          authModeByProvider: {
+            openai: "oauth",
+          },
+        },
+        ingest: {
+          endpointUrl: "https://example.com/ingest",
+        },
+        barcode: {
+          enabled: true,
+          allowedTypes: ["qr"],
+        },
+        webSearch: {
+          enabled: false,
+        },
+        reminders: {
+          providerConfiguration: {
+            enabled: true,
+          },
+        },
+      }),
+    });
+    const catalog = {
+      authMode: jest.fn(() => "oauth"),
+      defaultsFor: jest.fn(async () => {
+        throw new Error("provider defaults should not load");
+      }),
+    };
+    const repo = createSettingsRepository({
+      db: db as any,
+      secrets: createSecretStore(),
+      catalog: catalog as any,
+    });
+
+    const settings = await repo.getSettings();
+
+    expect(settings.provider.model).toBe("gpt-5.3-codex");
+    expect(catalog.defaultsFor).not.toHaveBeenCalled();
+  });
+
   test("persists provider auth in secure store and excludes secrets from sqlite settings row", async () => {
     const db = createTestDb();
     const secret = createSecretStore();

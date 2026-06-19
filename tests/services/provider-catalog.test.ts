@@ -1,5 +1,7 @@
 import {
   createProviderCatalog,
+  fallbackProviderModel,
+  fallbackProviderSnapshot,
   isExperimentalProvider,
 } from "@/services/provider-catalog";
 
@@ -49,6 +51,64 @@ describe("provider catalog", () => {
 
     expect(left.length).toBeGreaterThan(0);
     expect(right).toEqual(left);
+  });
+
+  test("returns provider snapshot without fetching remote catalog", async () => {
+    const fetch = jest.fn();
+    const catalog = createProviderCatalog({
+      secrets: createSecretStore(),
+      fetch: fetch as any,
+      now: () => 1_000,
+    });
+
+    const providers = await catalog.snapshot();
+
+    expect(providers.length).toBeGreaterThan(0);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  test("returns cached provider snapshot even when stale", async () => {
+    const fetch = jest.fn();
+    const cached = [
+      {
+        id: "cached-provider",
+        name: "Cached Provider",
+        models: [
+          {
+            id: "cached-model",
+            name: "Cached Model",
+            variants: [],
+            supportsImage: false,
+            releaseDate: "2026-01-01",
+          },
+        ],
+      },
+    ];
+    const catalog = createProviderCatalog({
+      secrets: createSecretStore({
+        "tolksyn.settings.provider_catalog": JSON.stringify({
+          fetchedAt: 0,
+          providers: cached,
+        }),
+      }),
+      fetch: fetch as any,
+      now: () => 1_000_000,
+    });
+
+    const providers = await catalog.snapshot();
+
+    expect(providers).toEqual(cached);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  test("returns static provider model fallback", () => {
+    expect(fallbackProviderModel("google")).toBe("gemini-2.0-flash");
+  });
+
+  test("returns static provider snapshot fallback", () => {
+    expect(fallbackProviderSnapshot().some((item) => item.id === "openai")).toBe(
+      true,
+    );
   });
 
   test("marks only default providers as non-experimental", () => {

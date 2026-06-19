@@ -185,7 +185,11 @@ function extractFieldErrors(
   }
 
   const record = value as { fieldErrors?: unknown };
-  if (!record.fieldErrors || typeof record.fieldErrors !== "object") {
+  if (
+    !record.fieldErrors ||
+    typeof record.fieldErrors !== "object" ||
+    Array.isArray(record.fieldErrors)
+  ) {
     return undefined;
   }
 

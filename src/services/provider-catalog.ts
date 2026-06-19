@@ -160,6 +160,14 @@ function defaults(providerId: string): { model: string } {
   return FALLBACK_DEFAULTS.openai;
 }
 
+export function fallbackProviderModel(providerId: string): string {
+  return defaults(providerId).model;
+}
+
+export function fallbackProviderSnapshot(): ProviderItem[] {
+  return FALLBACK_PROVIDERS;
+}
+
 function authMethods(providerId: string): ProviderAuthMode[] {
   return AUTH_METHODS[providerId] ?? ["api"];
 }
@@ -549,6 +557,20 @@ export function createProviderCatalog({
     }
   }
 
+  async function snapshot(): Promise<ProviderItem[]> {
+    if (memory) {
+      return memory.providers;
+    }
+
+    const cached = await loadCached(secrets);
+    if (cached) {
+      memory = cached;
+      return cached.providers;
+    }
+
+    return FALLBACK_PROVIDERS;
+  }
+
   async function byId(providerId: string): Promise<ProviderItem | undefined> {
     const providers = await all();
     return providers.find((provider) => provider.id === providerId);
@@ -600,6 +622,8 @@ export function createProviderCatalog({
 
   return {
     all,
+    fallbackSnapshot: fallbackProviderSnapshot,
+    snapshot,
     byId,
     defaultsFor,
     modelOptions,
