@@ -11,12 +11,13 @@ import {
   AppDataSettingsSection,
   BarcodeSettingsSection,
   IngestSettingsSection,
+  ReminderSettingsSection,
   WebSearchSettingsSection,
 } from "./sections";
 import { Summary } from "./summary";
 import { useSession } from "./use-session";
 
-const SETTINGS_SECTION_COUNT = 5;
+const SETTINGS_SECTION_COUNT = 6;
 
 export function SettingsScreen() {
   const session = useSession();
@@ -46,6 +47,9 @@ export function SettingsScreen() {
           <WebSearchSettingsSection session={session} />
         ) : null}
         {visibleSections >= 5 ? (
+          <ReminderSettingsSection session={session} />
+        ) : null}
+        {visibleSections >= 6 ? (
           <AppDataSettingsSection session={session} />
         ) : null}
       </ScreenContainer>
@@ -64,6 +68,7 @@ function SettingsWarmup() {
       <SectionWarmup title="Ingest" height="h-32" />
       <SectionWarmup title="Barcode" height="h-36" />
       <SectionWarmup title="Websearch" height="h-28" />
+      <SectionWarmup title="Reminders" height="h-28" />
       <SectionWarmup title="App Data" height="h-28" />
     </View>
   );

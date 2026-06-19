@@ -14,6 +14,7 @@ import { Suspense } from "react";
 import { ActivityIndicator, View } from "react-native";
 import "react-native-reanimated";
 
+import { ProviderConfigurationReminder } from "@/components/provider-configuration-reminder";
 import { createDb, DATABASE_NAME } from "@/db/client";
 import migrations from "@/drizzle/migrations";
 import { useColorScheme } from "@/hooks/use-color-scheme";
@@ -80,6 +81,7 @@ function RootLayoutWithDatabase() {
                 options={{ title: "Confirm & Edit" }}
               />
             </Stack>
+            <ProviderConfigurationReminder />
           </Head.Provider>
           <StatusBar style="auto" />
         </ThemeProvider>

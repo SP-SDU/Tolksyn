@@ -22,6 +22,17 @@ describe("settings repository", () => {
     });
   });
 
+  test("defaults provider setup reminder to enabled", async () => {
+    const repo = createSettingsRepository({
+      db: createTestDb() as any,
+      secrets: createSecretStore(),
+    });
+
+    const settings = await repo.getSettings();
+
+    expect(settings.reminders.providerConfiguration.enabled).toBe(true);
+  });
+
   test("migrates legacy provider key into per-provider auth map", async () => {
     // Pre-populate with old-format provider settings and legacy global API key
     const db = createTestDb();
@@ -46,6 +57,11 @@ describe("settings repository", () => {
         barcode: {
           enabled: true,
           allowedTypes: ["ean13"],
+        },
+        reminders: {
+          providerConfiguration: {
+            enabled: true,
+          },
         },
       }),
     });
@@ -105,6 +121,11 @@ describe("settings repository", () => {
       webSearch: {
         enabled: true,
       },
+      reminders: {
+        providerConfiguration: {
+          enabled: false,
+        },
+      },
     });
 
     // Secrets excluded from the SQLite row so plaintext access is limited
@@ -115,6 +136,9 @@ describe("settings repository", () => {
     expect(rows).toHaveLength(1);
     expect(rows[0].value).toContain('"id":"openai"');
     expect(rows[0].value).toContain('"webSearch":{"enabled":true}');
+    expect(rows[0].value).toContain(
+      '"reminders":{"providerConfiguration":{"enabled":false}}',
+    );
     expect(rows[0].value).not.toContain("google-key");
     expect(rows[0].value).not.toContain("refresh-token");
 
@@ -128,6 +152,7 @@ describe("settings repository", () => {
     expect(next.provider.model).toBe("gpt-4.1-mini");
     expect(next.provider.showExperimentalProviders).toBe(true);
     expect(next.webSearch.enabled).toBe(true);
+    expect(next.reminders.providerConfiguration.enabled).toBe(false);
     expect(next.ingest.endpointUrl).toBe("https://example.com/ingest");
     expect(next.provider.auth.openai).toEqual({
       type: "oauth",

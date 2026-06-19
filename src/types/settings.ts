@@ -38,6 +38,11 @@ export type AppSettings = {
   webSearch: {
     enabled: boolean;
   };
+  reminders: {
+    providerConfiguration: {
+      enabled: boolean;
+    };
+  };
 };
 
 export function defaultSettings(): AppSettings {
@@ -73,6 +78,11 @@ export function defaultSettings(): AppSettings {
     },
     webSearch: {
       enabled: false,
+    },
+    reminders: {
+      providerConfiguration: {
+        enabled: true,
+      },
     },
   };
 }

@@ -99,6 +99,32 @@ export function WebSearchSettingsSection({ session }: { session: Session }) {
   );
 }
 
+export function ReminderSettingsSection({ session }: { session: Session }) {
+  return (
+    <Section title="Reminders">
+      <View className="flex-row items-center justify-between gap-3">
+        <View className="flex-1 gap-1">
+          <Text className="text-sm font-black uppercase tracking-wide text-foreground">
+            Provider setup reminder
+          </Text>
+          <Text className="text-xs font-semibold uppercase tracking-wide text-muted">
+            Show startup popup when provider auth is not configured.
+          </Text>
+        </View>
+        <Switch
+          accessibilityLabel="Provider setup reminder"
+          value={session.draft.reminders.providerConfiguration.enabled}
+          onValueChange={(value) =>
+            session.updateDraft((next) => {
+              next.reminders.providerConfiguration.enabled = value;
+            })
+          }
+        />
+      </View>
+    </Section>
+  );
+}
+
 export function AppDataSettingsSection({ session }: { session: Session }) {
   return (
     <Section title="App Data">

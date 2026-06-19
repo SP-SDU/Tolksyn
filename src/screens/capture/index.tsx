@@ -1,5 +1,4 @@
 import { useIsFocused } from "@react-navigation/native";
-import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 
 import { AppHeader } from "@/components/ui/app-chrome";
@@ -12,7 +11,6 @@ import { PendingImageStrip } from "./pending-image-strip";
 import { useSession } from "./use-session";
 
 export function CaptureScreen() {
-  const router = useRouter();
   const focused = useIsFocused();
   const cameraReady = useDeferredCameraReady(focused);
   const session = useSession();

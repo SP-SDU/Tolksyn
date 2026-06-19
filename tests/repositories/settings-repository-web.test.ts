@@ -27,6 +27,11 @@ describe("settings repository web fallback", () => {
       webSearch: {
         enabled: true,
       },
+      reminders: {
+        providerConfiguration: {
+          enabled: true,
+        },
+      },
     });
 
     const secrets = createSecretStore({
