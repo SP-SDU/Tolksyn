@@ -1,5 +1,7 @@
 import { createSettingsRepository } from "@/repositories/settings-repository";
 
+import { createSecretStore } from "@/tests/helpers/fakes";
+
 describe("settings repository web fallback", () => {
   test("loads persisted settings from secret store when sqlite value is malformed", async () => {
     // Arrange
@@ -92,19 +94,3 @@ describe("settings repository web fallback", () => {
     });
   });
 });
-
-function createSecretStore(seed?: Record<string, string>) {
-  const map = new Map<string, string>(Object.entries(seed ?? {}));
-
-  return {
-    async getItem(key: string): Promise<string | null> {
-      return map.get(key) ?? null;
-    },
-    async setItem(key: string, value: string): Promise<void> {
-      map.set(key, value);
-    },
-    async deleteItem(key: string): Promise<void> {
-      map.delete(key);
-    },
-  };
-}

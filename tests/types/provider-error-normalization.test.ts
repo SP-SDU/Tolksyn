@@ -1,4 +1,4 @@
-import { normalizeRemoteError } from "@/api/providers/remote-extraction-shared";
+import { normalizeRemoteError } from "@/services/extraction/errors";
 import { AppError } from "@/types/app-error";
 
 describe("provider error normalization", () => {

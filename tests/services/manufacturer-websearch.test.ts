@@ -111,7 +111,10 @@ describe("manufacturer websearch enrichment", () => {
       expect.objectContaining({
         queries: ["Phoenix Contact 2865463 official datasheet"],
         attempts: [
-          expect.objectContaining({ type: "query_planning", status: "success" }),
+          expect.objectContaining({
+            type: "query_planning",
+            status: "success",
+          }),
           expect.objectContaining({
             type: "exa_search",
             status: "success",

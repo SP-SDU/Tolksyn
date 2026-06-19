@@ -23,21 +23,21 @@ import { createAttemptRepository } from "@/repositories/attempt-repository";
 import { createQueueRepository } from "@/repositories/queue-repository";
 import { createSettingsRepository } from "@/repositories/settings-repository";
 import { createBarcodeDetector } from "@/services/barcode-detector";
-import { processImage } from "@/services/capture-pipeline";
+import { processImage } from "@/services/capture-processing";
 import { createExportService } from "@/services/export-service";
 import { importFromGallery } from "@/services/gallery-import";
 import { createImageStore } from "@/services/image-store";
 import { createManufacturerWebSearchEnricher } from "@/services/manufacturer-websearch";
 import { createProviderCatalog } from "@/services/provider-catalog";
 import { createProviderOAuth } from "@/services/provider-oauth";
+import { computeRetryDelayMs } from "@/services/queue-retry-policy";
 import { drainQueue } from "@/services/queue-worker";
+import { buildSubmissionIdempotencyKey } from "@/services/submission-idempotency";
 import { createSubmissionService } from "@/services/submission-service";
-import { buildIdempotencyKey } from "@/utils/idempotency";
-import type { BarcodeHit } from "@/utils/merge-extraction-result";
-import { computeRetryDelayMs } from "@/utils/retry-policy";
+import type { BarcodeHit } from "@/types/extraction";
 
 type RemoteExtractor = ReturnType<
-  (typeof import("@/api/remote-extractor"))["createRemoteExtractor"]
+  (typeof import("@/services/extraction/remote-extractor"))["createRemoteExtractor"]
 >;
 
 const AppRuntimeContext = createContext<ReturnType<
@@ -114,7 +114,7 @@ function createRuntime(sqlite: Parameters<typeof createDb>[0]) {
       // First extraction pays the AI SDK bundle cost, and deferring keeps tab launch responsive.
       if (!loadedExtractor) {
         const { createRemoteExtractor } =
-          await import("@/api/remote-extractor");
+          await import("@/services/extraction/remote-extractor");
         loadedExtractor = createRemoteExtractor(settings);
       }
 
@@ -167,7 +167,7 @@ function createRuntime(sqlite: Parameters<typeof createDb>[0]) {
         );
       },
     },
-    createIdempotencyKey: buildIdempotencyKey,
+    createIdempotencyKey: buildSubmissionIdempotencyKey,
     now: () => Date.now(),
   });
 

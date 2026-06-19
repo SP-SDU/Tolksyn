@@ -18,7 +18,7 @@ export type OAuthFlow = {
   complete: () => Promise<ProviderAuth>;
 };
 
-export type OAuthStartOptions = {
+type OAuthStartOptions = {
   enterpriseUrl?: string;
 };
 

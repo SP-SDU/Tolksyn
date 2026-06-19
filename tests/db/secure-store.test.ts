@@ -5,44 +5,9 @@ describe("secure secret store", () => {
 
   test("loads persisted web settings key from localStorage", async () => {
     // Arrange
-    const values = new Map<string, string>([
-      ["tolksyn.settings.web", '{"provider":{"id":"openai"}}'],
-    ]);
-
-    const localStorage = {
-      get length() {
-        return values.size;
-      },
-      key(index: number) {
-        return Array.from(values.keys())[index] ?? null;
-      },
-      getItem(key: string) {
-        return values.get(key) ?? null;
-      },
-      setItem(key: string, value: string) {
-        values.set(key, value);
-      },
-      removeItem(key: string) {
-        values.delete(key);
-      },
-      clear() {
-        values.clear();
-      },
-    };
-
-    Object.defineProperty(globalThis, "window", {
-      value: { localStorage },
-      configurable: true,
+    setupWebSecureStore({
+      ["tolksyn.settings.web"]: '{"provider":{"id":"openai"}}',
     });
-
-    jest.doMock("react-native", () => ({
-      Platform: { OS: "web" },
-    }));
-    jest.doMock("expo-secure-store", () => ({
-      getItemAsync: jest.fn(),
-      setItemAsync: jest.fn(),
-      deleteItemAsync: jest.fn(),
-    }));
 
     // Act
     const { secureSecretStore } = require("@/db/secure-store");
@@ -55,46 +20,11 @@ describe("secure secret store", () => {
 
   test("clears tolksyn web keys from localStorage and memory cache", async () => {
     // Arrange
-    const values = new Map<string, string>([
-      ["tolksyn.settings.web", '{"provider":{"id":"openai"}}'],
-      ["tolksyn.secret.provider_auth", '{"openai":{"type":"api","key":"x"}}'],
-      ["other.key", "keep-me"],
-    ]);
-
-    const localStorage = {
-      get length() {
-        return values.size;
-      },
-      key(index: number) {
-        return Array.from(values.keys())[index] ?? null;
-      },
-      getItem(key: string) {
-        return values.get(key) ?? null;
-      },
-      setItem(key: string, value: string) {
-        values.set(key, value);
-      },
-      removeItem(key: string) {
-        values.delete(key);
-      },
-      clear() {
-        values.clear();
-      },
-    };
-
-    Object.defineProperty(globalThis, "window", {
-      value: { localStorage },
-      configurable: true,
+    const localStorage = setupWebSecureStore({
+      ["tolksyn.settings.web"]: '{"provider":{"id":"openai"}}',
+      ["tolksyn.secret.provider_auth"]: '{"openai":{"type":"api","key":"x"}}',
+      ["other.key"]: "keep-me",
     });
-
-    jest.doMock("react-native", () => ({
-      Platform: { OS: "web" },
-    }));
-    jest.doMock("expo-secure-store", () => ({
-      getItemAsync: jest.fn(),
-      setItemAsync: jest.fn(),
-      deleteItemAsync: jest.fn(),
-    }));
 
     // Act
     const { secureSecretStore, clearWebKeys } = require("@/db/secure-store");
@@ -116,3 +46,43 @@ describe("secure secret store", () => {
     expect(localStorage.getItem("other.key")).toBe("keep-me");
   });
 });
+
+function setupWebSecureStore(seed: Record<string, string>) {
+  const values = new Map<string, string>(Object.entries(seed));
+  const localStorage = {
+    get length() {
+      return values.size;
+    },
+    key(index: number) {
+      return Array.from(values.keys())[index] ?? null;
+    },
+    getItem(key: string) {
+      return values.get(key) ?? null;
+    },
+    setItem(key: string, value: string) {
+      values.set(key, value);
+    },
+    removeItem(key: string) {
+      values.delete(key);
+    },
+    clear() {
+      values.clear();
+    },
+  };
+
+  Object.defineProperty(globalThis, "window", {
+    value: { localStorage },
+    configurable: true,
+  });
+
+  jest.doMock("react-native", () => ({
+    Platform: { OS: "web" },
+  }));
+  jest.doMock("expo-secure-store", () => ({
+    getItemAsync: jest.fn(),
+    setItemAsync: jest.fn(),
+    deleteItemAsync: jest.fn(),
+  }));
+
+  return localStorage;
+}

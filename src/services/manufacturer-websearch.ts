@@ -1,11 +1,11 @@
-import type { RemoteExtractionResult } from "@/api/providers/remote-extraction-types";
-import type { StructuredItem } from "@/types/item-schema";
-import type { AppSettings } from "@/types/settings";
-import { isAbortError, throwIfAborted } from "@/utils/abort";
+import { isAbortError, throwIfAborted } from "@/services/abort";
 import type {
   BarcodeHit,
+  RemoteExtractionResult,
   WebSearchEnrichment,
-} from "@/utils/merge-extraction-result";
+} from "@/types/extraction";
+import type { StructuredItem } from "@/types/item-schema";
+import type { AppSettings } from "@/types/settings";
 import {
   sanitizeUntrustedWebText,
   type AgentQueryCrawlInput,

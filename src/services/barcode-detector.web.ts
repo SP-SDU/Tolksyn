@@ -3,7 +3,7 @@ import {
   WEB_TO_EXPO_BARCODE_TYPE,
 } from "@/constants/barcode";
 import { RuntimeLimits } from "@/constants/runtime";
-import type { BarcodeHit } from "@/utils/merge-extraction-result";
+import type { BarcodeHit } from "@/types/extraction";
 
 type WebBarcodeDetector = {
   detect(

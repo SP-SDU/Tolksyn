@@ -55,26 +55,7 @@ describe("drainQueue", () => {
   test("drains ready items in FIFO order", async () => {
     // Arrange
     // Two items both ready at now=0. Transport always succeeds
-    const repository = new MemoryQueueRepository([
-      {
-        id: "1",
-        sequence: 1,
-        status: "queued",
-        nextAttemptAt: 0,
-        retryCount: 0,
-        payload: { attemptId: "a-1" },
-        idempotencyKey: "k1",
-      },
-      {
-        id: "2",
-        sequence: 2,
-        status: "queued",
-        nextAttemptAt: 0,
-        retryCount: 0,
-        payload: { attemptId: "a-2" },
-        idempotencyKey: "k2",
-      },
-    ]);
+    const repository = new MemoryQueueRepository(twoReadyItems());
     const delivered: string[] = [];
     const transport: SubmissionTransport = {
       async submit(item) {
@@ -103,26 +84,7 @@ describe("drainQueue", () => {
   test("stops on retryable transport failure and reschedules the head item", async () => {
     // Arrange
     // Head item will fail with retryable error. Second item should not be processed
-    const repository = new MemoryQueueRepository([
-      {
-        id: "1",
-        sequence: 1,
-        status: "queued",
-        nextAttemptAt: 0,
-        retryCount: 0,
-        payload: { attemptId: "a-1" },
-        idempotencyKey: "k1",
-      },
-      {
-        id: "2",
-        sequence: 2,
-        status: "queued",
-        nextAttemptAt: 0,
-        retryCount: 0,
-        payload: { attemptId: "a-2" },
-        idempotencyKey: "k2",
-      },
-    ]);
+    const repository = new MemoryQueueRepository(twoReadyItems());
     const transport: SubmissionTransport = {
       async submit(): Promise<QueueSubmissionResult> {
         return { kind: "retryable_error", errorCode: "network_unavailable" };
@@ -158,26 +120,7 @@ describe("drainQueue", () => {
   test("marks permanent failures without retrying later items ahead of them", async () => {
     // Arrange
     // Head item gets permanent error. Second item should still be processed
-    const repository = new MemoryQueueRepository([
-      {
-        id: "1",
-        sequence: 1,
-        status: "queued",
-        nextAttemptAt: 0,
-        retryCount: 0,
-        payload: { attemptId: "a-1" },
-        idempotencyKey: "k1",
-      },
-      {
-        id: "2",
-        sequence: 2,
-        status: "queued",
-        nextAttemptAt: 0,
-        retryCount: 0,
-        payload: { attemptId: "a-2" },
-        idempotencyKey: "k2",
-      },
-    ]);
+    const repository = new MemoryQueueRepository(twoReadyItems());
     const outcomes: QueueSubmissionResult[] = [
       { kind: "permanent_error", errorCode: "auth_failed" },
       { kind: "success" },
@@ -208,3 +151,19 @@ describe("drainQueue", () => {
     ]);
   });
 });
+
+function twoReadyItems(): QueueItem[] {
+  return [queueItem(1), queueItem(2)];
+}
+
+function queueItem(sequence: 1 | 2): QueueItem {
+  return {
+    id: String(sequence),
+    sequence,
+    status: "queued",
+    nextAttemptAt: 0,
+    retryCount: 0,
+    payload: { attemptId: `a-${sequence}` },
+    idempotencyKey: `k${sequence}`,
+  };
+}

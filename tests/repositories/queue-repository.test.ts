@@ -10,22 +10,7 @@ describe("queue repository", () => {
     const db = createTestDb();
     const repository = createQueueRepository(db as any);
 
-    await repository.enqueue({
-      id: "queue-1",
-      attemptId: "attempt-1",
-      acceptedRevision: 1,
-      idempotencyKey: "key-1",
-      payload: { hello: "one" },
-      enqueuedAt: 10,
-    });
-    await repository.enqueue({
-      id: "queue-2",
-      attemptId: "attempt-2",
-      acceptedRevision: 1,
-      idempotencyKey: "key-2",
-      payload: { hello: "two" },
-      enqueuedAt: 11,
-    });
+    await seedQueue(repository);
 
     // Act
     const first = await repository.peekReady(10);
@@ -48,14 +33,7 @@ describe("queue repository", () => {
     const db = createTestDb();
     const repository = createQueueRepository(db as any);
 
-    await repository.enqueue({
-      id: "queue-1",
-      attemptId: "attempt-1",
-      acceptedRevision: 1,
-      idempotencyKey: "key-1",
-      payload: { hello: "one" },
-      enqueuedAt: 10,
-    });
+    await repository.enqueue(queueItem(1));
 
     // Act
     await repository.reschedule("queue-1", 50, 1, "network_unavailable");
@@ -78,22 +56,7 @@ describe("queue repository", () => {
     const db = createTestDb();
     const repository = createQueueRepository(db as any);
 
-    await repository.enqueue({
-      id: "queue-1",
-      attemptId: "attempt-1",
-      acceptedRevision: 1,
-      idempotencyKey: "key-1",
-      payload: { hello: "one" },
-      enqueuedAt: 10,
-    });
-    await repository.enqueue({
-      id: "queue-2",
-      attemptId: "attempt-2",
-      acceptedRevision: 1,
-      idempotencyKey: "key-2",
-      payload: { hello: "two" },
-      enqueuedAt: 11,
-    });
+    await seedQueue(repository);
 
     // Act
     // Head item rescheduled far into the future
@@ -126,4 +89,22 @@ function createTestDb() {
   `);
 
   return db;
+}
+
+function queueItem(index: 1 | 2) {
+  const names = { 1: "one", 2: "two" };
+
+  return {
+    id: `queue-${index}`,
+    attemptId: `attempt-${index}`,
+    acceptedRevision: 1,
+    idempotencyKey: `key-${index}`,
+    payload: { hello: names[index] },
+    enqueuedAt: 9 + index,
+  };
+}
+
+async function seedQueue(repository: ReturnType<typeof createQueueRepository>) {
+  await repository.enqueue(queueItem(1));
+  await repository.enqueue(queueItem(2));
 }

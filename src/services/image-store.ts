@@ -1,15 +1,6 @@
 import { RuntimeLimits } from "@/constants/runtime";
+import { renderImage, type PersistedImage } from "@/services/image-renderer";
 import { Directory, File, Paths } from "expo-file-system";
-import * as ImageManipulator from "expo-image-manipulator";
-
-type PersistedImage = {
-  imageUri: string;
-  thumbnailUri: string;
-  imageBase64: string;
-  mimeType: string;
-  width: number;
-  height: number;
-};
 
 /** Downscaled WebP keeps vision token cost and history thumbnail load predictable on device. */
 export function createImageStore() {
@@ -139,33 +130,4 @@ async function deleteAllImages(): Promise<void> {
       error instanceof Error ? error.message : String(error),
     );
   }
-}
-
-async function renderImage(
-  inputUri: string,
-  maxWidth: number,
-  compress: number,
-  base64: boolean,
-): Promise<{
-  uri: string;
-  base64: string;
-  width: number;
-  height: number;
-}> {
-  const saved = await ImageManipulator.manipulateAsync(
-    inputUri,
-    [{ resize: { width: maxWidth } }],
-    {
-      base64,
-      compress,
-      format: ImageManipulator.SaveFormat.WEBP,
-    },
-  );
-
-  return {
-    uri: saved.uri,
-    base64: saved.base64 ?? "",
-    width: saved.width,
-    height: saved.height,
-  };
 }

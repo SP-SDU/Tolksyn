@@ -1,21 +1,23 @@
+import {
+  serializeStructuredItemCsv,
+  serializeSubmissionJson,
+} from "@/services/export-serialization";
+import type { StructuredItem } from "@/types/item-schema";
 import { Directory, File, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import { Platform } from "react-native";
-import type { StructuredItem } from "../types/item-schema";
-import { serializeCsv } from "../utils/serialize-csv";
-import { serializeJson } from "../utils/serialize-json";
 import type { SubmissionPayload } from "./submission-service";
 
 export function createExportService() {
   return {
     async exportJson(payload: SubmissionPayload): Promise<void> {
-      const content = serializeJson(payload);
+      const content = serializeSubmissionJson(payload);
       const filename = `tolksyn-${payload.attemptId}-${Date.now()}.json`;
       await exportFile(filename, content, "application/json");
     },
 
     async exportCsv(attemptId: string, item: StructuredItem): Promise<void> {
-      const content = serializeCsv(item);
+      const content = serializeStructuredItemCsv(item);
       const filename = `tolksyn-${attemptId}-${Date.now()}.csv`;
       await exportFile(filename, content, "text/csv");
     },

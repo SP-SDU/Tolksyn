@@ -1,9 +1,6 @@
 import type { QueueSubmissionResult } from "@/services/queue-worker";
 import { AppError, type AppErrorCode } from "@/types/app-error";
-import type {
-  BarcodeConflict,
-  BarcodeHit,
-} from "@/utils/merge-extraction-result";
+import type { BarcodeConflict, BarcodeHit } from "@/types/extraction";
 
 /** schemaVersion lets ingest evolve without breaking idempotent replay from older app builds. */
 export type SubmissionPayload = {

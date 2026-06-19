@@ -2,7 +2,6 @@ import { RuntimeLimits } from "@/constants/runtime";
 import type { QueueItem, QueueSubmissionResult } from "@/services/queue-worker";
 import { AppError } from "@/types/app-error";
 import type { AppSettings } from "@/types/settings";
-import { isRetryableHttpStatus } from "@/utils/retry-policy";
 
 /** Queue replay must use the same POST contract and idempotency semantics as live accept. */
 export function createIngestTransport(settingsRepository: {
@@ -105,4 +104,8 @@ function mapPermanentStatus(
   }
 
   return "invalid_response";
+}
+
+function isRetryableHttpStatus(status: number): boolean {
+  return status === 408 || status === 429 || status >= 500;
 }

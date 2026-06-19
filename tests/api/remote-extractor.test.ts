@@ -1,6 +1,7 @@
 import { generateText } from "ai";
 
-import { createRemoteExtractor } from "@/api/remote-extractor";
+import { createRemoteExtractor } from "@/services/extraction/remote-extractor";
+import { sampleExtractionImages } from "@/tests/helpers/fakes";
 import { emptyStructuredItem } from "@/types/item-schema";
 import { defaultSettings } from "@/types/settings";
 
@@ -32,15 +33,7 @@ describe("remote extractor", () => {
 
     // Act
     const result = await extractor.extract({
-      images: [
-        {
-          imageUri: "file://img.jpg",
-          imageBase64: "abc",
-          mimeType: "image/jpeg",
-          width: 1200,
-          height: 800,
-        },
-      ],
+      images: sampleExtractionImages(),
     });
 
     // Assert
@@ -74,26 +67,10 @@ describe("remote extractor", () => {
     settings.provider.model = "gemini-2.0-flash";
     settings.provider.authModeByProvider.google = "api";
     settings.provider.auth.google = { type: "api", key: "" };
-    const extractor = createRemoteExtractor({
-      getSettings: async () => settings,
-      providerCatalog: { supportsImage: async () => true },
-    } as any);
 
     // Act and Assert
     // Missing key should fail immediately without calling the AI SDK
-    await expect(
-      extractor.extract({
-        images: [
-          {
-            imageUri: "file://img.jpg",
-            imageBase64: "abc",
-            mimeType: "image/jpeg",
-            width: 1200,
-            height: 800,
-          },
-        ],
-      }),
-    ).rejects.toMatchObject({ code: "auth_failed" });
+    await expectExtractionFailure(settings, { code: "auth_failed" });
     expect(generateTextMock).not.toHaveBeenCalled();
   });
 
@@ -104,29 +81,29 @@ describe("remote extractor", () => {
     settings.provider.model = "sonar-pro";
     settings.provider.authModeByProvider.perplexity = "api";
     settings.provider.auth.perplexity = { type: "api", key: "perplexity-key" };
-    const extractor = createRemoteExtractor({
-      getSettings: async () => settings,
-      providerCatalog: { supportsImage: async () => true },
-    } as any);
 
     // Act and Assert
     // Provider without AI SDK adapter fails before calling generateText
-    await expect(
-      extractor.extract({
-        images: [
-          {
-            imageUri: "file://img.jpg",
-            imageBase64: "abc",
-            mimeType: "image/jpeg",
-            width: 1200,
-            height: 800,
-          },
-        ],
-      }),
-    ).rejects.toMatchObject({
+    await expectExtractionFailure(settings, {
       code: "unsupported",
       message: expect.stringContaining("not enabled"),
     });
     expect(generateTextMock).not.toHaveBeenCalled();
   });
 });
+
+async function expectExtractionFailure(
+  settings: ReturnType<typeof defaultSettings>,
+  error: Record<string, unknown>,
+) {
+  const extractor = createRemoteExtractor({
+    getSettings: async () => settings,
+    providerCatalog: { supportsImage: async () => true },
+  } as any);
+
+  await expect(
+    extractor.extract({
+      images: sampleExtractionImages(),
+    }),
+  ).rejects.toMatchObject(error);
+}

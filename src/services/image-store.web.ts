@@ -1,15 +1,5 @@
-import * as ImageManipulator from "expo-image-manipulator";
-
 import { RuntimeLimits } from "@/constants/runtime";
-
-type PersistedImage = {
-  imageUri: string;
-  thumbnailUri: string;
-  imageBase64: string;
-  mimeType: string;
-  width: number;
-  height: number;
-};
+import { renderImage, type PersistedImage } from "@/services/image-renderer";
 
 /** Web has no durable per-app filesystem comparable to native document storage. */
 export function createImageStore() {
@@ -81,33 +71,4 @@ function toDataUri(base64: string, fallbackUri: string): string {
   }
 
   return `data:image/webp;base64,${base64}`;
-}
-
-async function renderImage(
-  inputUri: string,
-  maxWidth: number,
-  compress: number,
-  base64: boolean,
-): Promise<{
-  uri: string;
-  base64: string;
-  width: number;
-  height: number;
-}> {
-  const saved = await ImageManipulator.manipulateAsync(
-    inputUri,
-    [{ resize: { width: maxWidth } }],
-    {
-      base64,
-      compress,
-      format: ImageManipulator.SaveFormat.WEBP,
-    },
-  );
-
-  return {
-    uri: saved.uri,
-    base64: saved.base64 ?? "",
-    width: saved.width,
-    height: saved.height,
-  };
 }

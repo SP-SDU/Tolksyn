@@ -5,9 +5,9 @@
     "skipLibCheck": true,
     "types": ["jest"],
     "paths": {
-      "@/*": ["./src/*", "./*"]
-    }
+      "@/*": ["./src/*", "./*"],
+    },
   },
   "include": ["**/*.ts", "**/*.tsx", "nativewind-env.d.ts"],
-  "exclude": ["opensrc", "temp"]
+  "exclude": ["opensrc", "temp"],
 }

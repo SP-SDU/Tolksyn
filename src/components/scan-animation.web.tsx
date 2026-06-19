@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { View, type ViewStyle } from "react-native";
 
-import { AppDesign } from "@/constants/design";
+import { ScanFinder } from "@/components/scan-finder";
 
 // CSS keyframes keep the same finder path as native without pulling RN Animated onto web.
 const KEYFRAMES = `
@@ -58,25 +58,6 @@ export function ScanAnimation() {
       >
         {finder}
       </View>
-    </View>
-  );
-}
-
-function ScanFinder() {
-  return (
-    <View
-      style={{
-        width: 92,
-        height: 92,
-        borderWidth: 3,
-        borderColor: AppDesign.color.yellow,
-        alignItems: "center",
-        justifyContent: "center",
-      }}
-    >
-      <View
-        style={{ width: 8, height: 8, backgroundColor: AppDesign.color.yellow }}
-      />
     </View>
   );
 }

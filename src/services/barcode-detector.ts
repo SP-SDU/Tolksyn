@@ -1,7 +1,7 @@
 import type { BarcodeType } from "expo-camera";
 import { Camera } from "expo-camera";
 
-import type { BarcodeHit } from "@/utils/merge-extraction-result";
+import type { BarcodeHit } from "@/types/extraction";
 
 /** Live preview misses barcodes outside the frame, and post-capture scan catches stragglers. */
 export function createBarcodeDetector() {

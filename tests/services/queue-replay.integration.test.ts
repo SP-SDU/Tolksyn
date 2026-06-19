@@ -47,16 +47,11 @@ describe("queue replay integration", () => {
 
     // Act
     // Head item (queue-1) hits retryable error and blocks
-    await drainQueue({
+    await drainReplayQueue({
       now: 999,
       repository: queue2,
-      transport: {
-        submit: async (item) => {
-          delivered.push(item.id);
-          return outcomes.shift() ?? { kind: "success" };
-        },
-      },
-      computeDelayMs: () => 100,
+      delivered,
+      outcomes,
     });
 
     // Assert
@@ -65,16 +60,11 @@ describe("queue replay integration", () => {
 
     // Act
     // Drain again after delay, head is retryable again, then queue-2 proceeds
-    await drainQueue({
+    await drainReplayQueue({
       now: 1100,
       repository: queue2,
-      transport: {
-        submit: async (item) => {
-          delivered.push(item.id);
-          return outcomes.shift() ?? { kind: "success" };
-        },
-      },
-      computeDelayMs: () => 100,
+      delivered,
+      outcomes,
     });
 
     // Assert
@@ -103,4 +93,28 @@ function createTestDb(sqlite: Database.Database) {
   `);
 
   return db;
+}
+
+async function drainReplayQueue({
+  now,
+  repository,
+  delivered,
+  outcomes,
+}: {
+  now: number;
+  repository: ReturnType<typeof createQueueRepository>;
+  delivered: string[];
+  outcomes: QueueSubmissionResult[];
+}) {
+  await drainQueue({
+    now,
+    repository,
+    transport: {
+      submit: async (item) => {
+        delivered.push(item.id);
+        return outcomes.shift() ?? { kind: "success" };
+      },
+    },
+    computeDelayMs: () => 100,
+  });
 }

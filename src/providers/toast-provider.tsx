@@ -8,8 +8,8 @@ import {
 } from "react";
 import { Text, View } from "react-native";
 
-import { AppDesign } from "@/constants/design";
 import { ToastDurations } from "@/constants/runtime";
+import { AppDesign } from "@/constants/theme";
 import {
   enqueueToast,
   initialToastState,

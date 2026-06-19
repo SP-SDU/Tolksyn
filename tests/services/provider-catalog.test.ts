@@ -3,6 +3,8 @@ import {
   isExperimentalProvider,
 } from "@/services/provider-catalog";
 
+import { createSecretStore } from "@/tests/helpers/fakes";
+
 describe("provider catalog", () => {
   test("marks only default providers as non-experimental", () => {
     // Arrange and Act and Assert
@@ -249,40 +251,12 @@ describe("provider catalog", () => {
 
   test("includes gpt-5 base models in oauth mode", async () => {
     // Arrange
-    const secrets = createSecretStore();
-    const fetch = jest.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        openai: {
-          id: "openai",
-          name: "OpenAI",
-          api: "https://api.openai.com/v1/chat/completions",
-          models: {
-            "gpt-5.5": {
-              id: "gpt-5.5",
-              name: "GPT-5.5",
-              release_date: "2026-04-01",
-              reasoning: true,
-            },
-            "gpt-5.4": {
-              id: "gpt-5.4",
-              name: "GPT-5.4",
-              release_date: "2026-03-01",
-              reasoning: true,
-            },
-          },
-        },
-      }),
-    });
-
-    const catalog = createProviderCatalog({
-      secrets,
-      fetch: fetch as any,
-      now: () => 1_000,
+    const models = await openAiOauthModels({
+      "gpt-5.5": openAiModel("gpt-5.5", "GPT-5.5", "2026-04-01"),
+      "gpt-5.4": openAiModel("gpt-5.4", "GPT-5.4", "2026-03-01"),
     });
 
     // Act
-    const models = await catalog.modelOptions("openai", "oauth");
 
     // Assert
     // gpt-5.x base models available in oauth mode
@@ -292,40 +266,20 @@ describe("provider catalog", () => {
 
   test("includes codex models in oauth mode", async () => {
     // Arrange
-    const secrets = createSecretStore();
-    const fetch = jest.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        openai: {
-          id: "openai",
-          name: "OpenAI",
-          api: "https://api.openai.com/v1/chat/completions",
-          models: {
-            "gpt-5.3-codex": {
-              id: "gpt-5.3-codex",
-              name: "GPT-5.3 Codex",
-              release_date: "2026-02-01",
-              reasoning: true,
-            },
-            "gpt-5.2-codex": {
-              id: "gpt-5.2-codex",
-              name: "GPT-5.2 Codex",
-              release_date: "2025-12-01",
-              reasoning: true,
-            },
-          },
-        },
-      }),
-    });
-
-    const catalog = createProviderCatalog({
-      secrets,
-      fetch: fetch as any,
-      now: () => 1_000,
+    const models = await openAiOauthModels({
+      "gpt-5.3-codex": openAiModel(
+        "gpt-5.3-codex",
+        "GPT-5.3 Codex",
+        "2026-02-01",
+      ),
+      "gpt-5.2-codex": openAiModel(
+        "gpt-5.2-codex",
+        "GPT-5.2 Codex",
+        "2025-12-01",
+      ),
     });
 
     // Act
-    const models = await catalog.modelOptions("openai", "oauth");
 
     // Assert
     // Codex models available in oauth mode
@@ -335,40 +289,12 @@ describe("provider catalog", () => {
 
   test("includes mini models in oauth mode", async () => {
     // Arrange
-    const secrets = createSecretStore();
-    const fetch = jest.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        openai: {
-          id: "openai",
-          name: "OpenAI",
-          api: "https://api.openai.com/v1/chat/completions",
-          models: {
-            "gpt-5.4-mini": {
-              id: "gpt-5.4-mini",
-              name: "GPT-5.4 Mini",
-              release_date: "2026-03-01",
-              reasoning: true,
-            },
-            "gpt-5-mini": {
-              id: "gpt-5-mini",
-              name: "GPT-5 Mini",
-              release_date: "2025-08-01",
-              reasoning: true,
-            },
-          },
-        },
-      }),
-    });
-
-    const catalog = createProviderCatalog({
-      secrets,
-      fetch: fetch as any,
-      now: () => 1_000,
+    const models = await openAiOauthModels({
+      "gpt-5.4-mini": openAiModel("gpt-5.4-mini", "GPT-5.4 Mini", "2026-03-01"),
+      "gpt-5-mini": openAiModel("gpt-5-mini", "GPT-5 Mini", "2025-08-01"),
     });
 
     // Act
-    const models = await catalog.modelOptions("openai", "oauth");
 
     // Assert
     // Mini models (cost-effective) available in oauth mode
@@ -378,40 +304,20 @@ describe("provider catalog", () => {
 
   test("includes codex-mini and codex-max variants in oauth mode", async () => {
     // Arrange
-    const secrets = createSecretStore();
-    const fetch = jest.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        openai: {
-          id: "openai",
-          name: "OpenAI",
-          api: "https://api.openai.com/v1/chat/completions",
-          models: {
-            "gpt-5.1-codex-mini": {
-              id: "gpt-5.1-codex-mini",
-              name: "GPT-5.1 Codex Mini",
-              release_date: "2025-11-01",
-              reasoning: true,
-            },
-            "gpt-5.1-codex-max": {
-              id: "gpt-5.1-codex-max",
-              name: "GPT-5.1 Codex Max",
-              release_date: "2025-12-01",
-              reasoning: true,
-            },
-          },
-        },
-      }),
-    });
-
-    const catalog = createProviderCatalog({
-      secrets,
-      fetch: fetch as any,
-      now: () => 1_000,
+    const models = await openAiOauthModels({
+      "gpt-5.1-codex-mini": openAiModel(
+        "gpt-5.1-codex-mini",
+        "GPT-5.1 Codex Mini",
+        "2025-11-01",
+      ),
+      "gpt-5.1-codex-max": openAiModel(
+        "gpt-5.1-codex-max",
+        "GPT-5.1 Codex Max",
+        "2025-12-01",
+      ),
     });
 
     // Act
-    const models = await catalog.modelOptions("openai", "oauth");
 
     // Assert
     // Codex size variants (mini/max) available in oauth mode
@@ -421,40 +327,12 @@ describe("provider catalog", () => {
 
   test("excludes gpt-4 models from oauth mode", async () => {
     // Arrange
-    const secrets = createSecretStore();
-    const fetch = jest.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        openai: {
-          id: "openai",
-          name: "OpenAI",
-          api: "https://api.openai.com/v1/chat/completions",
-          models: {
-            "gpt-4.1": {
-              id: "gpt-4.1",
-              name: "GPT-4.1",
-              release_date: "2025-04-01",
-              reasoning: true,
-            },
-            "gpt-4o": {
-              id: "gpt-4o",
-              name: "GPT-4o",
-              release_date: "2024-05-01",
-              reasoning: false,
-            },
-          },
-        },
-      }),
-    });
-
-    const catalog = createProviderCatalog({
-      secrets,
-      fetch: fetch as any,
-      now: () => 1_000,
+    const models = await openAiOauthModels({
+      "gpt-4.1": openAiModel("gpt-4.1", "GPT-4.1", "2025-04-01"),
+      "gpt-4o": openAiModel("gpt-4o", "GPT-4o", "2024-05-01", false),
     });
 
     // Act
-    const models = await catalog.modelOptions("openai", "oauth");
 
     // Assert
     // gpt-4 models excluded from oauth mode (only gpt-5 and codex)
@@ -464,40 +342,12 @@ describe("provider catalog", () => {
 
   test("excludes chat models from oauth mode", async () => {
     // Arrange
-    const secrets = createSecretStore();
-    const fetch = jest.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        openai: {
-          id: "openai",
-          name: "OpenAI",
-          api: "https://api.openai.com/v1/chat/completions",
-          models: {
-            "gpt-5-chat": {
-              id: "gpt-5-chat",
-              name: "GPT-5 Chat",
-              release_date: "2026-01-01",
-              reasoning: true,
-            },
-            "gpt-5.1-chat": {
-              id: "gpt-5.1-chat",
-              name: "GPT-5.1 Chat",
-              release_date: "2025-11-01",
-              reasoning: true,
-            },
-          },
-        },
-      }),
-    });
-
-    const catalog = createProviderCatalog({
-      secrets,
-      fetch: fetch as any,
-      now: () => 1_000,
+    const models = await openAiOauthModels({
+      "gpt-5-chat": openAiModel("gpt-5-chat", "GPT-5 Chat", "2026-01-01"),
+      "gpt-5.1-chat": openAiModel("gpt-5.1-chat", "GPT-5.1 Chat", "2025-11-01"),
     });
 
     // Act
-    const models = await catalog.modelOptions("openai", "oauth");
 
     // Assert
     // Chat-suffixed models excluded from oauth mode
@@ -507,40 +357,12 @@ describe("provider catalog", () => {
 
   test("excludes image models from oauth mode", async () => {
     // Arrange
-    const secrets = createSecretStore();
-    const fetch = jest.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        openai: {
-          id: "openai",
-          name: "OpenAI",
-          api: "https://api.openai.com/v1/chat/completions",
-          models: {
-            "gpt-5-image": {
-              id: "gpt-5-image",
-              name: "GPT-5 Image",
-              release_date: "2026-01-01",
-              reasoning: true,
-            },
-            sora: {
-              id: "sora",
-              name: "Sora",
-              release_date: "2026-01-01",
-              reasoning: false,
-            },
-          },
-        },
-      }),
-    });
-
-    const catalog = createProviderCatalog({
-      secrets,
-      fetch: fetch as any,
-      now: () => 1_000,
+    const models = await openAiOauthModels({
+      "gpt-5-image": openAiModel("gpt-5-image", "GPT-5 Image", "2026-01-01"),
+      sora: openAiModel("sora", "Sora", "2026-01-01", false),
     });
 
     // Act
-    const models = await catalog.modelOptions("openai", "oauth");
 
     // Assert
     // Image generation models excluded from oauth mode (text-only use case)
@@ -549,18 +371,38 @@ describe("provider catalog", () => {
   });
 });
 
-function createSecretStore(seed?: Record<string, string>) {
-  const map = new Map<string, string>(Object.entries(seed ?? {}));
+type TestProviderModel = {
+  id: string;
+  name: string;
+  release_date: string;
+  reasoning: boolean;
+};
 
-  return {
-    async getItem(key: string): Promise<string | null> {
-      return map.get(key) ?? null;
-    },
-    async setItem(key: string, value: string): Promise<void> {
-      map.set(key, value);
-    },
-    async deleteItem(key: string): Promise<void> {
-      map.delete(key);
-    },
-  };
+function openAiModel(
+  id: string,
+  name: string,
+  releaseDate: string,
+  reasoning = true,
+): TestProviderModel {
+  return { id, name, release_date: releaseDate, reasoning };
+}
+
+async function openAiOauthModels(models: Record<string, TestProviderModel>) {
+  const catalog = createProviderCatalog({
+    secrets: createSecretStore(),
+    fetch: jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        openai: {
+          id: "openai",
+          name: "OpenAI",
+          api: "https://api.openai.com/v1/chat/completions",
+          models,
+        },
+      }),
+    }) as any,
+    now: () => 1_000,
+  });
+
+  return catalog.modelOptions("openai", "oauth");
 }

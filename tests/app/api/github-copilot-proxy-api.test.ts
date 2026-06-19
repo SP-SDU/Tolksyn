@@ -6,25 +6,7 @@ describe("github copilot proxy api routes", () => {
   test("forwards models request via token exchange", async () => {
     // Arrange
     // Two upstream calls: token exchange then models API
-    const mock = jest
-      .spyOn(global, "fetch")
-      .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({
-            token: "copilot-access",
-            expires_at: 1_900_000_000,
-          }),
-          { status: 200, headers: { "Content-Type": "application/json" } },
-        ),
-      )
-      .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({
-            data: [],
-          }),
-          { status: 200, headers: { "Content-Type": "application/json" } },
-        ),
-      );
+    const mock = mockCopilotFetch({ data: [] });
 
     // Act
     // Models endpoint uses the original refresh token to exchange then list models
@@ -67,31 +49,15 @@ describe("github copilot proxy api routes", () => {
   test("forwards chat completions request with vision header", async () => {
     // Arrange
     // Token exchange then chat completions mock
-    const mock = jest
-      .spyOn(global, "fetch")
-      .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({
-            token: "copilot-access",
-            expires_at: 1_900_000_000,
-          }),
-          { status: 200, headers: { "Content-Type": "application/json" } },
-        ),
-      )
-      .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({
-            choices: [
-              {
-                message: {
-                  content: '{"structured_json":{}}',
-                },
-              },
-            ],
-          }),
-          { status: 200, headers: { "Content-Type": "application/json" } },
-        ),
-      );
+    const mock = mockCopilotFetch({
+      choices: [
+        {
+          message: {
+            content: '{"structured_json":{}}',
+          },
+        },
+      ],
+    });
 
     // Act
     // POST chat completion with base64-encoded JPEG (simulates camera capture)
@@ -150,25 +116,7 @@ describe("github copilot proxy api routes", () => {
   test("forwards responses request to responses endpoint", async () => {
     // Arrange
     // Token exchange then responses API mock
-    const mock = jest
-      .spyOn(global, "fetch")
-      .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({
-            token: "copilot-access",
-            expires_at: 1_900_000_000,
-          }),
-          { status: 200, headers: { "Content-Type": "application/json" } },
-        ),
-      )
-      .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({
-            output_text: '{"structured_json":{}}',
-          }),
-          { status: 200, headers: { "Content-Type": "application/json" } },
-        ),
-      );
+    const mock = mockCopilotFetch({ output_text: '{"structured_json":{}}' });
 
     // Act
     // POST to /responses endpoint
@@ -200,3 +148,22 @@ describe("github copilot proxy api routes", () => {
     mock.mockRestore();
   });
 });
+
+function mockCopilotFetch(upstreamBody: unknown) {
+  return jest
+    .spyOn(global, "fetch")
+    .mockResolvedValueOnce(
+      jsonResponse({
+        token: "copilot-access",
+        expires_at: 1_900_000_000,
+      }),
+    )
+    .mockResolvedValueOnce(jsonResponse(upstreamBody));
+}
+
+function jsonResponse(body: unknown) {
+  return new Response(JSON.stringify(body), {
+    status: 200,
+    headers: { "Content-Type": "application/json" },
+  });
+}

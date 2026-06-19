@@ -1,7 +1,7 @@
 import { fireEvent, render } from "@testing-library/react-native";
 
 import { Button } from "@/components/ui/button";
-import { AppDesign } from "@/constants/design";
+import { AppDesign } from "@/constants/theme";
 
 describe("Button", () => {
   it("uses the design red for primary buttons", () => {

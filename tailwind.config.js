@@ -1,28 +1,30 @@
 /** @type {import('tailwindcss').Config} */
+const appTheme = require("./src/constants/theme.json");
+
 module.exports = {
   content: ["./src/**/*.{js,jsx,ts,tsx}"],
   presets: [require("nativewind/preset")],
   theme: {
     extend: {
       colors: {
-        background: "#f5f0e8",
-        foreground: "#1a1a1a",
-        muted: "#5f5a52",
-        border: "#1a1a1a",
-        card: "#e8e3da",
-        primary: "#cf2f25",
-        secondary: "#1a1a1a",
-        tertiary: "#ffcc00",
-        accent: "#cf2f25",
-        accentForeground: "#f5f0e8",
-        paper: "#f5f0e8",
-        panel: "#e8e3da",
-        panelMuted: "#e2ddd4",
-        imageBase: "#d6d1c9",
-        caution: "#ffcc00",
-        danger: "#cf2f25",
-        signalBlue: "#0055ff",
-        signalBlueSoft: "#d6e3ff",
+        background: appTheme.color.paper,
+        foreground: appTheme.color.ink,
+        muted: appTheme.color.mutedInk,
+        border: appTheme.color.ink,
+        card: appTheme.color.panel,
+        primary: appTheme.color.red,
+        secondary: appTheme.color.ink,
+        tertiary: appTheme.color.yellow,
+        accent: appTheme.color.red,
+        accentForeground: appTheme.color.paper,
+        paper: appTheme.color.paper,
+        panel: appTheme.color.panel,
+        panelMuted: appTheme.color.panelMuted,
+        imageBase: appTheme.color.imageBase,
+        caution: appTheme.color.yellow,
+        danger: appTheme.color.red,
+        signalBlue: appTheme.color.blue,
+        signalBlueSoft: appTheme.color.blueSoft,
       },
       borderRadius: {
         xl: "4px",

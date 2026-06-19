@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react-native";
 import { Button } from "@/components/ui/button";
 import { LabeledInput } from "@/components/ui/input";
 import { ScreenView } from "@/components/ui/screen";
-import { AppDesign } from "@/constants/design";
+import { AppDesign } from "@/constants/theme";
 
 describe("shared accessibility primitives", () => {
   it("uses button labels as accessible names", () => {
