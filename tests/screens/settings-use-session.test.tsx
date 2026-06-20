@@ -168,4 +168,79 @@ describe("settings session", () => {
     expect(mockRuntime.providerCatalog.modelOptions).not.toHaveBeenCalled();
     expect(mockRuntime.providerCatalog.thinkingLevels).not.toHaveBeenCalled();
   });
+
+  test("allows applying websearch changes before OAuth is connected", async () => {
+    const { result } = renderHook(() => useSession(), {
+      concurrentRoot: false,
+    });
+
+    await waitFor(
+      () => {
+        expect(result.current.loading).toBe(false);
+      },
+      { timeout: 100 },
+    );
+
+    act(() => {
+      result.current.updateDraft((next) => {
+        next.webSearch.enabled = true;
+      });
+    });
+
+    expect(result.current.dirty).toBe(true);
+    expect(result.current.valid).toBe(true);
+    expect(result.current.applyHint).toBeNull();
+  });
+
+  test("allows applying reminder changes before API key is configured", async () => {
+    const settings = defaultSettings();
+    settings.provider.authModeByProvider.openai = "api";
+    mockRuntime.settings.getSettings.mockResolvedValue(settings);
+    mockRuntime.providerCatalog.authMethods.mockReturnValue(["api"]);
+    mockRuntime.providerCatalog.authMode.mockReturnValue("api");
+
+    const { result } = renderHook(() => useSession(), {
+      concurrentRoot: false,
+    });
+
+    await waitFor(
+      () => {
+        expect(result.current.loading).toBe(false);
+      },
+      { timeout: 100 },
+    );
+
+    act(() => {
+      result.current.updateDraft((next) => {
+        next.reminders.providerConfiguration.enabled = false;
+      });
+    });
+
+    expect(result.current.dirty).toBe(true);
+    expect(result.current.valid).toBe(true);
+    expect(result.current.applyHint).toBeNull();
+  });
+
+  test("keeps blank ingest endpoint as an apply blocker", async () => {
+    const { result } = renderHook(() => useSession(), {
+      concurrentRoot: false,
+    });
+
+    await waitFor(
+      () => {
+        expect(result.current.loading).toBe(false);
+      },
+      { timeout: 100 },
+    );
+
+    act(() => {
+      result.current.updateDraft((next) => {
+        next.ingest.endpointUrl = " ";
+      });
+    });
+
+    expect(result.current.dirty).toBe(true);
+    expect(result.current.valid).toBe(false);
+    expect(result.current.applyHint).toBe("Ingest endpoint is required.");
+  });
 });

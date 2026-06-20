@@ -86,9 +86,6 @@ export function useSession() {
   const { dirty, valid, applyHint } = useSettingsValidation({
     saved,
     draft,
-    mode,
-    key,
-    connected,
   });
 
   async function apply(next?: AppSettings) {
@@ -463,27 +460,21 @@ function useSettingsCatalog({
 function useSettingsValidation({
   saved,
   draft,
-  mode,
-  key,
-  connected,
 }: {
   saved: AppSettings;
   draft: AppSettings;
-  mode: ProviderAuthMode;
-  key: string;
-  connected: boolean;
 }) {
   const dirty = useMemo(
     () => JSON.stringify(saved) !== JSON.stringify(draft),
     [saved, draft],
   );
   const valid = useMemo(
-    () => isValidSettingsDraft({ draft, mode, key, connected }),
-    [connected, draft, key, mode],
+    () => isValidSettingsDraft({ draft }),
+    [draft],
   );
   const applyHint = useMemo(
-    () => settingsApplyHint({ dirty, draft, mode, key, connected }),
-    [connected, dirty, draft, key, mode],
+    () => settingsApplyHint({ dirty, draft }),
+    [dirty, draft],
   );
 
   return { dirty, valid, applyHint };
@@ -823,20 +814,12 @@ async function clearSettingsLocalData({
 
 function isValidSettingsDraft({
   draft,
-  mode,
-  key,
-  connected,
 }: {
   draft: AppSettings;
-  mode: ProviderAuthMode;
-  key: string;
-  connected: boolean;
 }) {
   return Boolean(
     draft.provider.model.trim() &&
     draft.provider.timeoutMs > 0 &&
-    (mode !== "api" || key.trim()) &&
-    (mode !== "oauth" || connected) &&
     draft.ingest.endpointUrl.trim(),
   );
 }
@@ -844,27 +827,15 @@ function isValidSettingsDraft({
 function settingsApplyHint({
   dirty,
   draft,
-  mode,
-  key,
-  connected,
 }: {
   dirty: boolean;
   draft: AppSettings;
-  mode: ProviderAuthMode;
-  key: string;
-  connected: boolean;
 }) {
   if (!dirty) return null;
   return firstInvalidMessage([
     [isBlank(draft.provider.model), "Model is required."],
     [draft.provider.timeoutMs <= 0, "Timeout must be greater than 0."],
-    [isApiKeyMissing(mode, key), "API key is required for API mode."],
-    [
-      isOAuthMissing(mode, connected),
-      "OAuth must be connected before applying.",
-    ],
     [isBlank(draft.ingest.endpointUrl), "Ingest endpoint is required."],
-    [isBlank(draft.ingest.apiKey), "Ingest x-api-key is required."],
   ]);
 }
 
@@ -874,14 +845,6 @@ function firstInvalidMessage(checks: [boolean, string][]) {
 
 function isBlank(value: string) {
   return !value.trim();
-}
-
-function isApiKeyMissing(mode: ProviderAuthMode, key: string) {
-  return mode === "api" && isBlank(key);
-}
-
-function isOAuthMissing(mode: ProviderAuthMode, connected: boolean) {
-  return mode === "oauth" && !connected;
 }
 
 function normalizeForSave(settings: AppSettings): AppSettings {
