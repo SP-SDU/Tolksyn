@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { Modal, Pressable, Text, View } from "react-native";
 
 import { useAppRuntime } from "@/providers/app-provider";
-import { isProviderConfigured } from "@/services/provider-configuration";
+import { isProviderConfigured } from "@/services/providers/provider-configuration";
 import type { AppSettings } from "@/types/settings";
 
 import { Button } from "./ui/button";

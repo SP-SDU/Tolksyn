@@ -1,24 +1,6 @@
-import type { QueueSubmissionResult } from "@/services/queue-worker";
 import { AppError, type AppErrorCode } from "@/types/app-error";
-import type { BarcodeConflict, BarcodeHit } from "@/types/extraction";
-
-/** schemaVersion lets ingest evolve without breaking idempotent replay from older app builds. */
-export type SubmissionPayload = {
-  schemaVersion: "tolksyn.item.v1";
-  attemptId: string;
-  acceptedRevision: number;
-  structuredJson: Record<string, unknown>;
-  barcodeEnrichment: {
-    detected: BarcodeHit[];
-    primary: BarcodeHit | null;
-    relatedFieldSuggestions: {
-      eanOrUpc: string | null;
-    };
-    conflicts: BarcodeConflict[];
-  };
-  auxiliaryText?: string;
-  metadata: Record<string, unknown>;
-};
+import type { QueueSubmissionResult } from "@/types/queue";
+import type { SubmissionPayload } from "@/types/submission";
 
 export function createSubmissionService({
   attempts,

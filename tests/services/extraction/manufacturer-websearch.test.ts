@@ -1,4 +1,4 @@
-import { createManufacturerWebSearchEnricher } from "@/services/manufacturer-websearch";
+import { createManufacturerWebSearchEnricher } from "@/services/extraction/manufacturer-websearch";
 import { emptyStructuredItem } from "@/types/item-schema";
 import { defaultSettings } from "@/types/settings";
 

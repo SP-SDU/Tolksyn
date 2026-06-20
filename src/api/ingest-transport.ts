@@ -1,6 +1,6 @@
 import { RuntimeLimits } from "@/constants/runtime";
-import type { QueueItem, QueueSubmissionResult } from "@/services/queue-worker";
 import { AppError } from "@/types/app-error";
+import type { QueueItem, QueueSubmissionResult } from "@/types/queue";
 import type { AppSettings } from "@/types/settings";
 
 /** Queue replay must use the same POST contract and idempotency semantics as live accept. */

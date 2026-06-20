@@ -1,4 +1,4 @@
-import { buildSubmissionIdempotencyKey } from "@/services/submission-idempotency";
+import { buildSubmissionIdempotencyKey } from "@/services/submission/submission-idempotency";
 
 describe("buildSubmissionIdempotencyKey", () => {
   test("is stable for the same attempt revision", async () => {

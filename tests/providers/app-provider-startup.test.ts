@@ -9,13 +9,13 @@ describe("AppRuntimeProvider startup", () => {
     );
     const eagerImports = [
       "expo-image-picker",
-      "@/services/barcode-detector",
-      "@/services/capture-processing",
-      "@/services/export-service",
-      "@/services/gallery-import",
-      "@/services/image-store",
-      "@/services/manufacturer-websearch",
-      "@/services/provider-oauth",
+      "@/services/capture/barcode-detector",
+      "@/services/capture/capture-processing",
+      "@/services/capture/gallery-import",
+      "@/services/capture/image-store",
+      "@/services/export/export-service",
+      "@/services/extraction/manufacturer-websearch",
+      "@/services/providers/provider-oauth",
     ];
 
     for (const moduleName of eagerImports) {

@@ -3,7 +3,7 @@ import {
   fallbackProviderModel,
   fallbackProviderSnapshot,
   isExperimentalProvider,
-} from "@/services/provider-catalog";
+} from "@/services/providers/provider-catalog";
 
 import { createSecretStore } from "@/tests/helpers/fakes";
 

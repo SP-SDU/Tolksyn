@@ -1,6 +1,6 @@
 import * as ImageManipulator from "expo-image-manipulator";
 
-import { createImageStore } from "@/services/image-store";
+import { createImageStore } from "@/services/capture/image-store";
 
 jest.mock("expo-image-manipulator", () => ({
   SaveFormat: {

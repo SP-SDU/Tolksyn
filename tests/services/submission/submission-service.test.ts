@@ -1,4 +1,4 @@
-import { createSubmissionService } from "@/services/submission-service";
+import { createSubmissionService } from "@/services/submission/submission-service";
 import { AppError } from "@/types/app-error";
 import { emptyStructuredItem } from "@/types/item-schema";
 

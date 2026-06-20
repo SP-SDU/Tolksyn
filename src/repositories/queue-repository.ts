@@ -3,7 +3,7 @@ import type { ExpoSQLiteDatabase } from "drizzle-orm/expo-sqlite";
 
 import type * as schema from "@/db/schema";
 import { queueItemsTable } from "@/db/schema";
-import type { QueueItem, QueueRepository } from "@/services/queue-worker";
+import type { QueueItem, QueueRepository } from "@/types/queue";
 
 export type PersistedQueueItem = QueueItem & {
   attemptId: string;

@@ -7,7 +7,8 @@ import { settingsTable } from "@/db/schema";
 import {
   createProviderCatalog,
   fallbackProviderModel,
-} from "@/services/provider-catalog";
+} from "@/services/providers/provider-catalog";
+import type { SecretStore } from "@/types/secret-store";
 import {
   defaultSettings,
   type AppSettings,
@@ -62,12 +63,6 @@ type LegacyPersistedSettings = {
 };
 
 type DbLike = ExpoSQLiteDatabase<typeof schema>;
-
-export interface SecretStore {
-  getItem(key: string): Promise<string | null>;
-  setItem(key: string, value: string): Promise<void>;
-  deleteItem?(key: string): Promise<void>;
-}
 
 export function createSettingsRepository({
   db,

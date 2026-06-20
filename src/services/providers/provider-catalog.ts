@@ -6,24 +6,12 @@ import {
 } from "github-copilot-oauth";
 import { Platform } from "react-native";
 
-import type { SecretStore } from "@/repositories/settings-repository";
-
-export type ProviderAuthMode = "api" | "oauth";
-
-export type ProviderModel = {
-  id: string;
-  name: string;
-  variants: string[];
-  supportsImage: boolean;
-  releaseDate: string;
-};
-
-export type ProviderItem = {
-  id: string;
-  name: string;
-  api?: string;
-  models: ProviderModel[];
-};
+import type {
+  ProviderAuthMode,
+  ProviderItem,
+  ProviderModel,
+} from "@/types/provider";
+import type { SecretStore } from "@/types/secret-store";
 
 type CacheData = {
   fetchedAt: number;

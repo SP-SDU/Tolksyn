@@ -1,4 +1,4 @@
-import { serializeSubmissionJson } from "@/services/export-serialization";
+import { serializeSubmissionJson } from "@/services/export/export-serialization";
 
 describe("serializeSubmissionJson", () => {
   it("returns a pretty-printed JSON string", () => {

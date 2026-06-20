@@ -1,4 +1,4 @@
-import type { SecretStore } from "@/repositories/settings-repository";
+import type { SecretStore } from "@/types/secret-store";
 
 export function createSecretStore(seed?: Record<string, string>): SecretStore {
   const map = new Map<string, string>(Object.entries(seed ?? {}));

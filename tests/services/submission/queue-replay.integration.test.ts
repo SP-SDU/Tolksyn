@@ -3,10 +3,8 @@ import { drizzle } from "drizzle-orm/better-sqlite3";
 
 import * as schema from "@/db/schema";
 import { createQueueRepository } from "@/repositories/queue-repository";
-import {
-  drainQueue,
-  type QueueSubmissionResult,
-} from "@/services/queue-worker";
+import { drainQueue } from "@/services/submission/queue-worker";
+import type { QueueSubmissionResult } from "@/types/queue";
 
 describe("queue replay integration", () => {
   test("keeps strict FIFO blocking when head item is retryable after restart", async () => {

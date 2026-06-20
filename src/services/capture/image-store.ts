@@ -1,5 +1,5 @@
 import { RuntimeLimits } from "@/constants/runtime";
-import { renderImage, type PersistedImage } from "@/services/image-renderer";
+import { renderImage, type PersistedImage } from "@/services/capture/image-renderer";
 import { Directory, File, Paths } from "expo-file-system";
 
 /** Downscaled WebP keeps vision token cost and history thumbnail load predictable on device. */

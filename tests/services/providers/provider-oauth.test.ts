@@ -1,4 +1,4 @@
-import { createProviderOAuth } from "@/services/provider-oauth";
+import { createProviderOAuth } from "@/services/providers/provider-oauth";
 
 describe("provider oauth", () => {
   test("completes openai device flow and returns oauth credentials", async () => {

@@ -1,4 +1,4 @@
-import { serializeStructuredItemCsv } from "@/services/export-serialization";
+import { serializeStructuredItemCsv } from "@/services/export/export-serialization";
 import { emptyStructuredItem } from "@/types/item-schema";
 
 describe("serializeStructuredItemCsv", () => {

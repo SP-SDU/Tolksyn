@@ -1,4 +1,4 @@
-import type { ProviderAuthMode } from "@/services/provider-catalog";
+import type { ProviderAuthMode } from "@/types/provider";
 
 /** OAuth tokens and API keys must never be written into the settings SQLite row. */
 export type ProviderAuth =

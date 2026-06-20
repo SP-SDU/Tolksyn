@@ -1,12 +1,12 @@
 import {
   serializeStructuredItemCsv,
   serializeSubmissionJson,
-} from "@/services/export-serialization";
+} from "@/services/export/export-serialization";
 import type { StructuredItem } from "@/types/item-schema";
 import { Directory, File, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import { Platform } from "react-native";
-import type { SubmissionPayload } from "./submission-service";
+import type { SubmissionPayload } from "@/types/submission";
 
 export function createExportService() {
   return {

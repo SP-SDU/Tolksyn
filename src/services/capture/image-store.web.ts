@@ -1,5 +1,5 @@
 import { RuntimeLimits } from "@/constants/runtime";
-import { renderImage, type PersistedImage } from "@/services/image-renderer";
+import { renderImage, type PersistedImage } from "@/services/capture/image-renderer";
 
 /** Web has no durable per-app filesystem comparable to native document storage. */
 export function createImageStore() {

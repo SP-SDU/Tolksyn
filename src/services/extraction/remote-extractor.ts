@@ -9,7 +9,7 @@ import { normalizeRemoteError } from "@/services/extraction/errors";
 import { buildExtractionPrompt } from "@/services/extraction/prompt";
 import { parseProviderJsonEnvelope } from "@/services/extraction/response";
 import { extractWithRetries } from "@/services/extraction/retry";
-import { createProviderCatalog } from "@/services/provider-catalog";
+import { createProviderCatalog } from "@/services/providers/provider-catalog";
 import { AppError } from "@/types/app-error";
 import type { AppSettings, ProviderAuth } from "@/types/settings";
 

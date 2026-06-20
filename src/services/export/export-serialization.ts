@@ -1,5 +1,5 @@
-import type { SubmissionPayload } from "@/services/submission-service";
 import { emptyStructuredItem, type StructuredItem } from "@/types/item-schema";
+import type { SubmissionPayload } from "@/types/submission";
 
 export function serializeSubmissionJson(payload: SubmissionPayload): string {
   return JSON.stringify(payload, null, 2);

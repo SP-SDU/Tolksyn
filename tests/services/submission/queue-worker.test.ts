@@ -1,10 +1,10 @@
-import {
-  drainQueue,
-  type QueueItem,
-  type QueueRepository,
-  type QueueSubmissionResult,
-  type SubmissionTransport,
-} from "@/services/queue-worker";
+import { drainQueue } from "@/services/submission/queue-worker";
+import type {
+  QueueItem,
+  QueueRepository,
+  QueueSubmissionResult,
+  SubmissionTransport,
+} from "@/types/queue";
 
 class MemoryQueueRepository implements QueueRepository {
   constructor(private readonly items: QueueItem[]) {}

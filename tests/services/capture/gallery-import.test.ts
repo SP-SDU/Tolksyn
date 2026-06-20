@@ -1,4 +1,4 @@
-import { importFromGallery } from "@/services/gallery-import";
+import { importFromGallery } from "@/services/capture/gallery-import";
 import { AppError } from "@/types/app-error";
 
 describe("importFromGallery", () => {

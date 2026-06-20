@@ -18,9 +18,9 @@ import type {
   ProviderAuthMode,
   ProviderItem,
   ProviderModel,
-} from "@/services/provider-catalog";
-import { isExperimentalProvider } from "@/services/provider-catalog";
-import type { OAuthFlow } from "@/services/provider-oauth";
+} from "@/types/provider";
+import { isExperimentalProvider } from "@/services/providers/provider-catalog";
+import type { OAuthFlow } from "@/services/providers/provider-oauth";
 import { getErrorMessage } from "@/types/app-error";
 import {
   defaultSettings,

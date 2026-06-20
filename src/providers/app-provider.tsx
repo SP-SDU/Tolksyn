@@ -21,11 +21,11 @@ import { clearWebKeys, secureSecretStore } from "@/db/secure-store";
 import { createAttemptRepository } from "@/repositories/attempt-repository";
 import { createQueueRepository } from "@/repositories/queue-repository";
 import { createSettingsRepository } from "@/repositories/settings-repository";
-import { createProviderCatalog } from "@/services/provider-catalog";
-import { computeRetryDelayMs } from "@/services/queue-retry-policy";
-import { drainQueue } from "@/services/queue-worker";
-import { buildSubmissionIdempotencyKey } from "@/services/submission-idempotency";
-import { createSubmissionService } from "@/services/submission-service";
+import { createProviderCatalog } from "@/services/providers/provider-catalog";
+import { computeRetryDelayMs } from "@/services/submission/queue-retry-policy";
+import { drainQueue } from "@/services/submission/queue-worker";
+import { buildSubmissionIdempotencyKey } from "@/services/submission/submission-idempotency";
+import { createSubmissionService } from "@/services/submission/submission-service";
 import type { BarcodeHit } from "@/types/extraction";
 
 type CaptureProgressStage =
@@ -104,7 +104,7 @@ function createRuntime(sqlite: Parameters<typeof createDb>[0]) {
   const db = createDb(sqlite);
   let loadedImageStore: Promise<ImageStore> | null = null;
   const getImageStore = () => {
-    loadedImageStore ??= import("@/services/image-store").then(
+    loadedImageStore ??= import("@/services/capture/image-store").then(
       ({ createImageStore }) => createImageStore(),
     );
     return loadedImageStore;
@@ -138,11 +138,15 @@ function createRuntime(sqlite: Parameters<typeof createDb>[0]) {
   });
   const exportService = {
     async exportJson(payload: any): Promise<void> {
-      const { createExportService } = await import("@/services/export-service");
+      const { createExportService } = await import(
+        "@/services/export/export-service"
+      );
       return createExportService().exportJson(payload);
     },
     async exportCsv(attemptId: string, item: any): Promise<void> {
-      const { createExportService } = await import("@/services/export-service");
+      const { createExportService } = await import(
+        "@/services/export/export-service"
+      );
       return createExportService().exportCsv(attemptId, item);
     },
   };
@@ -164,7 +168,7 @@ function createRuntime(sqlite: Parameters<typeof createDb>[0]) {
   const getBarcodeDetector = async () => {
     if (!loadedBarcodeDetector) {
       const { createBarcodeDetector } = await import(
-        "@/services/barcode-detector"
+        "@/services/capture/barcode-detector"
       );
       loadedBarcodeDetector = createBarcodeDetector();
     }
@@ -208,7 +212,7 @@ function createRuntime(sqlite: Parameters<typeof createDb>[0]) {
     async enrich(input: any): Promise<any> {
       if (!loadedWebSearchEnricher) {
         const { createManufacturerWebSearchEnricher } = await import(
-          "@/services/manufacturer-websearch"
+          "@/services/extraction/manufacturer-websearch"
         );
         loadedWebSearchEnricher = createManufacturerWebSearchEnricher({
           settings,
@@ -224,7 +228,7 @@ function createRuntime(sqlite: Parameters<typeof createDb>[0]) {
     async start(providerId: string, options?: { enterpriseUrl?: string }) {
       if (!loadedOAuth) {
         const { createProviderOAuth } = await import(
-          "@/services/provider-oauth"
+          "@/services/providers/provider-oauth"
         );
         loadedOAuth = createProviderOAuth({ fetch });
       }
@@ -265,7 +269,7 @@ function createRuntime(sqlite: Parameters<typeof createDb>[0]) {
 
     async importFromGallery() {
       const [{ importFromGallery }, ImagePicker] = await Promise.all([
-        import("@/services/gallery-import"),
+        import("@/services/capture/gallery-import"),
         import("expo-image-picker"),
       ]);
       return importFromGallery({
@@ -288,7 +292,7 @@ function createRuntime(sqlite: Parameters<typeof createDb>[0]) {
       onProgress?: (stage: CaptureProgressStage) => void;
     }) {
       const [{ processImage }, appSettings] = await Promise.all([
-        import("@/services/capture-processing"),
+        import("@/services/capture/capture-processing"),
         settings.getSettings(),
       ]);
       return processImage({

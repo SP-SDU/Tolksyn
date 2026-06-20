@@ -1,4 +1,4 @@
-import { computeRetryDelayMs } from "@/services/queue-retry-policy";
+import { computeRetryDelayMs } from "@/services/submission/queue-retry-policy";
 
 describe("retry policy", () => {
   test("uses capped exponential backoff with jitter", () => {

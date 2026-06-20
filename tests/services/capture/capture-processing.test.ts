@@ -1,4 +1,4 @@
-import { processImage } from "@/services/capture-processing";
+import { processImage } from "@/services/capture/capture-processing";
 import { emptyStructuredItem } from "@/types/item-schema";
 
 describe("processImage", () => {

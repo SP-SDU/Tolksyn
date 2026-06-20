@@ -1,4 +1,4 @@
-import { isProviderConfigured } from "@/services/provider-configuration";
+import { isProviderConfigured } from "@/services/providers/provider-configuration";
 import { defaultSettings } from "@/types/settings";
 
 describe("provider configuration", () => {

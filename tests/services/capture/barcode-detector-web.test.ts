@@ -1,4 +1,4 @@
-import { createBarcodeDetector } from "@/services/barcode-detector.web";
+import { createBarcodeDetector } from "@/services/capture/barcode-detector.web";
 
 describe("web barcode detector", () => {
   // Save global references to restore after each test
