@@ -1,32 +1,21 @@
 {
-  "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
+  "entry": [
+    "src/components/barcode-camera.tsx",
+    "src/components/scan-animation.tsx",
+    "src/components/ui/icon-symbol.tsx",
+    "src/hooks/use-color-scheme.ts",
+    "src/services/capture/barcode-detector.ts",
+    "src/services/capture/image-store.ts",
+    "tests/setup.ts"
+  ],
   "ignoreDependencies": [
-    "@react-navigation/native-stack",
-    "babel-plugin-inline-import",
     "expo",
-    "expo-crypto",
-    "expo-modules-core",
     "expo-splash-screen",
-    "expo-system-ui",
     "nativewind",
-    "react-native-css-interop",
-    "react-native-gesture-handler",
     "react-native-web"
   ],
-  "overrides": [
-    {
-      "files": [
-        "src/components/barcode-camera.tsx",
-        "src/components/scan-animation.tsx",
-        "src/components/ui/icon-symbol.tsx",
-        "src/hooks/use-color-scheme.ts",
-        "src/services/barcode-detector.ts",
-        "src/services/image-store.ts",
-        "tests/setup.ts"
-      ],
-      "rules": {
-        "unused-files": "off"
-      }
-    }
-  ]
+  "health": {
+    "maxCognitive": 24,
+    "maxCrap": 80
+  }
 }

@@ -5,8 +5,7 @@ import { defaultSettings } from "@/types/settings";
 describe("manufacturer websearch enrichment", () => {
   test("plans queries, passes them to agent-query-crawl, and reconciles crawled pages", async () => {
     // extractor called twice: first for query planning, second for reconciliation
-    const settings = defaultSettings();
-    settings.webSearch.enabled = true;
+    const settings = enabledSettings();
     const extractor = {
       extract: jest
         .fn()
@@ -19,12 +18,7 @@ describe("manufacturer websearch enrichment", () => {
           responseText: JSON.stringify({
             queries: ["Phoenix Contact 2865463 official datasheet"],
           }),
-          metadata: {
-            provider: "remote_ai_sdk",
-            durationMs: 1,
-            imageWidth: 1,
-            imageHeight: 1,
-          },
+          metadata: remoteMetadata(),
         })
         .mockResolvedValueOnce({
           structuredJson: {
@@ -45,12 +39,7 @@ describe("manufacturer websearch enrichment", () => {
             ],
             conflicts: [],
           }),
-          metadata: {
-            provider: "remote_ai_sdk",
-            durationMs: 1,
-            imageWidth: 1,
-            imageHeight: 1,
-          },
+          metadata: remoteMetadata(),
         }),
     };
     const queryCrawl = {
@@ -67,24 +56,11 @@ describe("manufacturer websearch enrichment", () => {
         ],
       }),
     };
-    const enricher = createManufacturerWebSearchEnricher({
-      settings: { getSettings: async () => settings },
-      extractor,
-      queryCrawl,
-    });
+    const enricher = testEnricher(settings, extractor, queryCrawl);
 
-    const result = await enricher.enrich({
-      images: [
-        {
-          imageUri: "file://image.jpg",
-          imageBase64: "abc",
-          mimeType: "image/jpeg",
-          width: 100,
-          height: 100,
-        },
-      ],
-      structuredJson: { ...emptyStructuredItem(), productNumber: "2865463" },
-      barcodes: [],
+    const result = await enrich(enricher, {
+      ...emptyStructuredItem(),
+      productNumber: "2865463",
     });
 
     // Query sent to agent-query-crawl with crawl enabled
@@ -145,38 +121,21 @@ describe("manufacturer websearch enrichment", () => {
 
   test("accepts query json from extraction envelope auxiliary text", async () => {
     // Query planning reads queries from the extraction envelope auxiliary text
-    const settings = defaultSettings();
-    settings.webSearch.enabled = true;
+    const settings = enabledSettings();
     const extractor = {
       extract: jest
         .fn()
-        .mockResolvedValueOnce({
-          structuredJson: emptyStructuredItem(),
-          barcodes: [],
-          responseText: JSON.stringify({
-            structured_json: emptyStructuredItem(),
-            auxiliary_text_optional: JSON.stringify({
-              queries: ["Siemens 3RW4027-2BB04 official datasheet"],
+        .mockResolvedValueOnce(
+          queryPlanningResponse(
+            JSON.stringify({
+              structured_json: emptyStructuredItem(),
+              auxiliary_text_optional: JSON.stringify({
+                queries: ["Siemens 3RW4027-2BB04 official datasheet"],
+              }),
             }),
-          }),
-          metadata: {
-            provider: "remote_ai_sdk",
-            durationMs: 1,
-            imageWidth: 1,
-            imageHeight: 1,
-          },
-        })
-        .mockResolvedValueOnce({
-          structuredJson: emptyStructuredItem(),
-          barcodes: [],
-          auxiliaryText: JSON.stringify({ fieldChanges: [], conflicts: [] }),
-          metadata: {
-            provider: "remote_ai_sdk",
-            durationMs: 1,
-            imageWidth: 1,
-            imageHeight: 1,
-          },
-        }),
+          ),
+        )
+        .mockResolvedValueOnce(reconciliationResponse()),
     };
     const queryCrawl = {
       query: jest.fn().mockResolvedValue({
@@ -192,25 +151,9 @@ describe("manufacturer websearch enrichment", () => {
         ],
       }),
     };
-    const enricher = createManufacturerWebSearchEnricher({
-      settings: { getSettings: async () => settings },
-      extractor,
-      queryCrawl,
-    });
+    const enricher = testEnricher(settings, extractor, queryCrawl);
 
-    const result = await enricher.enrich({
-      images: [
-        {
-          imageUri: "file://image.jpg",
-          imageBase64: "abc",
-          mimeType: "image/jpeg",
-          width: 100,
-          height: 100,
-        },
-      ],
-      structuredJson: emptyStructuredItem(),
-      barcodes: [],
-    });
+    const result = await enrich(enricher, emptyStructuredItem());
 
     // Query extracted from auxiliary text used for the search
     expect(queryCrawl.query).toHaveBeenCalledWith(
@@ -225,40 +168,21 @@ describe("manufacturer websearch enrichment", () => {
 
   test("skips websearch explicitly when query planning returns no direct query json", async () => {
     // Response has no queries. Websearch should be skipped
-    const settings = defaultSettings();
-    settings.webSearch.enabled = true;
+    const settings = enabledSettings();
     const extractor = {
       extract: jest.fn().mockResolvedValue({
         structuredJson: { ...emptyStructuredItem(), manufacturer: "Siemens" },
         barcodes: [],
         responseText: '{"structured_json":{},"auxiliary_text_optional":null}',
-        metadata: {
-          provider: "remote_ai_sdk",
-          durationMs: 1,
-          imageWidth: 1,
-          imageHeight: 1,
-        },
+        metadata: remoteMetadata(),
       }),
     };
     const queryCrawl = { query: jest.fn() };
-    const enricher = createManufacturerWebSearchEnricher({
-      settings: { getSettings: async () => settings },
-      extractor,
-      queryCrawl,
-    });
+    const enricher = testEnricher(settings, extractor, queryCrawl);
 
-    const result = await enricher.enrich({
-      images: [
-        {
-          imageUri: "file://image.jpg",
-          imageBase64: "abc",
-          mimeType: "image/jpeg",
-          width: 100,
-          height: 100,
-        },
-      ],
-      structuredJson: { ...emptyStructuredItem(), manufacturer: "Siemens" },
-      barcodes: [],
+    const result = await enrich(enricher, {
+      ...emptyStructuredItem(),
+      manufacturer: "Siemens",
     });
 
     // No query sent. Enrichment skipped with explanation
@@ -277,33 +201,16 @@ describe("manufacturer websearch enrichment", () => {
 
   test("uses one shared total crawl-page limit across planned queries", async () => {
     // 4 queries planned but only 3 executed due to the shared crawl page budget
-    const settings = defaultSettings();
-    settings.webSearch.enabled = true;
+    const settings = enabledSettings();
     const extractor = {
       extract: jest
         .fn()
-        .mockResolvedValueOnce({
-          structuredJson: emptyStructuredItem(),
-          barcodes: [],
-          responseText: JSON.stringify({ queries: ["q1", "q2", "q3", "q4"] }),
-          metadata: {
-            provider: "remote_ai_sdk",
-            durationMs: 1,
-            imageWidth: 1,
-            imageHeight: 1,
-          },
-        })
-        .mockResolvedValueOnce({
-          structuredJson: emptyStructuredItem(),
-          barcodes: [],
-          auxiliaryText: JSON.stringify({ fieldChanges: [], conflicts: [] }),
-          metadata: {
-            provider: "remote_ai_sdk",
-            durationMs: 1,
-            imageWidth: 1,
-            imageHeight: 1,
-          },
-        }),
+        .mockResolvedValueOnce(
+          queryPlanningResponse(
+            JSON.stringify({ queries: ["q1", "q2", "q3", "q4"] }),
+          ),
+        )
+        .mockResolvedValueOnce(reconciliationResponse()),
     };
     const queryCrawl = {
       query: jest.fn(
@@ -323,25 +230,9 @@ describe("manufacturer websearch enrichment", () => {
           }),
       ),
     };
-    const enricher = createManufacturerWebSearchEnricher({
-      settings: { getSettings: async () => settings },
-      extractor,
-      queryCrawl,
-    });
+    const enricher = testEnricher(settings, extractor, queryCrawl);
 
-    await enricher.enrich({
-      images: [
-        {
-          imageUri: "file://image.jpg",
-          imageBase64: "abc",
-          mimeType: "image/jpeg",
-          width: 100,
-          height: 100,
-        },
-      ],
-      structuredJson: emptyStructuredItem(),
-      barcodes: [],
-    });
+    await enrich(enricher, emptyStructuredItem());
 
     // First query gets maxPages=6. Remaining queries get crawl disabled
     expect(queryCrawl.query).toHaveBeenCalledTimes(3);
@@ -365,3 +256,67 @@ describe("manufacturer websearch enrichment", () => {
     );
   });
 });
+
+function enabledSettings() {
+  const settings = defaultSettings();
+  settings.webSearch.enabled = true;
+  return settings;
+}
+
+function remoteMetadata() {
+  return {
+    provider: "remote_ai_sdk",
+    durationMs: 1,
+    imageWidth: 1,
+    imageHeight: 1,
+  };
+}
+
+function queryPlanningResponse(responseText: string) {
+  return {
+    structuredJson: emptyStructuredItem(),
+    barcodes: [],
+    responseText,
+    metadata: remoteMetadata(),
+  };
+}
+
+function reconciliationResponse() {
+  return {
+    structuredJson: emptyStructuredItem(),
+    barcodes: [],
+    auxiliaryText: JSON.stringify({ fieldChanges: [], conflicts: [] }),
+    metadata: remoteMetadata(),
+  };
+}
+
+function testEnricher(
+  settings: ReturnType<typeof defaultSettings>,
+  extractor: { extract: jest.Mock },
+  queryCrawl: { query: jest.Mock },
+) {
+  return createManufacturerWebSearchEnricher({
+    settings: { getSettings: async () => settings },
+    extractor,
+    queryCrawl,
+  });
+}
+
+function enrich(
+  enricher: ReturnType<typeof createManufacturerWebSearchEnricher>,
+  structuredJson: ReturnType<typeof emptyStructuredItem>,
+) {
+  return enricher.enrich({
+    images: [
+      {
+        imageUri: "file://image.jpg",
+        imageBase64: "abc",
+        mimeType: "image/jpeg",
+        width: 100,
+        height: 100,
+      },
+    ],
+    structuredJson,
+    barcodes: [],
+  });
+}

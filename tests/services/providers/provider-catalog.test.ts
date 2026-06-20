@@ -10,24 +10,7 @@ import { createSecretStore } from "@/tests/helpers/fakes";
 describe("provider catalog", () => {
   test("coalesces concurrent provider catalog loads", async () => {
     const secrets = createSecretStore();
-    const fetch = jest.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        openai: {
-          id: "openai",
-          name: "OpenAI",
-          api: "https://api.openai.com/v1/chat/completions",
-          models: {
-            "gpt-5": {
-              id: "gpt-5",
-              name: "GPT-5",
-              release_date: "2025-12-04",
-              reasoning: true,
-            },
-          },
-        },
-      }),
-    });
+    const fetch = fetchedOpenAiCatalog();
     const catalog = createProviderCatalog({
       secrets,
       fetch: fetch as any,
@@ -122,24 +105,7 @@ describe("provider catalog", () => {
 
   test("uses fetched provider defaults when provider exists in catalog", async () => {
     const secrets = createSecretStore();
-    const fetch = jest.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        openai: {
-          id: "openai",
-          name: "OpenAI",
-          api: "https://api.openai.com/v1/chat/completions",
-          models: {
-            "gpt-5": {
-              id: "gpt-5",
-              name: "GPT-5",
-              release_date: "2025-12-04",
-              reasoning: true,
-            },
-          },
-        },
-      }),
-    });
+    const fetch = fetchedOpenAiCatalog();
 
     const catalog = createProviderCatalog({
       secrets,
@@ -432,6 +398,27 @@ describe("provider catalog", () => {
     expect(models.some((m) => m.id === "sora")).toBe(false);
   });
 });
+
+function fetchedOpenAiCatalog() {
+  return jest.fn().mockResolvedValue({
+    ok: true,
+    json: async () => ({
+      openai: {
+        id: "openai",
+        name: "OpenAI",
+        api: "https://api.openai.com/v1/chat/completions",
+        models: {
+          "gpt-5": {
+            id: "gpt-5",
+            name: "GPT-5",
+            release_date: "2025-12-04",
+            reasoning: true,
+          },
+        },
+      },
+    }),
+  });
+}
 
 type TestProviderModel = {
   id: string;

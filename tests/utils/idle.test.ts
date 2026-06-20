@@ -34,13 +34,24 @@ describe("scheduleDeferredMount", () => {
     cb2(0);
   }
 
-  test("fires callback via requestIdleCallback when available", () => {
+  function strictClearTimeout(): void {
+    jest.spyOn(globalThis, "clearTimeout").mockImplementation((handle) => {
+      if (handle == null) throw new Error("clearTimeout called with null");
+    });
+  }
+
+  function mockIdleCallback(handle = 42) {
     const idleCallbacks: Array<() => void> = [];
     (globalThis as any).requestIdleCallback = jest.fn((cb: () => void) => {
       idleCallbacks.push(cb);
-      return 1;
+      return handle;
     });
     (globalThis as any).cancelIdleCallback = jest.fn();
+    return idleCallbacks;
+  }
+
+  test("fires callback via requestIdleCallback when available", () => {
+    const idleCallbacks = mockIdleCallback(1);
 
     const callback = jest.fn();
     scheduleDeferredMount(callback);
@@ -77,9 +88,7 @@ describe("scheduleDeferredMount", () => {
   });
 
   test("cancel before first RAF prevents callback and cleans up frameA only", () => {
-    jest.spyOn(globalThis, "clearTimeout").mockImplementation((handle) => {
-      if (handle == null) throw new Error("clearTimeout called with null");
-    });
+    strictClearTimeout();
 
     const callback = jest.fn();
     const cancel = scheduleDeferredMount(callback);
@@ -94,9 +103,7 @@ describe("scheduleDeferredMount", () => {
   });
 
   test("cancel between RAFs cleans up frameB only", () => {
-    jest.spyOn(globalThis, "clearTimeout").mockImplementation((handle) => {
-      if (handle == null) throw new Error("clearTimeout called with null");
-    });
+    strictClearTimeout();
 
     const callback = jest.fn();
     const cancel = scheduleDeferredMount(callback);
@@ -113,12 +120,7 @@ describe("scheduleDeferredMount", () => {
   });
 
   test("cancel after both RAFs but before idle callback prevents fire", () => {
-    const idleCallbacks: Array<() => void> = [];
-    (globalThis as any).requestIdleCallback = jest.fn((cb: () => void) => {
-      idleCallbacks.push(cb);
-      return 1;
-    });
-    (globalThis as any).cancelIdleCallback = jest.fn();
+    const idleCallbacks = mockIdleCallback(1);
 
     const callback = jest.fn();
     const cancel = scheduleDeferredMount(callback);
@@ -145,9 +147,7 @@ describe("scheduleDeferredMount", () => {
   });
 
   test("cancel before any RAF cleans up frameA only", () => {
-    jest.spyOn(globalThis, "clearTimeout").mockImplementation((handle) => {
-      if (handle == null) throw new Error("clearTimeout called with null");
-    });
+    strictClearTimeout();
 
     scheduleDeferredMount(jest.fn())();
 
@@ -182,11 +182,7 @@ describe("scheduleDeferredMount", () => {
   });
 
   test("cancel on idle path handles missing cancelIdleCallback gracefully", () => {
-    const idleCallbacks: Array<() => void> = [];
-    (globalThis as any).requestIdleCallback = jest.fn((cb: () => void) => {
-      idleCallbacks.push(cb);
-      return 42;
-    });
+    mockIdleCallback();
     delete (globalThis as any).cancelIdleCallback;
 
     const cancel = scheduleDeferredMount(jest.fn());
@@ -196,12 +192,7 @@ describe("scheduleDeferredMount", () => {
   });
 
   test("cancel before idle path does not touch idle handle", () => {
-    const idleCallbacks: Array<() => void> = [];
-    (globalThis as any).requestIdleCallback = jest.fn((cb: () => void) => {
-      idleCallbacks.push(cb);
-      return 42;
-    });
-    (globalThis as any).cancelIdleCallback = jest.fn();
+    mockIdleCallback();
 
     const cancel = scheduleDeferredMount(jest.fn());
 
@@ -212,12 +203,7 @@ describe("scheduleDeferredMount", () => {
   });
 
   test("cancel after first RAF on idle path does not touch idle handle", () => {
-    const idleCallbacks: Array<() => void> = [];
-    (globalThis as any).requestIdleCallback = jest.fn((cb: () => void) => {
-      idleCallbacks.push(cb);
-      return 42;
-    });
-    (globalThis as any).cancelIdleCallback = jest.fn();
+    mockIdleCallback();
 
     const cancel = scheduleDeferredMount(jest.fn());
 
@@ -241,12 +227,7 @@ describe("scheduleDeferredMount", () => {
   });
 
   test("cancel after both RAFs on idle path only cancels idle handle", () => {
-    const idleCallbacks: Array<() => void> = [];
-    (globalThis as any).requestIdleCallback = jest.fn((cb: () => void) => {
-      idleCallbacks.push(cb);
-      return 42;
-    });
-    (globalThis as any).cancelIdleCallback = jest.fn();
+    mockIdleCallback();
 
     const cancel = scheduleDeferredMount(jest.fn());
 

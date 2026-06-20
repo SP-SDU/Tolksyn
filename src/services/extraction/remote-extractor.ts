@@ -17,6 +17,18 @@ type LanguageModelFactory = (
   model: string,
 ) => Parameters<typeof generateText>[0]["model"];
 
+type RemoteExtractorInput = {
+  images: {
+    imageUri: string;
+    imageBase64: string;
+    mimeType: string;
+    width: number;
+    height: number;
+  }[];
+  prompt?: string;
+  signal?: AbortSignal;
+};
+
 const API_PROVIDER_FACTORIES: Record<
   string,
   (credential: string) => LanguageModelFactory
@@ -26,92 +38,60 @@ const API_PROVIDER_FACTORIES: Record<
   anthropic: (apiKey) => createAnthropic({ apiKey }),
 };
 
+const OAUTH_PROVIDER_FACTORIES: Record<
+  string,
+  (auth: Extract<ProviderAuth, { type: "oauth" }>) => LanguageModelFactory
+> = {
+  openai: (auth) =>
+    createOpenAIOAuth({
+      tokens: {
+        accessToken: auth.access,
+        refreshToken: auth.refresh || undefined,
+        expiresAt: auth.expires || undefined,
+        accountId: auth.accountId ?? deriveAccountId(auth.access),
+      },
+      originator: "tolksyn",
+    }),
+  "github-copilot": (auth) =>
+    createGitHubCopilot({
+      tokens: {
+        githubToken: auth.refresh || auth.access,
+        enterpriseUrl: auth.enterpriseUrl,
+      },
+      enterpriseUrl: auth.enterpriseUrl,
+    }),
+};
+
 /** Misconfigured vision models should fail before capture work, not after image persist. */
 export function createRemoteExtractor(settingsRepository: {
   getSettings(): Promise<AppSettings>;
   providerCatalog?: ReturnType<typeof createProviderCatalog>;
 }) {
   return {
-    async extract(input: {
-      images: {
-        imageUri: string;
-        imageBase64: string;
-        mimeType: string;
-        width: number;
-        height: number;
-      }[];
-      prompt?: string;
-      signal?: AbortSignal;
-    }) {
+    async extract(input: RemoteExtractorInput) {
       const settings = await settingsRepository.getSettings();
       const id = settings.provider.id;
       const mode = settings.provider.authModeByProvider[id] ?? "api";
-      const supported = settingsRepository.providerCatalog
-        ? await settingsRepository.providerCatalog.supportsImage(
-            id,
-            settings.provider.model,
-            mode,
-          )
-        : ["openai", "google", "anthropic", "github-copilot"].includes(id);
-      if (!supported) {
-        throw new AppError(
-          "unsupported",
-          `Model "${settings.provider.model}" for provider "${id}" does not support image input.`,
-        );
-      }
+      const auth = requireAuth(settings, id, mode);
 
-      const auth = settings.provider.auth[id];
-      let credential = "";
-
-      if (mode === "api") {
-        if (!auth || auth.type !== "api" || !auth.key.trim()) {
-          throw new AppError(
-            "auth_failed",
-            "Configure a provider API key in Settings.",
-          );
-        }
-
-        credential = auth.key;
-      } else {
-        if (!["openai", "github-copilot"].includes(id)) {
-          throw new AppError(
-            "auth_failed",
-            "OAuth extraction is currently supported only for OpenAI and GitHub Copilot.",
-          );
-        }
-
-        if (!auth || auth.type !== "oauth" || !auth.access.trim()) {
-          const providerName =
-            id === "github-copilot" ? "GitHub Copilot" : "OpenAI";
-          throw new AppError(
-            "auth_failed",
-            `Connect ${providerName} OAuth in Settings before running extraction.`,
-          );
-        }
-
-        if (auth.expires > 0 && auth.expires <= Date.now()) {
-          const providerName =
-            id === "github-copilot" ? "GitHub Copilot" : "OpenAI";
-          throw new AppError(
-            "auth_failed",
-            `${providerName} OAuth session expired. Reconnect ${providerName} in Settings.`,
-          );
-        }
-
-        credential = auth.access;
-      }
+      await assertSupportsImages(
+        settingsRepository.providerCatalog,
+        id,
+        settings.provider.model,
+        mode,
+      );
 
       const modelFactory = resolveModelFactory({
         providerId: id,
         mode,
-        credential,
-        auth,
+        credential: auth.credential,
+        auth: auth.value,
       });
 
       return extractWithRetries({
         fallbackProvider: "remote_ai_sdk",
         input: {
-          apiKey: credential,
+          apiKey: auth.credential,
           model: settings.provider.model,
           images: input.images.map((img) => ({
             imageBase64: img.imageBase64,
@@ -123,49 +103,116 @@ export function createRemoteExtractor(settingsRepository: {
           prompt: input.prompt,
           signal: input.signal,
         },
-        extract: async (payload) => {
-          try {
-            const startedAt = Date.now();
-            const prompt = payload.prompt ?? buildExtractionPrompt();
-            const response = await generateText({
-              model: modelFactory(payload.model),
-              messages: [
-                {
-                  role: "user",
-                  content: [
-                    { type: "text", text: prompt },
-                    ...payload.images.map((img) => ({
-                      type: "file" as const,
-                      data: img.imageBase64,
-                      mediaType: img.mimeType,
-                    })),
-                  ],
-                },
-              ],
-              abortSignal: payload.signal,
-              maxRetries: 0,
-            });
-            const parsed = parseProviderJsonEnvelope(response.text);
-
-            return {
-              structuredJson: parsed.structuredJson,
-              barcodes: [],
-              auxiliaryText: parsed.auxiliaryText,
-              responseText: response.text,
-              metadata: {
-                provider: "remote_ai_sdk" as const,
-                durationMs: Math.max(1, Date.now() - startedAt),
-                imageWidth: payload.images[0]?.width ?? 0,
-                imageHeight: payload.images[0]?.height ?? 0,
-              },
-            };
-          } catch (error) {
-            throw normalizeRemoteError(error);
-          }
-        },
+        extract: (payload) => runAiSdkExtraction(modelFactory, payload),
       });
     },
   };
+}
+
+async function assertSupportsImages(
+  catalog: ReturnType<typeof createProviderCatalog> | undefined,
+  id: string,
+  model: string,
+  mode: "api" | "oauth",
+) {
+  const supported = catalog
+    ? await catalog.supportsImage(id, model, mode)
+    : ["openai", "google", "anthropic", "github-copilot"].includes(id);
+
+  if (!supported) {
+    throw new AppError(
+      "unsupported",
+      `Model "${model}" for provider "${id}" does not support image input.`,
+    );
+  }
+}
+
+function requireAuth(
+  settings: AppSettings,
+  id: string,
+  mode: "api" | "oauth",
+): { credential: string; value: ProviderAuth | undefined } {
+  const auth = settings.provider.auth[id];
+
+  if (mode === "api") {
+    if (!auth || auth.type !== "api" || !auth.key.trim()) {
+      throw new AppError("auth_failed", "Configure a provider API key in Settings.");
+    }
+
+    return { credential: auth.key, value: auth };
+  }
+
+  if (!["openai", "github-copilot"].includes(id)) {
+    throw new AppError(
+      "auth_failed",
+      "OAuth extraction is currently supported only for OpenAI and GitHub Copilot.",
+    );
+  }
+
+  if (!auth || auth.type !== "oauth" || !auth.access.trim()) {
+    throw new AppError(
+      "auth_failed",
+      `Connect ${oauthProviderName(id)} OAuth in Settings before running extraction.`,
+    );
+  }
+
+  if (auth.expires > 0 && auth.expires <= Date.now()) {
+    const name = oauthProviderName(id);
+    throw new AppError(
+      "auth_failed",
+      `${name} OAuth session expired. Reconnect ${name} in Settings.`,
+    );
+  }
+
+  return { credential: auth.access, value: auth };
+}
+
+function oauthProviderName(id: string) {
+  return id === "github-copilot" ? "GitHub Copilot" : "OpenAI";
+}
+
+async function runAiSdkExtraction(
+  modelFactory: LanguageModelFactory,
+  payload: Parameters<typeof extractWithRetries>[0]["input"],
+) {
+  try {
+    const startedAt = Date.now();
+    const prompt = payload.prompt ?? buildExtractionPrompt();
+    const response = await generateText({
+      model: modelFactory(payload.model),
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "text", text: prompt },
+            ...payload.images.map((img) => ({
+              type: "file" as const,
+              data: img.imageBase64,
+              mediaType: img.mimeType,
+            })),
+          ],
+        },
+      ],
+      abortSignal: payload.signal,
+      maxRetries: 0,
+    });
+    const parsed = parseProviderJsonEnvelope(response.text);
+
+    return {
+      structuredJson: parsed.structuredJson,
+      barcodes: [],
+      auxiliaryText: parsed.auxiliaryText,
+      responseText: response.text,
+      metadata: {
+        provider: "remote_ai_sdk" as const,
+        durationMs: Math.max(1, Date.now() - startedAt),
+        imageWidth: payload.images[0]?.width ?? 0,
+        imageHeight: payload.images[0]?.height ?? 0,
+      },
+    };
+  } catch (error) {
+    throw normalizeRemoteError(error);
+  }
 }
 
 function resolveModelFactory({
@@ -191,26 +238,9 @@ function resolveModelFactory({
     return createProvider(credential);
   }
 
-  if (providerId === "openai" && auth?.type === "oauth") {
-    return createOpenAIOAuth({
-      tokens: {
-        accessToken: auth.access,
-        refreshToken: auth.refresh || undefined,
-        expiresAt: auth.expires || undefined,
-        accountId: auth.accountId ?? deriveAccountId(auth.access),
-      },
-      originator: "tolksyn",
-    });
-  }
-
-  if (providerId === "github-copilot" && auth?.type === "oauth") {
-    return createGitHubCopilot({
-      tokens: {
-        githubToken: auth.refresh || auth.access,
-        enterpriseUrl: auth.enterpriseUrl,
-      },
-      enterpriseUrl: auth.enterpriseUrl,
-    });
+  const createProvider = OAUTH_PROVIDER_FACTORIES[providerId];
+  if (createProvider && auth?.type === "oauth") {
+    return createProvider(auth);
   }
 
   throw new AppError(

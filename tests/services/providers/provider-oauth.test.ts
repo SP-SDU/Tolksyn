@@ -64,15 +64,7 @@ describe("provider oauth", () => {
     // 3 fetches: device code, poll (pending), token (completed)
     const fetch = jest
       .fn()
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          verification_uri: "https://github.com/login/device",
-          user_code: "GITHUB-CODE",
-          device_code: "github-device-code",
-          interval: 1,
-        }),
-      })
+      .mockResolvedValueOnce(githubDeviceCodeResponse())
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({
@@ -114,15 +106,7 @@ describe("provider oauth", () => {
     // Simulate web platform with a known window origin
     const fetch = jest
       .fn()
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          verification_uri: "https://github.com/login/device",
-          user_code: "GITHUB-CODE",
-          device_code: "github-device-code",
-          interval: 1,
-        }),
-      })
+      .mockResolvedValueOnce(githubDeviceCodeResponse())
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({
@@ -231,6 +215,18 @@ function restoreEnv(key: string, value: string | undefined): void {
   }
 
   process.env[key] = value;
+}
+
+function githubDeviceCodeResponse() {
+  return {
+    ok: true,
+    json: async () => ({
+      verification_uri: "https://github.com/login/device",
+      user_code: "GITHUB-CODE",
+      device_code: "github-device-code",
+      interval: 1,
+    }),
+  };
 }
 
 function jwtWithAccount(accountId: string): string {

@@ -74,18 +74,8 @@ describe("remote extractor", () => {
   });
 
   test("uses the Vercel AI SDK for API-key extraction", async () => {
-    generateTextMock.mockResolvedValueOnce({
-      text: providerText,
-    } as Awaited<ReturnType<typeof generateText>>);
-    const settings = defaultSettings();
-    settings.provider.id = "openai";
-    settings.provider.model = "gpt-4.1-mini";
-    settings.provider.authModeByProvider.openai = "api";
-    settings.provider.auth.openai = { type: "api", key: "openai-key" };
-    const extractor = createRemoteExtractor({
-      getSettings: async () => settings,
-      providerCatalog: { supportsImage: async () => true },
-    } as any);
+    mockProviderResponse();
+    const extractor = testExtractor(openAiApiSettings());
 
     const result = await extractor.extract({
       images: sampleExtractionImages(),
@@ -124,18 +114,8 @@ describe("remote extractor", () => {
     ["google", createGoogleGenerativeAIMock, "google-key"],
     ["anthropic", createAnthropicMock, "anthropic-key"],
   ])("passes API credentials to %s model factory", async (id, factory, key) => {
-    generateTextMock.mockResolvedValueOnce({
-      text: providerText,
-    } as Awaited<ReturnType<typeof generateText>>);
-    const settings = defaultSettings();
-    settings.provider.id = id;
-    settings.provider.model = `${id}-model`;
-    settings.provider.authModeByProvider[id] = "api";
-    settings.provider.auth[id] = { type: "api", key };
-    const extractor = createRemoteExtractor({
-      getSettings: async () => settings,
-      providerCatalog: { supportsImage: async () => true },
-    } as any);
+    mockProviderResponse();
+    const extractor = testExtractor(apiSettings(id, `${id}-model`, key));
 
     await extractor.extract({ images: sampleExtractionImages() });
 
@@ -148,18 +128,10 @@ describe("remote extractor", () => {
   });
 
   test("defaults missing auth mode to API-key auth", async () => {
-    generateTextMock.mockResolvedValueOnce({
-      text: providerText,
-    } as Awaited<ReturnType<typeof generateText>>);
-    const settings = defaultSettings();
-    settings.provider.id = "google";
-    settings.provider.model = "gemini-2.0-flash";
+    mockProviderResponse();
+    const settings = apiSettings("google", "gemini-2.0-flash", "google-key");
     delete settings.provider.authModeByProvider.google;
-    settings.provider.auth.google = { type: "api", key: "google-key" };
-    const extractor = createRemoteExtractor({
-      getSettings: async () => settings,
-      providerCatalog: { supportsImage: async () => true },
-    } as any);
+    const extractor = testExtractor(settings);
 
     await extractor.extract({ images: sampleExtractionImages() });
 
@@ -199,11 +171,7 @@ describe("remote extractor", () => {
   );
 
   test("rejects unsupported fallback providers before auth", async () => {
-    const settings = defaultSettings();
-    settings.provider.id = "perplexity";
-    settings.provider.model = "sonar-pro";
-    settings.provider.authModeByProvider.perplexity = "api";
-    settings.provider.auth.perplexity = { type: "api", key: "perplexity-key" };
+    const settings = perplexityApiSettings();
     const extractor = createRemoteExtractor({
       getSettings: async () => settings,
     });
@@ -250,38 +218,20 @@ describe("remote extractor", () => {
   test.each(["openai", "github-copilot"])(
     "requires OAuth auth object for %s",
     async (id) => {
-      const settings = defaultSettings();
-      settings.provider.id = id;
-      settings.provider.model = `${id}-model`;
-      settings.provider.authModeByProvider[id] = "oauth";
+      const settings = oauthModeSettings(id);
       delete settings.provider.auth[id];
 
-      await expectExtractionFailure(settings, {
-        code: "auth_failed",
-        message: expect.stringContaining(
-          id === "github-copilot" ? "GitHub Copilot OAuth" : "OpenAI OAuth",
-        ),
-      });
-      expect(generateTextMock).not.toHaveBeenCalled();
+      await expectOAuthAuthFailure(id, settings);
     },
   );
 
   test.each(["openai", "github-copilot"])(
     "rejects API auth object for %s OAuth mode",
     async (id) => {
-      const settings = defaultSettings();
-      settings.provider.id = id;
-      settings.provider.model = `${id}-model`;
-      settings.provider.authModeByProvider[id] = "oauth";
+      const settings = oauthModeSettings(id);
       settings.provider.auth[id] = { type: "api", key: "api-key" };
 
-      await expectExtractionFailure(settings, {
-        code: "auth_failed",
-        message: expect.stringContaining(
-          id === "github-copilot" ? "GitHub Copilot OAuth" : "OpenAI OAuth",
-        ),
-      });
-      expect(generateTextMock).not.toHaveBeenCalled();
+      await expectOAuthAuthFailure(id, settings);
     },
   );
 
@@ -307,10 +257,7 @@ describe("remote extractor", () => {
   test.each(["openai", "github-copilot"])(
     "requires non-empty OAuth access for %s",
     async (id) => {
-      const settings = defaultSettings();
-      settings.provider.id = id;
-      settings.provider.model = `${id}-model`;
-      settings.provider.authModeByProvider[id] = "oauth";
+      const settings = oauthModeSettings(id);
       settings.provider.auth[id] = {
         type: "oauth",
         access: "   ",
@@ -318,13 +265,7 @@ describe("remote extractor", () => {
         expires: 0,
       };
 
-      await expectExtractionFailure(settings, {
-        code: "auth_failed",
-        message: expect.stringContaining(
-          id === "github-copilot" ? "GitHub Copilot OAuth" : "OpenAI OAuth",
-        ),
-      });
-      expect(generateTextMock).not.toHaveBeenCalled();
+      await expectOAuthAuthFailure(id, settings);
     },
   );
 
@@ -352,23 +293,15 @@ describe("remote extractor", () => {
   );
 
   test("uses OpenAI OAuth tokens and derives missing account id", async () => {
-    generateTextMock.mockResolvedValueOnce({
-      text: providerText,
-    } as Awaited<ReturnType<typeof generateText>>);
-    const settings = defaultSettings();
-    settings.provider.id = "openai";
-    settings.provider.model = "gpt-5.3-codex";
-    settings.provider.authModeByProvider.openai = "oauth";
-    settings.provider.auth.openai = {
+    mockProviderResponse();
+    const expires = Date.now() + 60_000;
+    const settings = oauthSettings("openai", "gpt-5.3-codex", {
       type: "oauth",
       access: "oa-access",
       refresh: "oa-refresh",
-      expires: Date.now() + 60_000,
-    };
-    const extractor = createRemoteExtractor({
-      getSettings: async () => settings,
-      providerCatalog: { supportsImage: async () => true },
-    } as any);
+      expires,
+    });
+    const extractor = testExtractor(settings);
 
     await extractor.extract({ images: sampleExtractionImages() });
 
@@ -377,7 +310,7 @@ describe("remote extractor", () => {
       tokens: {
         accessToken: "oa-access",
         refreshToken: "oa-refresh",
-        expiresAt: settings.provider.auth.openai.expires,
+        expiresAt: expires,
         accountId: "derived-oa-access",
       },
       originator: "tolksyn",
@@ -390,24 +323,15 @@ describe("remote extractor", () => {
   });
 
   test("keeps explicit OpenAI OAuth account id", async () => {
-    generateTextMock.mockResolvedValueOnce({
-      text: providerText,
-    } as Awaited<ReturnType<typeof generateText>>);
-    const settings = defaultSettings();
-    settings.provider.id = "openai";
-    settings.provider.model = "gpt-5.3-codex";
-    settings.provider.authModeByProvider.openai = "oauth";
-    settings.provider.auth.openai = {
+    mockProviderResponse();
+    const settings = oauthSettings("openai", "gpt-5.3-codex", {
       type: "oauth",
       access: "oa-access",
       refresh: "",
       expires: 0,
       accountId: "acct-123",
-    };
-    const extractor = createRemoteExtractor({
-      getSettings: async () => settings,
-      providerCatalog: { supportsImage: async () => true },
-    } as any);
+    });
+    const extractor = testExtractor(settings);
 
     await extractor.extract({ images: sampleExtractionImages() });
 
@@ -424,24 +348,15 @@ describe("remote extractor", () => {
   });
 
   test("uses GitHub Copilot OAuth refresh token and enterprise URL", async () => {
-    generateTextMock.mockResolvedValueOnce({
-      text: providerText,
-    } as Awaited<ReturnType<typeof generateText>>);
-    const settings = defaultSettings();
-    settings.provider.id = "github-copilot";
-    settings.provider.model = "gpt-4.1";
-    settings.provider.authModeByProvider["github-copilot"] = "oauth";
-    settings.provider.auth["github-copilot"] = {
+    mockProviderResponse();
+    const settings = oauthSettings("github-copilot", "gpt-4.1", {
       type: "oauth",
       access: "gh-access",
       refresh: "gh-refresh",
       expires: 0,
       enterpriseUrl: "https://github.example.com",
-    };
-    const extractor = createRemoteExtractor({
-      getSettings: async () => settings,
-      providerCatalog: { supportsImage: async () => true },
-    } as any);
+    });
+    const extractor = testExtractor(settings);
 
     await extractor.extract({ images: sampleExtractionImages() });
 
@@ -460,23 +375,14 @@ describe("remote extractor", () => {
   });
 
   test("uses GitHub Copilot access token when refresh token is absent", async () => {
-    generateTextMock.mockResolvedValueOnce({
-      text: providerText,
-    } as Awaited<ReturnType<typeof generateText>>);
-    const settings = defaultSettings();
-    settings.provider.id = "github-copilot";
-    settings.provider.model = "gpt-4.1";
-    settings.provider.authModeByProvider["github-copilot"] = "oauth";
-    settings.provider.auth["github-copilot"] = {
+    mockProviderResponse();
+    const settings = oauthSettings("github-copilot", "gpt-4.1", {
       type: "oauth",
       access: "gh-access",
       refresh: "",
       expires: 0,
-    };
-    const extractor = createRemoteExtractor({
-      getSettings: async () => settings,
-      providerCatalog: { supportsImage: async () => true },
-    } as any);
+    });
+    const extractor = testExtractor(settings);
 
     await extractor.extract({ images: sampleExtractionImages() });
 
@@ -490,19 +396,9 @@ describe("remote extractor", () => {
   });
 
   test("uses caller prompt and abort signal in AI SDK request", async () => {
-    generateTextMock.mockResolvedValueOnce({
-      text: providerText,
-    } as Awaited<ReturnType<typeof generateText>>);
+    mockProviderResponse();
     const controller = new AbortController();
-    const settings = defaultSettings();
-    settings.provider.id = "openai";
-    settings.provider.model = "gpt-4.1-mini";
-    settings.provider.authModeByProvider.openai = "api";
-    settings.provider.auth.openai = { type: "api", key: "openai-key" };
-    const extractor = createRemoteExtractor({
-      getSettings: async () => settings,
-      providerCatalog: { supportsImage: async () => true },
-    } as any);
+    const extractor = testExtractor(openAiApiSettings());
 
     await extractor.extract({
       images: sampleExtractionImages(),
@@ -527,18 +423,8 @@ describe("remote extractor", () => {
 
   test("uses one millisecond minimum duration", async () => {
     jest.spyOn(Date, "now").mockReturnValue(1000);
-    generateTextMock.mockResolvedValueOnce({
-      text: providerText,
-    } as Awaited<ReturnType<typeof generateText>>);
-    const settings = defaultSettings();
-    settings.provider.id = "openai";
-    settings.provider.model = "gpt-4.1-mini";
-    settings.provider.authModeByProvider.openai = "api";
-    settings.provider.auth.openai = { type: "api", key: "openai-key" };
-    const extractor = createRemoteExtractor({
-      getSettings: async () => settings,
-      providerCatalog: { supportsImage: async () => true },
-    } as any);
+    mockProviderResponse();
+    const extractor = testExtractor(openAiApiSettings());
 
     const result = await extractor.extract({
       images: sampleExtractionImages(),
@@ -548,18 +434,8 @@ describe("remote extractor", () => {
   });
 
   test("uses zero metadata dimensions when no images are provided", async () => {
-    generateTextMock.mockResolvedValueOnce({
-      text: providerText,
-    } as Awaited<ReturnType<typeof generateText>>);
-    const settings = defaultSettings();
-    settings.provider.id = "openai";
-    settings.provider.model = "gpt-4.1-mini";
-    settings.provider.authModeByProvider.openai = "api";
-    settings.provider.auth.openai = { type: "api", key: "openai-key" };
-    const extractor = createRemoteExtractor({
-      getSettings: async () => settings,
-      providerCatalog: { supportsImage: async () => true },
-    } as any);
+    mockProviderResponse();
+    const extractor = testExtractor(openAiApiSettings());
 
     const result = await extractor.extract({ images: [] });
 
@@ -569,15 +445,7 @@ describe("remote extractor", () => {
 
   test("returns remote AI SDK fallback diagnostics when generation fails", async () => {
     generateTextMock.mockRejectedValue(new Error("provider down"));
-    const settings = defaultSettings();
-    settings.provider.id = "openai";
-    settings.provider.model = "gpt-4.1-mini";
-    settings.provider.authModeByProvider.openai = "api";
-    settings.provider.auth.openai = { type: "api", key: "openai-key" };
-    const extractor = createRemoteExtractor({
-      getSettings: async () => settings,
-      providerCatalog: { supportsImage: async () => true },
-    } as any);
+    const extractor = testExtractor(openAiApiSettings());
 
     const result = await extractor.extract({
       images: sampleExtractionImages(),
@@ -593,11 +461,7 @@ describe("remote extractor", () => {
   });
 
   test("fails before generation when models.dev lists a provider without an enabled AI SDK adapter", async () => {
-    const settings = defaultSettings();
-    settings.provider.id = "perplexity";
-    settings.provider.model = "sonar-pro";
-    settings.provider.authModeByProvider.perplexity = "api";
-    settings.provider.auth.perplexity = { type: "api", key: "perplexity-key" };
+    const settings = perplexityApiSettings();
 
     // Provider without AI SDK adapter fails before calling generateText
     await expectExtractionFailure(settings, {
@@ -622,4 +486,68 @@ async function expectExtractionFailure(
       images: sampleExtractionImages(),
     }),
   ).rejects.toMatchObject(error);
+}
+
+function mockProviderResponse(text = providerText) {
+  generateTextMock.mockResolvedValueOnce({
+    text,
+  } as Awaited<ReturnType<typeof generateText>>);
+}
+
+function testExtractor(settings: ReturnType<typeof defaultSettings>) {
+  return createRemoteExtractor({
+    getSettings: async () => settings,
+    providerCatalog: { supportsImage: async () => true },
+  } as any);
+}
+
+function openAiApiSettings() {
+  return apiSettings("openai", "gpt-4.1-mini", "openai-key");
+}
+
+function perplexityApiSettings() {
+  return apiSettings("perplexity", "sonar-pro", "perplexity-key");
+}
+
+function apiSettings(id: string, model: string, key: string) {
+  const settings = defaultSettings();
+  settings.provider.id = id;
+  settings.provider.model = model;
+  settings.provider.authModeByProvider[id] = "api";
+  settings.provider.auth[id] = { type: "api", key };
+  return settings;
+}
+
+function oauthModeSettings(id: string) {
+  const settings = defaultSettings();
+  settings.provider.id = id;
+  settings.provider.model = `${id}-model`;
+  settings.provider.authModeByProvider[id] = "oauth";
+  return settings;
+}
+
+async function expectOAuthAuthFailure(
+  id: string,
+  settings: ReturnType<typeof defaultSettings>,
+) {
+  await expectExtractionFailure(settings, {
+    code: "auth_failed",
+    message: expect.stringContaining(
+      id === "github-copilot" ? "GitHub Copilot OAuth" : "OpenAI OAuth",
+    ),
+  });
+  expect(generateTextMock).not.toHaveBeenCalled();
+}
+
+function oauthSettings(
+  id: "openai" | "github-copilot",
+  model: string,
+  auth: NonNullable<ReturnType<typeof defaultSettings>["provider"]["auth"][typeof id]>,
+) {
+  const settings = defaultSettings();
+  settings.provider.id = id;
+  settings.provider.model = model;
+  settings.provider.authModeByProvider[id] = "oauth";
+  settings.provider.auth[id] = auth;
+  return settings;
 }

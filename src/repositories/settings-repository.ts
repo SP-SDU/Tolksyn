@@ -201,36 +201,39 @@ async function parsePersisted(
   secrets: SecretStore,
   catalog: ReturnType<typeof createProviderCatalog>,
 ): Promise<PersistedSettings | null> {
+  const raw = parseRawSettings(rawValue);
+  if (!raw) {
+    return null;
+  }
+
+  const id = raw.provider?.id ?? mapLegacyId(raw.provider?.kind);
+
+  await migrateLegacyApiSecret(secrets, id);
+
+  return migratedSettings(raw, id, catalog);
+}
+
+function parseRawSettings(rawValue: string | null): LegacyPersistedSettings | null {
   if (!rawValue) {
     return null;
   }
 
-  let raw: LegacyPersistedSettings;
   try {
-    raw = JSON.parse(rawValue) as LegacyPersistedSettings;
+    return JSON.parse(rawValue) as LegacyPersistedSettings;
   } catch {
     return null;
   }
+}
 
+function migratedSettings(
+  raw: LegacyPersistedSettings,
+  id: string,
+  catalog: ReturnType<typeof createProviderCatalog>,
+): PersistedSettings {
   const defaults = fromDefaults();
-  const id = raw.provider?.id ?? mapLegacyId(raw.provider?.kind);
-  const mode = raw.provider?.authModeByProvider?.[id] ?? catalog.authMode(id);
-  const migrated: PersistedSettings = {
-    provider: {
-      id,
-      model: raw.provider?.model ?? fallbackProviderModel(id),
-      modelVariant:
-        raw.provider?.modelVariant ?? defaults.provider.modelVariant,
-      timeoutMs: raw.provider?.timeoutMs ?? defaults.provider.timeoutMs,
-      showExperimentalProviders:
-        raw.provider?.showExperimentalProviders ??
-        defaults.provider.showExperimentalProviders,
-      authModeByProvider: {
-        ...defaults.provider.authModeByProvider,
-        ...(raw.provider?.authModeByProvider ?? {}),
-        [id]: mode,
-      },
-    },
+
+  return {
+    provider: migratedProvider(raw.provider, id, defaults, catalog),
     ingest: {
       endpointUrl: raw.ingest?.endpointUrl ?? defaults.ingest.endpointUrl,
     },
@@ -238,10 +241,29 @@ async function parsePersisted(
     webSearch: raw.webSearch ?? defaults.webSearch,
     reminders: raw.reminders,
   };
+}
 
-  await migrateLegacyApiSecret(secrets, id);
+function migratedProvider(
+  raw: LegacyProvider | undefined,
+  id: string,
+  defaults: PersistedSettings,
+  catalog: ReturnType<typeof createProviderCatalog>,
+): PersistedProvider {
+  const mode = raw?.authModeByProvider?.[id] ?? catalog.authMode(id);
 
-  return migrated;
+  return {
+    id,
+    model: raw?.model ?? fallbackProviderModel(id),
+    modelVariant: raw?.modelVariant ?? defaults.provider.modelVariant,
+    timeoutMs: raw?.timeoutMs ?? defaults.provider.timeoutMs,
+    showExperimentalProviders:
+      raw?.showExperimentalProviders ?? defaults.provider.showExperimentalProviders,
+    authModeByProvider: {
+      ...defaults.provider.authModeByProvider,
+      ...(raw?.authModeByProvider ?? {}),
+      [id]: mode,
+    },
+  };
 }
 
 /** Older installs stored a single API key, and migrate once so multi-provider auth keeps working. */

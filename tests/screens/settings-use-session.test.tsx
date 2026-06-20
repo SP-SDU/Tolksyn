@@ -1,12 +1,8 @@
 import { act, renderHook, waitFor } from "@testing-library/react-native";
 
 import { useSession } from "@/screens/settings/use-session";
+import { mockDeferredMount } from "@/tests/helpers/deferred-mount-mock";
 import { defaultSettings } from "@/types/settings";
-
-const mockDeferredMounts: Array<{
-  callback: () => void;
-  cancel: jest.Mock;
-}> = [];
 
 const mockRuntime = {
   settings: {
@@ -52,18 +48,18 @@ jest.mock("@/providers/toast-provider", () => ({
   useToast: () => mockToast,
 }));
 
-jest.mock("@/utils/idle", () => ({
-  scheduleDeferredMount: jest.fn((callback: () => void) => {
-    const cancel = jest.fn();
-    mockDeferredMounts.push({ callback, cancel });
-    return cancel;
-  }),
-}));
+jest.mock("@/utils/idle", () => {
+  const { mockDeferredMount } = jest.requireActual(
+    "@/tests/helpers/deferred-mount-mock",
+  );
+
+  return { scheduleDeferredMount: mockDeferredMount.scheduleDeferredMount };
+});
 
 describe("settings session", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockDeferredMounts.length = 0;
+    mockDeferredMount.mounts.length = 0;
     const settings = defaultSettings();
     mockRuntime.settings.getSettings.mockResolvedValue(settings);
     mockRuntime.providerCatalog.all.mockReturnValue(new Promise(() => {}));
@@ -112,20 +108,11 @@ describe("settings session", () => {
   });
 
   test("starts remote provider catalog refresh after deferred mount", async () => {
-    const { result } = renderHook(() => useSession(), {
-      concurrentRoot: false,
-    });
-
-    await waitFor(
-      () => {
-        expect(result.current.loading).toBe(false);
-      },
-      { timeout: 100 },
-    );
+    await renderLoadedSession();
 
     expect(mockRuntime.providerCatalog.all).not.toHaveBeenCalled();
     await act(async () => {
-      for (const mount of [...mockDeferredMounts]) {
+      for (const mount of [...mockDeferredMount.mounts]) {
         mount.callback();
       }
       await Promise.resolve();
@@ -135,23 +122,14 @@ describe("settings session", () => {
   });
 
   test("does not touch async provider catalog APIs before first settings paint", async () => {
-    const { result } = renderHook(() => useSession(), {
-      concurrentRoot: false,
-    });
-
-    await waitFor(
-      () => {
-        expect(result.current.loading).toBe(false);
-      },
-      { timeout: 100 },
-    );
+    await renderLoadedSession();
 
     expect(mockRuntime.providerCatalog.fallbackSnapshot).toHaveBeenCalled();
     expect(mockRuntime.providerCatalog.snapshot).not.toHaveBeenCalled();
     expect(mockRuntime.providerCatalog.all).not.toHaveBeenCalled();
     expect(mockRuntime.providerCatalog.modelOptions).not.toHaveBeenCalled();
     expect(mockRuntime.providerCatalog.thinkingLevels).not.toHaveBeenCalled();
-    expect(mockDeferredMounts.length).toBeGreaterThan(0);
+    expect(mockDeferredMount.mounts.length).toBeGreaterThan(0);
   });
 
   test("does not schedule catalog work while settings are still loading", () => {
@@ -163,23 +141,14 @@ describe("settings session", () => {
 
     expect(result.current.loading).toBe(true);
     expect(mockRuntime.providerCatalog.fallbackSnapshot).toHaveBeenCalled();
-    expect(mockDeferredMounts).toHaveLength(0);
+    expect(mockDeferredMount.mounts).toHaveLength(0);
     expect(mockRuntime.providerCatalog.all).not.toHaveBeenCalled();
     expect(mockRuntime.providerCatalog.modelOptions).not.toHaveBeenCalled();
     expect(mockRuntime.providerCatalog.thinkingLevels).not.toHaveBeenCalled();
   });
 
   test("allows applying websearch changes before OAuth is connected", async () => {
-    const { result } = renderHook(() => useSession(), {
-      concurrentRoot: false,
-    });
-
-    await waitFor(
-      () => {
-        expect(result.current.loading).toBe(false);
-      },
-      { timeout: 100 },
-    );
+    const { result } = await renderLoadedSession();
 
     act(() => {
       result.current.updateDraft((next) => {
@@ -187,9 +156,7 @@ describe("settings session", () => {
       });
     });
 
-    expect(result.current.dirty).toBe(true);
-    expect(result.current.valid).toBe(true);
-    expect(result.current.applyHint).toBeNull();
+    expectApplyAllowed(result);
   });
 
   test("allows applying reminder changes before API key is configured", async () => {
@@ -199,16 +166,7 @@ describe("settings session", () => {
     mockRuntime.providerCatalog.authMethods.mockReturnValue(["api"]);
     mockRuntime.providerCatalog.authMode.mockReturnValue("api");
 
-    const { result } = renderHook(() => useSession(), {
-      concurrentRoot: false,
-    });
-
-    await waitFor(
-      () => {
-        expect(result.current.loading).toBe(false);
-      },
-      { timeout: 100 },
-    );
+    const { result } = await renderLoadedSession();
 
     act(() => {
       result.current.updateDraft((next) => {
@@ -216,22 +174,11 @@ describe("settings session", () => {
       });
     });
 
-    expect(result.current.dirty).toBe(true);
-    expect(result.current.valid).toBe(true);
-    expect(result.current.applyHint).toBeNull();
+    expectApplyAllowed(result);
   });
 
   test("keeps blank ingest endpoint as an apply blocker", async () => {
-    const { result } = renderHook(() => useSession(), {
-      concurrentRoot: false,
-    });
-
-    await waitFor(
-      () => {
-        expect(result.current.loading).toBe(false);
-      },
-      { timeout: 100 },
-    );
+    const { result } = await renderLoadedSession();
 
     act(() => {
       result.current.updateDraft((next) => {
@@ -244,3 +191,26 @@ describe("settings session", () => {
     expect(result.current.applyHint).toBe("Ingest endpoint is required.");
   });
 });
+
+async function renderLoadedSession() {
+  const hook = renderHook(() => useSession(), {
+    concurrentRoot: false,
+  });
+
+  await waitFor(
+    () => {
+      expect(hook.result.current.loading).toBe(false);
+    },
+    { timeout: 100 },
+  );
+
+  return hook;
+}
+
+function expectApplyAllowed(
+  result: Awaited<ReturnType<typeof renderLoadedSession>>["result"],
+) {
+  expect(result.current.dirty).toBe(true);
+  expect(result.current.valid).toBe(true);
+  expect(result.current.applyHint).toBeNull();
+}

@@ -71,19 +71,7 @@ describe("extractWithRetries", () => {
   });
 
   test("uses caller provided prompt for the first attempt and repair prompt base", async () => {
-    const extract = jest
-      .fn()
-      .mockRejectedValueOnce(new AppError("schema_violation", "bad json"))
-      .mockResolvedValueOnce({
-        structuredJson: emptyStructuredItem(),
-        barcodes: [],
-        metadata: {
-          provider: "remote_openai_compatible",
-          durationMs: 1,
-          imageWidth: 100,
-          imageHeight: 100,
-        },
-      });
+    const extract = retryingExtract(new AppError("schema_violation", "bad json"));
 
     await extractWithRetries({
       fallbackProvider: "remote_openai_compatible",
@@ -109,30 +97,14 @@ describe("extractWithRetries", () => {
   });
 
   test("includes structured field error details in repair prompt", async () => {
-    const extract = jest
-      .fn()
-      .mockRejectedValueOnce(
-        new AppError(
-          "schema_violation",
-          "Provider JSON failed schema validation.",
-          {
-            fieldErrors: {
-              quantity: ["Expected a number"],
-              link: ["Expected a valid URL"],
-            },
-          },
-        ),
-      )
-      .mockResolvedValueOnce({
-        structuredJson: emptyStructuredItem(),
-        barcodes: [],
-        metadata: {
-          provider: "remote_openai_compatible",
-          durationMs: 1,
-          imageWidth: 100,
-          imageHeight: 100,
+    const extract = retryingExtract(
+      new AppError("schema_violation", "Provider JSON failed schema validation.", {
+        fieldErrors: {
+          quantity: ["Expected a number"],
+          link: ["Expected a valid URL"],
         },
-      });
+      }),
+    );
 
     await extractWithRetries({
       fallbackProvider: "remote_openai_compatible",
@@ -160,54 +132,12 @@ describe("extractWithRetries", () => {
   test.each(["invalid_response", "internal", "extraction_fallback"] as const)(
     "retries %s provider errors",
     async (code) => {
-      const extract = jest
-        .fn()
-        .mockRejectedValueOnce(new AppError(code, code))
-        .mockResolvedValueOnce({
-          structuredJson: emptyStructuredItem(),
-          barcodes: [],
-          metadata: {
-            provider: "remote_openai_compatible",
-            durationMs: 1,
-            imageWidth: 100,
-            imageHeight: 100,
-          },
-        });
-
-      const result = await extractWithRetries({
-        fallbackProvider: "remote_openai_compatible",
-        input: remoteInput(),
-        extract,
-      });
-
-      expect(extract).toHaveBeenCalledTimes(2);
-      expect(result.extractionDiagnostics?.failed).toBe(false);
+      await expectSuccessfulRetry(retryingExtract(new AppError(code, code)));
     },
   );
 
   test("treats raw provider errors as retryable internal errors", async () => {
-    const extract = jest
-      .fn()
-      .mockRejectedValueOnce(new Error("raw failure"))
-      .mockResolvedValueOnce({
-        structuredJson: emptyStructuredItem(),
-        barcodes: [],
-        metadata: {
-          provider: "remote_openai_compatible",
-          durationMs: 1,
-          imageWidth: 100,
-          imageHeight: 100,
-        },
-      });
-
-    const result = await extractWithRetries({
-      fallbackProvider: "remote_openai_compatible",
-      input: remoteInput(),
-      extract,
-    });
-
-    expect(extract).toHaveBeenCalledTimes(2);
-    expect(result.extractionDiagnostics?.failed).toBe(false);
+    await expectSuccessfulRetry(retryingExtract(new Error("raw failure")));
   });
 
   test("does not retry non-retryable provider errors", async () => {
@@ -295,26 +225,10 @@ describe("extractWithRetries", () => {
     const controller = new AbortController();
     const extract = jest.fn().mockImplementation(async () => {
       controller.abort();
-      return {
-        structuredJson: emptyStructuredItem(),
-        barcodes: [],
-        metadata: {
-          provider: "remote_openai_compatible",
-          durationMs: 1,
-          imageWidth: 100,
-          imageHeight: 100,
-        },
-      };
+      return remoteSuccess();
     });
 
-    await expect(
-      extractWithRetries({
-        fallbackProvider: "remote_openai_compatible",
-        input: { ...remoteInput(), signal: controller.signal },
-        extract,
-      }),
-    ).rejects.toMatchObject({ name: "AbortError" });
-    expect(extract).toHaveBeenCalledTimes(1);
+    await expectAbortWithSignal(controller, extract, 1);
   });
 
   test("throws abort instead of fallback when final provider attempt aborts", async () => {
@@ -327,37 +241,18 @@ describe("extractWithRetries", () => {
       throw new AppError("schema_violation", "late provider error");
     });
 
-    await expect(
-      extractWithRetries({
-        fallbackProvider: "remote_openai_compatible",
-        input: { ...remoteInput(), signal: controller.signal },
-        extract,
-      }),
-    ).rejects.toMatchObject({ name: "AbortError" });
-    expect(extract).toHaveBeenCalledTimes(3);
+    await expectAbortWithSignal(controller, extract, 3);
   });
 
   test("omits validation details when field errors are empty or malformed", async () => {
-    const extract = jest
-      .fn()
-      .mockRejectedValueOnce(
-        new AppError("schema_violation", "bad json", {
-          fieldErrors: {
-            quantity: [],
-            link: "not-array",
-          },
-        }),
-      )
-      .mockResolvedValueOnce({
-        structuredJson: emptyStructuredItem(),
-        barcodes: [],
-        metadata: {
-          provider: "remote_openai_compatible",
-          durationMs: 1,
-          imageWidth: 100,
-          imageHeight: 100,
+    const extract = retryingExtract(
+      new AppError("schema_violation", "bad json", {
+        fieldErrors: {
+          quantity: [],
+          link: "not-array",
         },
-      });
+      }),
+    );
 
     await extractWithRetries({
       fallbackProvider: "remote_openai_compatible",
@@ -373,26 +268,14 @@ describe("extractWithRetries", () => {
   });
 
   test("formats multiple validation messages and fields in repair prompt", async () => {
-    const extract = jest
-      .fn()
-      .mockRejectedValueOnce(
-        new AppError("schema_violation", "bad json", {
-          fieldErrors: {
-            quantity: ["Expected a number", "Must be positive"],
-            priceEur: ["Expected a number"],
-          },
-        }),
-      )
-      .mockResolvedValueOnce({
-        structuredJson: emptyStructuredItem(),
-        barcodes: [],
-        metadata: {
-          provider: "remote_openai_compatible",
-          durationMs: 1,
-          imageWidth: 100,
-          imageHeight: 100,
+    const extract = retryingExtract(
+      new AppError("schema_violation", "bad json", {
+        fieldErrors: {
+          quantity: ["Expected a number", "Must be positive"],
+          priceEur: ["Expected a number"],
         },
-      });
+      }),
+    );
 
     await extractWithRetries({
       fallbackProvider: "remote_openai_compatible",
@@ -412,30 +295,8 @@ describe("extractWithRetries", () => {
   test.each([undefined, null, [], { fieldErrors: null }, { fieldErrors: [] }])(
     "omits validation details for invalid cause %#",
     async (cause) => {
-      const extract = jest
-        .fn()
-        .mockRejectedValueOnce(
-          new AppError("schema_violation", "bad json", cause),
-        )
-        .mockResolvedValueOnce({
-          structuredJson: emptyStructuredItem(),
-          barcodes: [],
-          metadata: {
-            provider: "remote_openai_compatible",
-            durationMs: 1,
-            imageWidth: 100,
-            imageHeight: 100,
-          },
-        });
-
-      await extractWithRetries({
-        fallbackProvider: "remote_openai_compatible",
-        input: remoteInput(),
-        extract,
-      });
-
-      expect(extract.mock.calls[1][0].prompt).not.toContain(
-        "Validation details:",
+      await expectValidationDetailsOmitted(
+        new AppError("schema_violation", "bad json", cause),
       );
     },
   );
@@ -443,29 +304,7 @@ describe("extractWithRetries", () => {
   test("omits validation details from raw errors even when cause has field errors", async () => {
     const rawError = new Error("raw failure") as Error & { cause?: unknown };
     rawError.cause = { fieldErrors: { quantity: ["Expected a number"] } };
-    const extract = jest
-      .fn()
-      .mockRejectedValueOnce(rawError)
-      .mockResolvedValueOnce({
-        structuredJson: emptyStructuredItem(),
-        barcodes: [],
-        metadata: {
-          provider: "remote_openai_compatible",
-          durationMs: 1,
-          imageWidth: 100,
-          imageHeight: 100,
-        },
-      });
-
-    await extractWithRetries({
-      fallbackProvider: "remote_openai_compatible",
-      input: remoteInput(),
-      extract,
-    });
-
-    expect(extract.mock.calls[1][0].prompt).not.toContain(
-      "Validation details:",
-    );
+    await expectValidationDetailsOmitted(rawError);
   });
 
   test("omits validation details from array-shaped causes", async () => {
@@ -473,60 +312,16 @@ describe("extractWithRetries", () => {
       fieldErrors?: Record<string, string[]>;
     };
     cause.fieldErrors = { quantity: ["Expected a number"] };
-    const extract = jest
-      .fn()
-      .mockRejectedValueOnce(
-        new AppError("schema_violation", "bad json", cause),
-      )
-      .mockResolvedValueOnce({
-        structuredJson: emptyStructuredItem(),
-        barcodes: [],
-        metadata: {
-          provider: "remote_openai_compatible",
-          durationMs: 1,
-          imageWidth: 100,
-          imageHeight: 100,
-        },
-      });
-
-    await extractWithRetries({
-      fallbackProvider: "remote_openai_compatible",
-      input: remoteInput(),
-      extract,
-    });
-
-    expect(extract.mock.calls[1][0].prompt).not.toContain(
-      "Validation details:",
+    await expectValidationDetailsOmitted(
+      new AppError("schema_violation", "bad json", cause),
     );
   });
 
   test("omits validation details from array fieldErrors", async () => {
-    const extract = jest
-      .fn()
-      .mockRejectedValueOnce(
-        new AppError("schema_violation", "bad json", {
-          fieldErrors: [["Expected a number"]],
-        }),
-      )
-      .mockResolvedValueOnce({
-        structuredJson: emptyStructuredItem(),
-        barcodes: [],
-        metadata: {
-          provider: "remote_openai_compatible",
-          durationMs: 1,
-          imageWidth: 100,
-          imageHeight: 100,
-        },
-      });
-
-    await extractWithRetries({
-      fallbackProvider: "remote_openai_compatible",
-      input: remoteInput(),
-      extract,
-    });
-
-    expect(extract.mock.calls[1][0].prompt).not.toContain(
-      "Validation details:",
+    await expectValidationDetailsOmitted(
+      new AppError("schema_violation", "bad json", {
+        fieldErrors: [["Expected a number"]],
+      }),
     );
   });
 
@@ -535,30 +330,8 @@ describe("extractWithRetries", () => {
       quantity?: string[];
     };
     fieldErrors.quantity = ["Expected a number"];
-    const extract = jest
-      .fn()
-      .mockRejectedValueOnce(
-        new AppError("schema_violation", "bad json", { fieldErrors }),
-      )
-      .mockResolvedValueOnce({
-        structuredJson: emptyStructuredItem(),
-        barcodes: [],
-        metadata: {
-          provider: "remote_openai_compatible",
-          durationMs: 1,
-          imageWidth: 100,
-          imageHeight: 100,
-        },
-      });
-
-    await extractWithRetries({
-      fallbackProvider: "remote_openai_compatible",
-      input: remoteInput(),
-      extract,
-    });
-
-    expect(extract.mock.calls[1][0].prompt).not.toContain(
-      "Validation details:",
+    await expectValidationDetailsOmitted(
+      new AppError("schema_violation", "bad json", { fieldErrors }),
     );
   });
 
@@ -569,14 +342,7 @@ describe("extractWithRetries", () => {
       throw new AppError("schema_violation", "late provider error");
     });
 
-    await expect(
-      extractWithRetries({
-        fallbackProvider: "remote_openai_compatible",
-        input: { ...remoteInput(), signal: controller.signal },
-        extract,
-      }),
-    ).rejects.toMatchObject({ name: "AbortError" });
-    expect(extract).toHaveBeenCalledTimes(1);
+    await expectAbortWithSignal(controller, extract, 1);
   });
 });
 
@@ -594,4 +360,59 @@ function remoteInput() {
     ],
     timeoutMs: 5000,
   };
+}
+
+function remoteSuccess() {
+  return {
+    structuredJson: emptyStructuredItem(),
+    barcodes: [],
+    metadata: {
+      provider: "remote_openai_compatible",
+      durationMs: 1,
+      imageWidth: 100,
+      imageHeight: 100,
+    },
+  };
+}
+
+function retryingExtract(error: unknown) {
+  return jest.fn().mockRejectedValueOnce(error).mockResolvedValueOnce(remoteSuccess());
+}
+
+async function runRemoteRetry(extract: jest.Mock) {
+  return extractWithRetries({
+    fallbackProvider: "remote_openai_compatible",
+    input: remoteInput(),
+    extract,
+  });
+}
+
+async function expectSuccessfulRetry(extract: jest.Mock) {
+  const result = await runRemoteRetry(extract);
+
+  expect(extract).toHaveBeenCalledTimes(2);
+  expect(result.extractionDiagnostics?.failed).toBe(false);
+}
+
+async function expectValidationDetailsOmitted(error: unknown) {
+  const extract = retryingExtract(error);
+
+  await runRemoteRetry(extract);
+
+  expect(extract.mock.calls[1][0].prompt).not.toContain("Validation details:");
+}
+
+async function expectAbortWithSignal(
+  controller: AbortController,
+  extract: jest.Mock,
+  callCount: number,
+) {
+  await expect(
+    extractWithRetries({
+      fallbackProvider: "remote_openai_compatible",
+      input: { ...remoteInput(), signal: controller.signal },
+      extract,
+    }),
+  ).rejects.toMatchObject({ name: "AbortError" });
+  expect(extract).toHaveBeenCalledTimes(callCount);
 }

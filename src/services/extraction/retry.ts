@@ -64,7 +64,6 @@ export async function extractWithRetries({
 
       const code = error instanceof AppError ? error.code : "internal";
       const message = providerErrorMessage(error);
-      const repairDetails = buildRepairErrorDetails(error);
       attempts.push({
         attempt: index,
         prompt,
@@ -72,22 +71,7 @@ export async function extractWithRetries({
       });
 
       if (!isRetryable(code) || index >= RuntimeLimits.maxExtractionAttempts) {
-        return {
-          structuredJson: emptyStructuredItem(),
-          barcodes: [],
-          metadata: {
-            provider: fallbackProvider,
-            durationMs: 1,
-            imageWidth: input.images[0]?.width ?? 0,
-            imageHeight: input.images[0]?.height ?? 0,
-          },
-          extractionDiagnostics: {
-            failed: true,
-            finalError: message,
-            fallbackStructuredJson: true,
-            attempts,
-          },
-        };
+        return fallbackResult(fallbackProvider, input, attempts, message);
       }
 
       lastError = message;
@@ -95,23 +79,37 @@ export async function extractWithRetries({
         basePrompt,
         attempt: index + 1,
         error: lastError,
-        details: repairDetails,
+        details: buildRepairErrorDetails(error),
       });
     }
   }
 
+  return fallbackResult(
+    fallbackProvider,
+    input,
+    attempts,
+    lastError || "Extraction failed.",
+  );
+}
+
+function fallbackResult(
+  provider: RemoteExtractionProvider,
+  input: RemoteExtractionInput,
+  attempts: ExtractionPromptAttempt[],
+  finalError: string,
+): RemoteExtractionResult {
   return {
     structuredJson: emptyStructuredItem(),
     barcodes: [],
     metadata: {
-      provider: fallbackProvider,
+      provider,
       durationMs: 1,
       imageWidth: input.images[0]?.width ?? 0,
       imageHeight: input.images[0]?.height ?? 0,
     },
     extractionDiagnostics: {
       failed: true,
-      finalError: lastError || "Extraction failed.",
+      finalError,
       fallbackStructuredJson: true,
       attempts,
     },
