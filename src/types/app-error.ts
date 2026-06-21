@@ -23,10 +23,6 @@ export class AppError extends Error {
 }
 
 export function getErrorMessage(error: unknown, fallback: string): string {
-  if (error instanceof AppError && error.message.trim().length > 0) {
-    return error.message;
-  }
-
   if (error instanceof Error && error.message.trim().length > 0) {
     return error.message;
   }
@@ -73,16 +69,14 @@ async function providerErrorDetail(
   try {
     const text = await response.text();
     if (!text.trim()) {
-      return { normalized: "", message: null };
+      return emptyProviderErrorDetail();
     }
 
     let message = text.trim();
     try {
       const parsed = JSON.parse(text) as unknown;
       const extracted = extractProviderErrorMessage(parsed);
-      if (extracted) {
-        message = extracted;
-      }
+      message = extracted ?? message;
     } catch {}
 
     const truncated = message.slice(0, 400);
@@ -91,8 +85,12 @@ async function providerErrorDetail(
       message: truncated,
     };
   } catch {
-    return { normalized: "", message: null };
+    return emptyProviderErrorDetail();
   }
+}
+
+function emptyProviderErrorDetail(): { normalized: string; message: null } {
+  return { normalized: String(), message: null };
 }
 
 function extractProviderErrorMessage(input: unknown): string | undefined {
@@ -101,11 +99,7 @@ function extractProviderErrorMessage(input: unknown): string | undefined {
     return value.length ? value : undefined;
   }
 
-  if (!input || typeof input !== "object") {
-    return undefined;
-  }
-
-  const record = input as Record<string, unknown>;
+  const record = Object(input) as Record<string, unknown>;
   const direct =
     (typeof record.message === "string" && record.message.trim()) ||
     (typeof record.error_description === "string" &&
@@ -115,9 +109,6 @@ function extractProviderErrorMessage(input: unknown): string | undefined {
     return direct;
   }
 
-  if (record.error) {
-    return extractProviderErrorMessage(record.error);
-  }
-
-  return undefined;
+  const nested = record.error;
+  return nested === undefined ? undefined : extractProviderErrorMessage(nested);
 }

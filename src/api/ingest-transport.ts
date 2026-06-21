@@ -66,13 +66,7 @@ export function createIngestTransport(settingsRepository: {
           return { kind: "permanent_error", errorCode: error.code };
         }
 
-        if (
-          (error instanceof Error && error.name === "AbortError") ||
-          (typeof error === "object" &&
-            error !== null &&
-            "name" in error &&
-            error.name === "AbortError")
-        ) {
+        if (isAbortError(error)) {
           return { kind: "retryable_error", errorCode: "timeout" };
         }
 
@@ -108,4 +102,13 @@ function mapPermanentStatus(
 
 function isRetryableHttpStatus(status: number): boolean {
   return status === 408 || status === 429 || status >= 500;
+}
+
+function isAbortError(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "name" in error &&
+    error.name === "AbortError"
+  );
 }
