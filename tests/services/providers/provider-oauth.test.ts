@@ -1,3 +1,5 @@
+import { GitHubCopilotOAuthError } from "github-copilot-oauth";
+
 import { createProviderOAuth } from "@/services/providers/provider-oauth";
 
 describe("provider oauth", () => {
@@ -60,6 +62,47 @@ describe("provider oauth", () => {
     expect(sleep).toHaveBeenCalled();
   });
 
+  test("openai oauth uses empty refresh token when response omits refresh token", async () => {
+    const fetch = jest
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          device_auth_id: "device-id",
+          user_code: "OPENAI-CODE",
+          interval: "1",
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          authorization_code: "auth-code",
+          code_verifier: "code-verifier",
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          access_token: "access-token",
+        }),
+      });
+    const oauth = createProviderOAuth({
+      fetch: fetch as any,
+      now: () => 1_000,
+      sleep: jest.fn().mockResolvedValue(undefined),
+    });
+
+    const flow = await oauth.start("openai");
+
+    await expect(flow.complete()).resolves.toEqual({
+      type: "oauth",
+      refresh: "",
+      access: "access-token",
+      expires: 3_601_000,
+      accountId: undefined,
+    });
+  });
+
   test("completes github-copilot device flow and returns oauth credentials", async () => {
     // 3 fetches: device code, poll (pending), token (completed)
     const fetch = jest
@@ -99,7 +142,54 @@ describe("provider oauth", () => {
       access: "copilot-token",
       expires: 0,
     });
+    expect(fetch).toHaveBeenNthCalledWith(
+      1,
+      "https://github.com/login/device/code",
+      expect.objectContaining({ method: "POST" }),
+    );
+    expect(fetch).toHaveBeenNthCalledWith(
+      3,
+      "https://github.com/login/oauth/access_token",
+      expect.objectContaining({ method: "POST" }),
+    );
     expect(sleep).toHaveBeenCalled();
+  });
+
+  test("uses direct github oauth endpoints when window is unavailable", async () => {
+    const fetch = jest
+      .fn()
+      .mockResolvedValueOnce(githubDeviceCodeResponse())
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          access_token: "copilot-token",
+        }),
+      });
+    const originalWindow = (globalThis as { window?: unknown }).window;
+    delete (globalThis as { window?: unknown }).window;
+
+    try {
+      const oauth = createProviderOAuth({
+        fetch: fetch as any,
+        now: () => 2_000,
+        sleep: jest.fn().mockResolvedValue(undefined),
+      });
+      const flow = await oauth.start("github-copilot");
+      await flow.complete();
+
+      expect(fetch).toHaveBeenNthCalledWith(
+        1,
+        "https://github.com/login/device/code",
+        expect.objectContaining({ method: "POST" }),
+      );
+      expect(fetch).toHaveBeenNthCalledWith(
+        2,
+        "https://github.com/login/oauth/access_token",
+        expect.objectContaining({ method: "POST" }),
+      );
+    } finally {
+      (globalThis as { window?: unknown }).window = originalWindow;
+    }
   });
 
   test("uses local web oauth proxy endpoints for github-copilot on web", async () => {
@@ -118,7 +208,7 @@ describe("provider oauth", () => {
     const originalPlatform = process.env.EXPO_OS;
     (globalThis as { window?: unknown }).window = {
       location: {
-        origin: "http://localhost:8081",
+        origin: "http://localhost:8081/",
       },
     };
     process.env.EXPO_OS = "web";
@@ -174,6 +264,78 @@ describe("provider oauth", () => {
       message: "Custom GitHub Enterprise hosts are not enabled.",
     });
     expect(fetch).not.toHaveBeenCalled();
+  });
+
+  test("rejects unsupported oauth providers", async () => {
+    const oauth = createProviderOAuth({
+      fetch: jest.fn() as any,
+      now: () => 2_000,
+      sleep: jest.fn().mockResolvedValue(undefined),
+    });
+
+    await expect(oauth.start("anthropic")).rejects.toMatchObject({
+      code: "unsupported",
+      message: 'OAuth is not supported for provider "anthropic".',
+    });
+  });
+
+  test("normalizes thrown errors to auth failed app errors", async () => {
+    const oauth = createProviderOAuth({
+      fetch: jest.fn().mockRejectedValue(new Error("network down")) as any,
+      now: () => 2_000,
+      sleep: jest.fn().mockResolvedValue(undefined),
+    });
+
+    await expect(oauth.start("github-copilot")).rejects.toMatchObject({
+      code: "auth_failed",
+      message: "network down",
+    });
+  });
+
+  test("does not trust unsupported code on plain thrown errors", async () => {
+    const error = Object.assign(new Error("plain unsupported"), {
+      code: "unsupported",
+    });
+    const oauth = createProviderOAuth({
+      fetch: jest.fn().mockRejectedValue(error) as any,
+      now: () => 2_000,
+      sleep: jest.fn().mockResolvedValue(undefined),
+    });
+
+    await expect(oauth.start("github-copilot")).rejects.toMatchObject({
+      code: "auth_failed",
+      message: "plain unsupported",
+    });
+  });
+
+  test("maps oauth package failures to auth failed unless explicitly unsupported", async () => {
+    const oauth = createProviderOAuth({
+      fetch: jest
+        .fn()
+        .mockRejectedValue(
+          new GitHubCopilotOAuthError("authorization_failed", "poll failed"),
+        ) as any,
+      now: () => 2_000,
+      sleep: jest.fn().mockResolvedValue(undefined),
+    });
+
+    await expect(oauth.start("github-copilot")).rejects.toMatchObject({
+      code: "auth_failed",
+      message: "poll failed",
+    });
+  });
+
+  test("normalizes unknown thrown values to generic oauth failure", async () => {
+    const oauth = createProviderOAuth({
+      fetch: jest.fn().mockRejectedValue(null) as any,
+      now: () => 2_000,
+      sleep: jest.fn().mockResolvedValue(undefined),
+    });
+
+    await expect(oauth.start("github-copilot")).rejects.toMatchObject({
+      code: "auth_failed",
+      message: "OAuth authorization failed.",
+    });
   });
 
   test("returns actionable error when web oauth proxy route is unavailable", async () => {

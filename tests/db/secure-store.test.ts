@@ -38,6 +38,47 @@ describe("secure secret store", () => {
     ).toBeNull();
     expect(localStorage.getItem("other.key")).toBe("keep-me");
   });
+
+  test("sets and deletes web secrets in localStorage", async () => {
+    const localStorage = setupWebSecureStore({});
+    const { secureSecretStore } = require("@/db/secure-store");
+
+    await secureSecretStore.setItem("tolksyn.secret.key", "secret");
+    expect(localStorage.getItem("tolksyn.secret.key")).toBe("secret");
+    expect(await secureSecretStore.getItem("tolksyn.secret.key")).toBe("secret");
+
+    await secureSecretStore.deleteItem("tolksyn.secret.key");
+    expect(localStorage.getItem("tolksyn.secret.key")).toBeNull();
+    expect(await secureSecretStore.getItem("tolksyn.secret.key")).toBeNull();
+  });
+
+  test("web store works without window using memory cache only", async () => {
+    setupWebSecureStore({});
+    delete (globalThis as { window?: unknown }).window;
+    const { secureSecretStore, clearWebKeys } = require("@/db/secure-store");
+
+    await secureSecretStore.setItem("tolksyn.secret.key", "secret");
+    expect(await secureSecretStore.getItem("tolksyn.secret.key")).toBe("secret");
+    await secureSecretStore.deleteItem("tolksyn.secret.key");
+    expect(await secureSecretStore.getItem("tolksyn.secret.key")).toBeNull();
+    await expect(clearWebKeys()).resolves.toBeUndefined();
+  });
+
+  test("native store delegates to expo secure store", async () => {
+    const secureStore = setupNativeSecureStore();
+    const { secureSecretStore, clearWebKeys } = require("@/db/secure-store");
+
+    secureStore.getItemAsync.mockResolvedValue("secret");
+
+    await expect(secureSecretStore.getItem("key")).resolves.toBe("secret");
+    await secureSecretStore.setItem("key", "value");
+    await secureSecretStore.deleteItem("key");
+    await expect(clearWebKeys()).resolves.toBeUndefined();
+
+    expect(secureStore.getItemAsync).toHaveBeenCalledWith("key");
+    expect(secureStore.setItemAsync).toHaveBeenCalledWith("key", "value");
+    expect(secureStore.deleteItemAsync).toHaveBeenCalledWith("key");
+  });
 });
 
 function setupWebSecureStore(seed: Record<string, string>) {
@@ -78,4 +119,20 @@ function setupWebSecureStore(seed: Record<string, string>) {
   }));
 
   return localStorage;
+}
+
+function setupNativeSecureStore() {
+  delete (globalThis as { window?: unknown }).window;
+  const secureStore = {
+    getItemAsync: jest.fn(),
+    setItemAsync: jest.fn(),
+    deleteItemAsync: jest.fn(),
+  };
+
+  jest.doMock("react-native", () => ({
+    Platform: { OS: "ios" },
+  }));
+  jest.doMock("expo-secure-store", () => secureStore);
+
+  return secureStore;
 }

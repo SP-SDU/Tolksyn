@@ -2,7 +2,6 @@ import {
   copilotBase,
   copilotModelHeaders,
   exchangeGitHubCopilotToken,
-  normalizeEnterpriseDomain,
 } from "github-copilot-oauth";
 import { Platform } from "react-native";
 
@@ -541,7 +540,7 @@ export function createProviderCatalog({
     try {
       return await request;
     } finally {
-      if (inflight === request) inflight = null;
+      inflight = null;
     }
   }
 
@@ -628,22 +627,15 @@ async function copilotModelsRequest(
   refreshToken: string,
   enterpriseUrl?: string,
 ): Promise<{ url: string; headers: Record<string, string> }> {
-  const domain = normalizeEnterpriseDomain(enterpriseUrl);
   if (
     typeof window !== "undefined" &&
     typeof window.location?.origin === "string"
   ) {
     const origin = window.location.origin.replace(/\/$/, "");
-    const url = new URL(`${origin}/api/proxy/github-copilot/models`);
-    if (domain) {
-      url.searchParams.set("enterpriseUrl", domain);
-    }
-
     return {
-      url: url.toString(),
+      url: `${origin}/api/proxy/github-copilot/models`,
       headers: {
         authorization: `Bearer ${refreshToken}`,
-        ...(domain ? { "x-copilot-enterprise-url": domain } : {}),
       },
     };
   }

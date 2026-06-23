@@ -11,6 +11,7 @@ describe("importFromGallery", () => {
       }),
     ).rejects.toMatchObject({
       code: "permission_denied",
+      message: "Media library permission denied by user.",
     } satisfies Partial<AppError>);
   });
 
@@ -24,15 +25,15 @@ describe("importFromGallery", () => {
     expect(result).toBeNull();
   });
 
-  test("returns selected image uri", async () => {
+  test("returns selected image uris", async () => {
     const result = await importFromGallery({
       requestPermission: async () => ({ granted: true }),
       launchPicker: async () => ({
         canceled: false,
-        assets: [{ uri: "file://picked.jpg" }],
+        assets: [{ uri: "file://picked.jpg" }, { uri: "file://second.jpg" }],
       }),
     });
 
-    expect(result).toEqual(["file://picked.jpg"]);
+    expect(result).toEqual(["file://picked.jpg", "file://second.jpg"]);
   });
 });

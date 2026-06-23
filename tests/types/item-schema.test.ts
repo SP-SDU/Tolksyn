@@ -10,8 +10,10 @@ describe("item schema", () => {
       ...emptyStructuredItem(),
       manufacturer: "  Siemens  ",
       quantity: "2",
-      batchSize: "",
+      batchSize: "   ",
       priceEur: "123.45",
+      weightKg: Number.POSITIVE_INFINITY,
+      heightMm: " 42 ",
       link: " https://example.com/item ",
       externalNote: " ",
     });
@@ -21,8 +23,30 @@ describe("item schema", () => {
     expect(normalized.quantity).toBe(2);
     expect(normalized.batchSize).toBeNull();
     expect(normalized.priceEur).toBe(123.45);
+    expect(normalized.weightKg).toBe("Infinity");
+    expect(normalized.heightMm).toBe(42);
     expect(normalized.link).toBe("https://example.com/item");
     expect(normalized.externalNote).toBeNull();
+  });
+
+  test("validates normalized complete structured item", () => {
+    const result = validateStructuredItem({
+      manufacturer: "  Siemens  ",
+      quantity: "2",
+      link: " https://example.com/item ",
+    });
+
+    expect(result.success).toBe(true);
+    if (!result.success) {
+      throw new Error("expected validation to pass");
+    }
+
+    expect(result.data).toEqual({
+      ...emptyStructuredItem(),
+      manufacturer: "Siemens",
+      quantity: 2,
+      link: "https://example.com/item",
+    });
   });
 
   test("reports schema violations for invalid URLs and numbers", () => {
@@ -40,5 +64,7 @@ describe("item schema", () => {
 
     expect(result.error.fieldErrors.quantity).toContain("Expected a number");
     expect(result.error.fieldErrors.link).toContain("Expected a valid URL");
+    expect(result.error.fieldErrors.batchSize).toBeUndefined();
+    expect(result.error.fieldErrors.link).toEqual(["Expected a valid URL"]);
   });
 });

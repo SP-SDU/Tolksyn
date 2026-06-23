@@ -101,9 +101,11 @@ describe("createSubmissionService", () => {
     });
     expect(enqueue).toHaveBeenCalledWith(
       expect.objectContaining({
+        id: "attempt-1:2",
         attemptId: "attempt-1",
         acceptedRevision: 2,
         idempotencyKey: "idempotency-key",
+        enqueuedAt: 10,
       }),
     );
     expect(markQueued).toHaveBeenCalledWith("attempt-1", 2);
@@ -210,4 +212,62 @@ describe("createSubmissionService", () => {
     } satisfies Partial<AppError>);
     expect(markFailed).toHaveBeenCalledWith("attempt-1", "auth_failed");
   });
+
+  test.each([
+    ["invalid_response", "Submission was rejected by the ingest endpoint."],
+    [
+      "unsupported",
+      "Submission is not supported by the configured ingest endpoint.",
+    ],
+    ["rate_limited", "Unable to submit this attempt."],
+  ] as const)(
+    "maps permanent %s transport failure to user-facing app error",
+    async (errorCode, message) => {
+      const service = createSubmissionService({
+        attempts: {
+          markSent: jest.fn(),
+          markQueued: jest.fn(),
+          markFailed: jest.fn(),
+        },
+        queue: {
+          enqueue: jest.fn(),
+        },
+        transport: {
+          submit: jest.fn().mockResolvedValue({
+            kind: "permanent_error",
+            errorCode,
+          }),
+        },
+        network: {
+          isOnline: async () => true,
+        },
+        createIdempotencyKey: async () => "idempotency-key",
+        now: () => 10,
+      });
+
+      await expect(
+        service.acceptAttempt({
+          attemptId: "attempt-1",
+          acceptedRevision: 5,
+          payload: payload(5),
+        }),
+      ).rejects.toMatchObject({ code: errorCode, message });
+    },
+  );
 });
+
+function payload(acceptedRevision: number) {
+  return {
+    schemaVersion: "tolksyn.item.v1" as const,
+    attemptId: "attempt-1",
+    acceptedRevision,
+    structuredJson: emptyStructuredItem(),
+    barcodeEnrichment: {
+      detected: [],
+      primary: null,
+      relatedFieldSuggestions: { eanOrUpc: null },
+      conflicts: [],
+    },
+    metadata: { source: "camera" as const },
+  };
+}

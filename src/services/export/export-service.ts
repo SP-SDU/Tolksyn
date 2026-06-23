@@ -4,7 +4,7 @@ import {
 } from "@/services/export/export-serialization";
 import type { StructuredItem } from "@/types/item-schema";
 import { Directory, File, Paths } from "expo-file-system";
-import * as Sharing from "expo-sharing";
+import { isAvailableAsync, shareAsync } from "expo-sharing";
 import { Platform } from "react-native";
 import type { SubmissionPayload } from "@/types/submission";
 
@@ -49,9 +49,9 @@ async function exportFile(
   const file = new File(exportsDir, filename) as any;
   file.write(content);
 
-  const isSharingAvailable = await Sharing.isAvailableAsync();
+  const isSharingAvailable = await isAvailableAsync();
   if (isSharingAvailable) {
-    await Sharing.shareAsync(file.uri, {
+    await shareAsync(file.uri, {
       mimeType,
       dialogTitle: "Export Tolksyn Data",
     });

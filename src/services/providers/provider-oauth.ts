@@ -63,7 +63,7 @@ export function createProviderOAuth({
             options?.enterpriseUrl,
           );
           const flow = await startGitHubCopilotDeviceFlow({
-            fetch: githubOAuthFetch(fetch, enterpriseUrl),
+            fetch: githubOAuthFetch(fetch),
             sleep,
             enterpriseUrl,
           });
@@ -96,9 +96,9 @@ export function createProviderOAuth({
   };
 }
 
-function githubOAuthFetch(fetch: FetchLike, enterpriseUrl?: string): FetchLike {
+function githubOAuthFetch(fetch: FetchLike): FetchLike {
   return async (input, init) => {
-    const proxied = githubProxyUrl(input, enterpriseUrl);
+    const proxied = githubProxyUrl(input);
     const response = await fetch(proxied ?? input, init);
     if (proxied && response.status === 404) {
       throw oauthProxyUnavailableError();
@@ -110,30 +110,23 @@ function githubOAuthFetch(fetch: FetchLike, enterpriseUrl?: string): FetchLike {
 
 function githubProxyUrl(
   input: Parameters<FetchLike>[0],
-  enterpriseUrl?: string,
 ): string | undefined {
-  if (
-    typeof window === "undefined" ||
-    typeof window.location?.origin !== "string"
-  ) {
+  const originValue = globalThis.window?.location?.origin;
+  if (typeof originValue !== "string") {
     return undefined;
   }
 
   const value = input instanceof Request ? input.url : String(input);
-  const origin = window.location.origin.replace(/\/$/, "");
-  const suffix = enterpriseUrl
-    ? `?enterpriseUrl=${encodeURIComponent(enterpriseUrl)}`
-    : "";
+  const origin = originValue.replace(/\/$/, "");
   // Browser CORS blocks direct GitHub device endpoints, so same-origin API routes forward them.
-  if (value.endsWith("/login/device/code")) {
-    return `${origin}/api/oauth/github-copilot/device/code${suffix}`;
+  switch (value) {
+    case "https://github.com/login/device/code":
+      return `${origin}/api/oauth/github-copilot/device/code`;
+    case "https://github.com/login/oauth/access_token":
+      return `${origin}/api/oauth/github-copilot/device/token`;
+    default:
+      return undefined;
   }
-
-  if (value.endsWith("/login/oauth/access_token")) {
-    return `${origin}/api/oauth/github-copilot/device/token${suffix}`;
-  }
-
-  return undefined;
 }
 
 function normalizeOAuthError(error: unknown): AppError {
