@@ -3,7 +3,7 @@ import React from "react";
 
 import { HapticTab } from "@/components/haptic-tab";
 import { IconSymbol } from "@/components/ui/icon-symbol";
-import { AppDesign } from "@/constants/design";
+import { AppDesign } from "@/constants/theme";
 
 export default function TabLayout() {
   return (
@@ -22,7 +22,7 @@ export default function TabLayout() {
           borderTopWidth: AppDesign.border.solid,
         },
         headerShown: false,
-        // Light haptic on iOS confirms tab switches during fast capture workflows.
+        lazy: true,
         tabBarButton: HapticTab,
       }}
     >

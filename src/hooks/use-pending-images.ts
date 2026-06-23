@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 
-export type PendingImage = {
+type PendingImage = {
   id: string;
   uri: string;
   source: "camera" | "gallery";

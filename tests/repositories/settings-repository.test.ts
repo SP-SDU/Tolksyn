@@ -5,26 +5,35 @@ import { drizzle } from "drizzle-orm/better-sqlite3";
 import * as schema from "@/db/schema";
 import { createSettingsRepository } from "@/repositories/settings-repository";
 
+import { createSecretStore } from "@/tests/helpers/fakes";
+
 describe("settings repository", () => {
   test("defaults manufacturer web search to disabled", async () => {
-    // Arrange
     const repo = createSettingsRepository({
       db: createTestDb() as any,
       secrets: createSecretStore(),
     });
 
-    // Act
     const settings = await repo.getSettings();
 
-    // Assert
     // Web search is opt-in. Disabled by default
     expect(settings.webSearch).toEqual({
       enabled: false,
     });
   });
 
+  test("defaults provider setup reminder to enabled", async () => {
+    const repo = createSettingsRepository({
+      db: createTestDb() as any,
+      secrets: createSecretStore(),
+    });
+
+    const settings = await repo.getSettings();
+
+    expect(settings.reminders.providerConfiguration.enabled).toBe(true);
+  });
+
   test("migrates legacy provider key into per-provider auth map", async () => {
-    // Arrange
     // Pre-populate with old-format provider settings and legacy global API key
     const db = createTestDb();
     const secret = createSecretStore({
@@ -49,14 +58,17 @@ describe("settings repository", () => {
           enabled: true,
           allowedTypes: ["ean13"],
         },
+        reminders: {
+          providerConfiguration: {
+            enabled: true,
+          },
+        },
       }),
     });
 
-    // Act
     const repo = createSettingsRepository({ db: db as any, secrets: secret });
     const settings = await repo.getSettings();
 
-    // Assert
     // Legacy kind mapped to provider id. Global key migrated to per-provider auth
     expect(settings.provider.id).toBe("google");
     expect(settings.provider.showExperimentalProviders).toBe(false);
@@ -68,13 +80,59 @@ describe("settings repository", () => {
     expect(settings.ingest.apiKey).toBe("legacy-ingest-key");
   });
 
+  test("does not fetch provider defaults when persisted model exists", async () => {
+    const db = createTestDb();
+    await db.insert(schema.settingsTable).values({
+      key: "tolksyn.settings",
+      value: JSON.stringify({
+        provider: {
+          id: "openai",
+          model: "gpt-5.3-codex",
+          timeoutMs: 6000,
+          authModeByProvider: {
+            openai: "oauth",
+          },
+        },
+        ingest: {
+          endpointUrl: "https://example.com/ingest",
+        },
+        barcode: {
+          enabled: true,
+          allowedTypes: ["qr"],
+        },
+        webSearch: {
+          enabled: false,
+        },
+        reminders: {
+          providerConfiguration: {
+            enabled: true,
+          },
+        },
+      }),
+    });
+    const catalog = {
+      authMode: jest.fn(() => "oauth"),
+      defaultsFor: jest.fn(async () => {
+        throw new Error("provider defaults should not load");
+      }),
+    };
+    const repo = createSettingsRepository({
+      db: db as any,
+      secrets: createSecretStore(),
+      catalog: catalog as any,
+    });
+
+    const settings = await repo.getSettings();
+
+    expect(settings.provider.model).toBe("gpt-5.3-codex");
+    expect(catalog.defaultsFor).not.toHaveBeenCalled();
+  });
+
   test("persists provider auth in secure store and excludes secrets from sqlite settings row", async () => {
-    // Arrange
     const db = createTestDb();
     const secret = createSecretStore();
     const repo = createSettingsRepository({ db: db as any, secrets: secret });
 
-    // Act
     await repo.saveSettings({
       provider: {
         id: "openai",
@@ -111,9 +169,13 @@ describe("settings repository", () => {
       webSearch: {
         enabled: true,
       },
+      reminders: {
+        providerConfiguration: {
+          enabled: false,
+        },
+      },
     });
 
-    // Assert
     // Secrets excluded from the SQLite row so plaintext access is limited
     const rows = await db
       .select()
@@ -122,6 +184,9 @@ describe("settings repository", () => {
     expect(rows).toHaveLength(1);
     expect(rows[0].value).toContain('"id":"openai"');
     expect(rows[0].value).toContain('"webSearch":{"enabled":true}');
+    expect(rows[0].value).toContain(
+      '"reminders":{"providerConfiguration":{"enabled":false}}',
+    );
     expect(rows[0].value).not.toContain("google-key");
     expect(rows[0].value).not.toContain("refresh-token");
 
@@ -135,6 +200,7 @@ describe("settings repository", () => {
     expect(next.provider.model).toBe("gpt-4.1-mini");
     expect(next.provider.showExperimentalProviders).toBe(true);
     expect(next.webSearch.enabled).toBe(true);
+    expect(next.reminders.providerConfiguration.enabled).toBe(false);
     expect(next.ingest.endpointUrl).toBe("https://example.com/ingest");
     expect(next.provider.auth.openai).toEqual({
       type: "oauth",
@@ -158,20 +224,4 @@ function createTestDb() {
   `);
 
   return db;
-}
-
-function createSecretStore(seed?: Record<string, string>) {
-  const map = new Map<string, string>(Object.entries(seed ?? {}));
-
-  return {
-    async getItem(key: string): Promise<string | null> {
-      return map.get(key) ?? null;
-    },
-    async setItem(key: string, value: string): Promise<void> {
-      map.set(key, value);
-    },
-    async deleteItem(key: string): Promise<void> {
-      map.delete(key);
-    },
-  };
 }

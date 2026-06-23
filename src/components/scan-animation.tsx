@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { Animated, Easing, View } from "react-native";
 
-import { AppDesign } from "@/constants/design";
+import { ScanFinder } from "@/components/scan-finder";
 
 // Timings match scan-animation.web so the finder motion feels the same on every platform.
 const scanSteps = [
@@ -55,25 +55,6 @@ export function ScanAnimation() {
       <Animated.View style={{ transform: [{ translateX }, { translateY }] }}>
         {finder}
       </Animated.View>
-    </View>
-  );
-}
-
-function ScanFinder() {
-  return (
-    <View
-      style={{
-        width: 92,
-        height: 92,
-        borderWidth: 3,
-        borderColor: AppDesign.color.yellow,
-        alignItems: "center",
-        justifyContent: "center",
-      }}
-    >
-      <View
-        style={{ width: 8, height: 8, backgroundColor: AppDesign.color.yellow }}
-      />
     </View>
   );
 }

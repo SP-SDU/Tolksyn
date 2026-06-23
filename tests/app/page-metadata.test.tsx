@@ -34,11 +34,8 @@ describe("page metadata", () => {
     [SettingsRoute, "Tolksyn Settings"],
     [ConfirmRoute, "Tolksyn Verify"],
   ])("sets a document title", (Route, expectedTitle) => {
-    // Arrange
-    // Act
     const title = findTitle(Route() as ReactElement);
 
-    // Assert
     // Each route renders a <title> tag for browser tab / accessibility
     expect(title).toBe(expectedTitle);
   });

@@ -1,0 +1,21 @@
+{
+  "entry": [
+    "src/components/barcode-camera.tsx",
+    "src/components/scan-animation.tsx",
+    "src/components/ui/icon-symbol.tsx",
+    "src/hooks/use-color-scheme.ts",
+    "src/services/capture/barcode-detector.ts",
+    "src/services/capture/image-store.ts",
+    "tests/setup.ts"
+  ],
+  "ignoreDependencies": [
+    "expo",
+    "expo-splash-screen",
+    "nativewind",
+    "react-native-web"
+  ],
+  "health": {
+    "maxCognitive": 24,
+    "maxCrap": 80
+  }
+}

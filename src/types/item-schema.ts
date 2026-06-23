@@ -43,11 +43,6 @@ type NumericFieldName = (typeof numericFieldNames)[number];
 export type StructuredItem = Record<TextFieldName, string | null> &
   Record<NumericFieldName, number | null>;
 
-export type StructuredItemInput = Partial<
-  Record<TextFieldName, string | null>
-> &
-  Partial<Record<NumericFieldName, number | string | null>>;
-
 type ValidationSuccess = {
   success: true;
   data: StructuredItem;
@@ -59,42 +54,6 @@ type ValidationFailure = {
     fieldErrors: Partial<Record<keyof StructuredItem, string[]>>;
   };
 };
-
-const nullableText = z.union([z.string(), z.null()]);
-const nullableNumber = z.union([z.number(), z.null()]);
-
-const structuredItemSchema = z.object({
-  sku: nullableText,
-  manufacturer: nullableText,
-  productNumber: nullableText,
-  productText: nullableText,
-  productVersion: nullableText,
-  eanOrUpc: nullableText,
-  countryOfOrigin: nullableText,
-  itemCategory: nullableText,
-  packaging: nullableText,
-  condition: nullableText,
-  externalCondition: nullableText,
-  workingCondition: nullableText,
-  quantity: nullableNumber,
-  batchSize: nullableNumber,
-  storagePosition: nullableText,
-  externalNote: nullableText,
-  internalNote: nullableText,
-  priceEur: nullableNumber,
-  status: nullableText,
-  advancedInformation: nullableText,
-  weightKg: nullableNumber,
-  heightMm: nullableNumber,
-  widthMm: nullableNumber,
-  lengthMm: nullableNumber,
-  hsCode: nullableText,
-  itemGroup: nullableText,
-  reference: nullableText,
-  sendingType: nullableText,
-  sellingType: nullableText,
-  link: nullableText,
-});
 
 export function emptyStructuredItem(): StructuredItem {
   return {
@@ -148,10 +107,6 @@ export function normalizeStructuredItemInput(
     normalized[field] = normalizeNumberLike(input[field]);
   }
 
-  if (normalized.link && typeof normalized.link === "string") {
-    normalized.link = normalized.link.trim();
-  }
-
   return normalized;
 }
 
@@ -169,9 +124,7 @@ export function validateStructuredItem(
   }
 
   if (typeof normalized.link === "string") {
-    const urlResult = z
-      .url({ error: "Expected a valid URL" })
-      .safeParse(normalized.link);
+    const urlResult = z.url().safeParse(normalized.link);
     if (!urlResult.success) {
       fieldErrors.link = ["Expected a valid URL"];
     }
@@ -184,17 +137,9 @@ export function validateStructuredItem(
     };
   }
 
-  const result = structuredItemSchema.safeParse(normalized);
-  if (!result.success) {
-    return {
-      success: false,
-      error: { fieldErrors: {} },
-    };
-  }
-
   return {
     success: true,
-    data: result.data,
+    data: normalized as StructuredItem,
   };
 }
 
@@ -210,10 +155,6 @@ function normalizeText(value: unknown): string | null {
 function normalizeNumberLike(value: unknown): number | string | null {
   if (value == null) {
     return null;
-  }
-
-  if (typeof value === "number") {
-    return Number.isFinite(value) ? value : String(value);
   }
 
   const text = String(value).trim();

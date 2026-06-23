@@ -7,7 +7,6 @@ describe("github copilot oauth api routes", () => {
   });
 
   test("forwards device code request to github endpoint", async () => {
-    // Arrange
     const mock = jest.spyOn(global, "fetch").mockResolvedValue(
       new Response(
         JSON.stringify({
@@ -25,7 +24,6 @@ describe("github copilot oauth api routes", () => {
       ),
     );
 
-    // Act
     const response = await codePost(
       new Request(
         "http://localhost:8081/api/oauth/github-copilot/device/code",
@@ -34,7 +32,6 @@ describe("github copilot oauth api routes", () => {
     );
     const body = await response.json();
 
-    // Assert
     // Proxy forwards to GitHub device code endpoint and returns user_code
     expect(response.status).toBe(200);
     expect(body.user_code).toBe("CODE");
@@ -45,7 +42,6 @@ describe("github copilot oauth api routes", () => {
   });
 
   test("forwards token payload request to github endpoint", async () => {
-    // Arrange
     const mock = jest.spyOn(global, "fetch").mockResolvedValue(
       new Response(
         JSON.stringify({
@@ -60,7 +56,6 @@ describe("github copilot oauth api routes", () => {
       ),
     );
 
-    // Act
     const response = await tokenPost(
       new Request(
         "http://localhost:8081/api/oauth/github-copilot/device/token",
@@ -76,7 +71,6 @@ describe("github copilot oauth api routes", () => {
       ),
     );
 
-    // Assert
     // Proxy forwards the device code payload to GitHub token endpoint
     expect(response.status).toBe(200);
     expect(mock).toHaveBeenCalledWith(
@@ -88,10 +82,8 @@ describe("github copilot oauth api routes", () => {
   });
 
   test("rejects custom enterprise domains", async () => {
-    // Arrange
     const mock = jest.spyOn(global, "fetch");
 
-    // Act
     const response = await codePost(
       new Request(
         "http://localhost:8081/api/oauth/github-copilot/device/code?enterpriseUrl=company.ghe.com",
@@ -101,7 +93,6 @@ describe("github copilot oauth api routes", () => {
       ),
     );
 
-    // Assert
     // Enterprise domain blocked at proxy level. Upstream never contacted
     expect(response.status).toBe(400);
     expect(await response.json()).toMatchObject({

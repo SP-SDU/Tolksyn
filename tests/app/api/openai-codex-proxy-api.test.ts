@@ -6,7 +6,6 @@ describe("openai codex proxy api route", () => {
   });
 
   test("proxies codex responses requests through the package proxy", async () => {
-    // Arrange
     // Mock upstream to return SSE-style streaming response
     jest.spyOn(global, "fetch").mockResolvedValue(
       new Response('{"ok":true}', {
@@ -15,7 +14,6 @@ describe("openai codex proxy api route", () => {
       }),
     );
 
-    // Act
     // Send POST request with OAuth token and account ID
     const response = await POST(
       new Request("http://localhost:8081/api/proxy/openai/codex/responses", {
@@ -32,7 +30,6 @@ describe("openai codex proxy api route", () => {
       }),
     );
 
-    // Assert
     // Response proxied back faithfully
     expect(response.status).toBe(200);
     // no-store prevents caching of streaming AI responses

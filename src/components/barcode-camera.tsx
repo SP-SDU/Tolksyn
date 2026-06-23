@@ -12,8 +12,9 @@ export type BarcodeCameraHandle = CameraView;
 export type BarcodeCameraProps = AccessibilityProps & {
   style?: StyleProp<ViewStyle>;
   facing: "front" | "back";
+  active?: boolean;
   barcodeTypes: BarcodeType[];
-  onBarcodeScanned(event: Pick<BarcodeScanningResult, "data" | "type">): void;
+  onBarcodeScanned?(event: Pick<BarcodeScanningResult, "data" | "type">): void;
 };
 
 export const BarcodeCamera = forwardRef<

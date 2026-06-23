@@ -3,41 +3,30 @@ import { render, screen } from "@testing-library/react-native";
 import { Button } from "@/components/ui/button";
 import { LabeledInput } from "@/components/ui/input";
 import { ScreenView } from "@/components/ui/screen";
-import { AppDesign } from "@/constants/design";
+import { AppDesign } from "@/constants/theme";
 
 describe("shared accessibility primitives", () => {
   it("uses button labels as accessible names", () => {
-    // Arrange
-    // Act
     render(<Button label="Capture" />);
 
-    // Assert
     // Button label becomes the accessibility label for screen readers
     expect(screen.getByLabelText("Capture")).toBeTruthy();
   });
 
   it("passes visible labels to text inputs", () => {
-    // Arrange
-    // Act
     render(<LabeledInput label="Endpoint URL" value="" />);
 
-    // Assert
     expect(screen.getByLabelText("Endpoint URL")).toBeTruthy();
   });
 
   it("marks screen containers as main landmarks", () => {
-    // Arrange
-    // Act
     render(<ScreenView testID="screen" />);
 
-    // Assert
     // role="main" lets assistive technology jump to the primary content
     expect(screen.getByTestId("screen").props.role).toBe("main");
   });
 
   it("keeps primary button text contrast at WCAG AA", () => {
-    // Arrange
-    // Act and Assert
     // WCAG AA requires 4.5:1 for normal text contrast ratio
     expect(
       contrastRatio(AppDesign.color.red, AppDesign.color.paper),

@@ -1,8 +1,9 @@
 import { createSettingsRepository } from "@/repositories/settings-repository";
 
+import { createSecretStore } from "@/tests/helpers/fakes";
+
 describe("settings repository web fallback", () => {
   test("loads persisted settings from secret store when sqlite value is malformed", async () => {
-    // Arrange
     // Simulate a database with truncated JSON so SQLite read fails
     // Valid settings stored in secret store as web fallback
     const valid = JSON.stringify({
@@ -25,6 +26,11 @@ describe("settings repository web fallback", () => {
       },
       webSearch: {
         enabled: true,
+      },
+      reminders: {
+        providerConfiguration: {
+          enabled: true,
+        },
       },
     });
 
@@ -75,11 +81,9 @@ describe("settings repository web fallback", () => {
       },
     };
 
-    // Act
     const repo = createSettingsRepository({ db: db as any, secrets });
     const settings = await repo.getSettings();
 
-    // Assert
     // Fallback settings used. Web search enabled. OAuth auth loaded from secret store
     expect(settings.provider.id).toBe("github-copilot");
     expect(settings.provider.showExperimentalProviders).toBe(true);
@@ -92,19 +96,3 @@ describe("settings repository web fallback", () => {
     });
   });
 });
-
-function createSecretStore(seed?: Record<string, string>) {
-  const map = new Map<string, string>(Object.entries(seed ?? {}));
-
-  return {
-    async getItem(key: string): Promise<string | null> {
-      return map.get(key) ?? null;
-    },
-    async setItem(key: string, value: string): Promise<void> {
-      map.set(key, value);
-    },
-    async deleteItem(key: string): Promise<void> {
-      map.delete(key);
-    },
-  };
-}

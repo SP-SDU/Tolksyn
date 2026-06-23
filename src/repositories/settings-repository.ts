@@ -4,7 +4,11 @@ import { Platform } from "react-native";
 
 import type * as schema from "@/db/schema";
 import { settingsTable } from "@/db/schema";
-import { createProviderCatalog } from "@/services/provider-catalog";
+import {
+  createProviderCatalog,
+  fallbackProviderModel,
+} from "@/services/providers/provider-catalog";
+import type { SecretStore } from "@/types/secret-store";
 import {
   defaultSettings,
   type AppSettings,
@@ -34,6 +38,7 @@ type PersistedSettings = {
   };
   barcode: AppSettings["barcode"];
   webSearch: AppSettings["webSearch"];
+  reminders: AppSettings["reminders"];
 };
 
 type LegacyProvider = {
@@ -54,15 +59,10 @@ type LegacyPersistedSettings = {
   };
   barcode?: AppSettings["barcode"];
   webSearch?: AppSettings["webSearch"];
+  reminders: AppSettings["reminders"];
 };
 
 type DbLike = ExpoSQLiteDatabase<typeof schema>;
-
-export interface SecretStore {
-  getItem(key: string): Promise<string | null>;
-  setItem(key: string, value: string): Promise<void>;
-  deleteItem?(key: string): Promise<void>;
-}
 
 export function createSettingsRepository({
   db,
@@ -105,6 +105,7 @@ export function createSettingsRepository({
         },
         barcode: persisted.barcode,
         webSearch: persisted.webSearch,
+        reminders: persisted.reminders,
       };
     },
 
@@ -137,6 +138,11 @@ export function createSettingsRepository({
         },
         webSearch: {
           enabled: settings.webSearch.enabled,
+        },
+        reminders: {
+          providerConfiguration: {
+            enabled: settings.reminders.providerConfiguration.enabled,
+          },
         },
       };
 
@@ -195,47 +201,69 @@ async function parsePersisted(
   secrets: SecretStore,
   catalog: ReturnType<typeof createProviderCatalog>,
 ): Promise<PersistedSettings | null> {
+  const raw = parseRawSettings(rawValue);
+  if (!raw) {
+    return null;
+  }
+
+  const id = raw.provider?.id ?? mapLegacyId(raw.provider?.kind);
+
+  await migrateLegacyApiSecret(secrets, id);
+
+  return migratedSettings(raw, id, catalog);
+}
+
+function parseRawSettings(rawValue: string | null): LegacyPersistedSettings | null {
   if (!rawValue) {
     return null;
   }
 
-  let raw: LegacyPersistedSettings;
   try {
-    raw = JSON.parse(rawValue) as LegacyPersistedSettings;
+    return JSON.parse(rawValue) as LegacyPersistedSettings;
   } catch {
     return null;
   }
+}
 
+function migratedSettings(
+  raw: LegacyPersistedSettings,
+  id: string,
+  catalog: ReturnType<typeof createProviderCatalog>,
+): PersistedSettings {
   const defaults = fromDefaults();
-  const id = raw.provider?.id ?? mapLegacyId(raw.provider?.kind);
-  const mode = raw.provider?.authModeByProvider?.[id] ?? catalog.authMode(id);
-  const providerDefaults = await catalog.defaultsFor(id, mode);
-  const migrated: PersistedSettings = {
-    provider: {
-      id,
-      model: raw.provider?.model ?? providerDefaults.model,
-      modelVariant:
-        raw.provider?.modelVariant ?? defaults.provider.modelVariant,
-      timeoutMs: raw.provider?.timeoutMs ?? defaults.provider.timeoutMs,
-      showExperimentalProviders:
-        raw.provider?.showExperimentalProviders ??
-        defaults.provider.showExperimentalProviders,
-      authModeByProvider: {
-        ...defaults.provider.authModeByProvider,
-        ...(raw.provider?.authModeByProvider ?? {}),
-        [id]: mode,
-      },
-    },
+
+  return {
+    provider: migratedProvider(raw.provider, id, defaults, catalog),
     ingest: {
       endpointUrl: raw.ingest?.endpointUrl ?? defaults.ingest.endpointUrl,
     },
     barcode: raw.barcode ?? defaults.barcode,
     webSearch: raw.webSearch ?? defaults.webSearch,
+    reminders: raw.reminders,
   };
+}
 
-  await migrateLegacyApiSecret(secrets, id);
+function migratedProvider(
+  raw: LegacyProvider | undefined,
+  id: string,
+  defaults: PersistedSettings,
+  catalog: ReturnType<typeof createProviderCatalog>,
+): PersistedProvider {
+  const mode = raw?.authModeByProvider?.[id] ?? catalog.authMode(id);
 
-  return migrated;
+  return {
+    id,
+    model: raw?.model ?? fallbackProviderModel(id),
+    modelVariant: raw?.modelVariant ?? defaults.provider.modelVariant,
+    timeoutMs: raw?.timeoutMs ?? defaults.provider.timeoutMs,
+    showExperimentalProviders:
+      raw?.showExperimentalProviders ?? defaults.provider.showExperimentalProviders,
+    authModeByProvider: {
+      ...defaults.provider.authModeByProvider,
+      ...(raw?.authModeByProvider ?? {}),
+      [id]: mode,
+    },
+  };
 }
 
 /** Older installs stored a single API key, and migrate once so multi-provider auth keeps working. */
@@ -277,6 +305,7 @@ function fromDefaults(): PersistedSettings {
     },
     barcode: defaults.barcode,
     webSearch: defaults.webSearch,
+    reminders: defaults.reminders,
   };
 }
 

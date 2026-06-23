@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, Text, type PressableProps } from "react-native";
 
 import { cn } from "@/components/ui/cn";
-import { AppDesign } from "@/constants/design";
+import { AppDesign } from "@/constants/theme";
 
 const buttonVariants = cva(
   "min-h-12 items-center justify-center border-2 border-border px-4",

@@ -2,12 +2,10 @@ import { POST } from "@/app/api/proxy/exa/mcp+api";
 
 describe("exa mcp proxy api route", () => {
   test("rejects prohibited web search query phrases", async () => {
-    // Arrange
     // Suppress expected console warning. Spy on fetch to prove it is never called
     const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
     const fetch = jest.spyOn(global, "fetch");
 
-    // Act
     // Send request with prompt injection phrase embedded in query
     const response = await POST(
       new Request("http://localhost:8081/api/proxy/exa/mcp", {
@@ -23,7 +21,6 @@ describe("exa mcp proxy api route", () => {
       }),
     );
 
-    // Assert
     // Blocked at proxy level before reaching upstream
     expect(response.status).toBe(400);
     expect(fetch).not.toHaveBeenCalled();

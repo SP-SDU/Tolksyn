@@ -3,7 +3,6 @@ import type {
   AgentQueryCrawlResult,
 } from "agent-query-crawl";
 import { useDrizzleStudio } from "expo-drizzle-studio-plugin";
-import * as ImagePicker from "expo-image-picker";
 import * as Network from "expo-network";
 import { useSQLiteContext } from "expo-sqlite";
 import {
@@ -22,22 +21,39 @@ import { clearWebKeys, secureSecretStore } from "@/db/secure-store";
 import { createAttemptRepository } from "@/repositories/attempt-repository";
 import { createQueueRepository } from "@/repositories/queue-repository";
 import { createSettingsRepository } from "@/repositories/settings-repository";
-import { createBarcodeDetector } from "@/services/barcode-detector";
-import { processImage } from "@/services/capture-pipeline";
-import { createExportService } from "@/services/export-service";
-import { importFromGallery } from "@/services/gallery-import";
-import { createImageStore } from "@/services/image-store";
-import { createManufacturerWebSearchEnricher } from "@/services/manufacturer-websearch";
-import { createProviderCatalog } from "@/services/provider-catalog";
-import { createProviderOAuth } from "@/services/provider-oauth";
-import { drainQueue } from "@/services/queue-worker";
-import { createSubmissionService } from "@/services/submission-service";
-import { buildIdempotencyKey } from "@/utils/idempotency";
-import type { BarcodeHit } from "@/utils/merge-extraction-result";
-import { computeRetryDelayMs } from "@/utils/retry-policy";
+import { createProviderCatalog } from "@/services/providers/provider-catalog";
+import { computeRetryDelayMs } from "@/services/submission/queue-retry-policy";
+import { drainQueue } from "@/services/submission/queue-worker";
+import { buildSubmissionIdempotencyKey } from "@/services/submission/submission-idempotency";
+import { createSubmissionService } from "@/services/submission/submission-service";
+import type { BarcodeHit } from "@/types/extraction";
+
+type CaptureProgressStage =
+  | "persisted"
+  | "barcode_started"
+  | "barcode_done"
+  | "extraction_started"
+  | "extraction_done"
+  | "websearch_started"
+  | "websearch_done";
+
+type ImageStore = {
+  persistImages(input: { inputUris: string[]; attemptId: string }): Promise<
+    {
+      imageUri: string;
+      thumbnailUri: string;
+      imageBase64: string;
+      mimeType: string;
+      width: number;
+      height: number;
+    }[]
+  >;
+  deleteAttemptImages(attemptId: string): Promise<void>;
+  deleteAllImages(): Promise<void>;
+};
 
 type RemoteExtractor = ReturnType<
-  (typeof import("@/api/remote-extractor"))["createRemoteExtractor"]
+  (typeof import("@/services/extraction/remote-extractor"))["createRemoteExtractor"]
 >;
 
 const AppRuntimeContext = createContext<ReturnType<
@@ -86,7 +102,24 @@ export function useAppRuntime() {
 
 function createRuntime(sqlite: Parameters<typeof createDb>[0]) {
   const db = createDb(sqlite);
-  const imageStore = createImageStore();
+  let loadedImageStore: Promise<ImageStore> | null = null;
+  const getImageStore = () => {
+    loadedImageStore ??= import("@/services/capture/image-store").then(
+      ({ createImageStore }) => createImageStore(),
+    );
+    return loadedImageStore;
+  };
+  const imageStore: ImageStore = {
+    async persistImages(input) {
+      return (await getImageStore()).persistImages(input);
+    },
+    async deleteAttemptImages(attemptId) {
+      return (await getImageStore()).deleteAttemptImages(attemptId);
+    },
+    async deleteAllImages() {
+      return (await getImageStore()).deleteAllImages();
+    },
+  };
   const attempts = createAttemptRepository(db, sqlite, {
     onDelete: (id) => imageStore.deleteAttemptImages(id),
     onPrune: async (ids) => {
@@ -103,18 +136,51 @@ function createRuntime(sqlite: Parameters<typeof createDb>[0]) {
     secrets: secureSecretStore,
     catalog,
   });
-  const barcodeDetector = createBarcodeDetector();
-  const exportService = createExportService();
+  const exportService = {
+    async exportJson(payload: any): Promise<void> {
+      const { createExportService } = await import(
+        "@/services/export/export-service"
+      );
+      return createExportService().exportJson(payload);
+    },
+    async exportCsv(attemptId: string, item: any): Promise<void> {
+      const { createExportService } = await import(
+        "@/services/export/export-service"
+      );
+      return createExportService().exportCsv(attemptId, item);
+    },
+  };
   let loadedExtractor: RemoteExtractor | null = null;
+  let loadedBarcodeDetector: {
+    detect(input: {
+      imageUri: string;
+      allowedTypes?: string[];
+    }): Promise<BarcodeHit[]>;
+  } | null = null;
+  let loadedWebSearchEnricher: { enrich(input: any): Promise<any> } | null =
+    null;
+  let loadedOAuth: {
+    start(providerId: string, options?: { enterpriseUrl?: string }): Promise<any>;
+  } | null = null;
   let loadedQueryCrawl: Promise<{
     query(input: AgentQueryCrawlInput): Promise<AgentQueryCrawlResult>;
   }> | null = null;
+  const getBarcodeDetector = async () => {
+    if (!loadedBarcodeDetector) {
+      const { createBarcodeDetector } = await import(
+        "@/services/capture/barcode-detector"
+      );
+      loadedBarcodeDetector = createBarcodeDetector();
+    }
+
+    return loadedBarcodeDetector;
+  };
   const extractor: RemoteExtractor = {
     async extract(input) {
       // First extraction pays the AI SDK bundle cost, and deferring keeps tab launch responsive.
       if (!loadedExtractor) {
         const { createRemoteExtractor } =
-          await import("@/api/remote-extractor");
+          await import("@/services/extraction/remote-extractor");
         loadedExtractor = createRemoteExtractor(settings);
       }
 
@@ -142,12 +208,34 @@ function createRuntime(sqlite: Parameters<typeof createDb>[0]) {
       return (await loadedQueryCrawl).query(input);
     },
   };
-  const webSearchEnricher = createManufacturerWebSearchEnricher({
-    settings,
-    extractor,
-    queryCrawl,
-  });
-  const oauth = createProviderOAuth({ fetch });
+  const webSearchEnricher = {
+    async enrich(input: any): Promise<any> {
+      if (!loadedWebSearchEnricher) {
+        const { createManufacturerWebSearchEnricher } = await import(
+          "@/services/extraction/manufacturer-websearch"
+        );
+        loadedWebSearchEnricher = createManufacturerWebSearchEnricher({
+          settings,
+          extractor,
+          queryCrawl,
+        });
+      }
+
+      return loadedWebSearchEnricher.enrich(input);
+    },
+  };
+  const oauth = {
+    async start(providerId: string, options?: { enterpriseUrl?: string }) {
+      if (!loadedOAuth) {
+        const { createProviderOAuth } = await import(
+          "@/services/providers/provider-oauth"
+        );
+        loadedOAuth = createProviderOAuth({ fetch });
+      }
+
+      return loadedOAuth.start(providerId, options);
+    },
+  };
   const transport = createIngestTransport(settings);
   const submissionService = createSubmissionService({
     attempts,
@@ -167,7 +255,7 @@ function createRuntime(sqlite: Parameters<typeof createDb>[0]) {
         );
       },
     },
-    createIdempotencyKey: buildIdempotencyKey,
+    createIdempotencyKey: buildSubmissionIdempotencyKey,
     now: () => Date.now(),
   });
 
@@ -180,6 +268,10 @@ function createRuntime(sqlite: Parameters<typeof createDb>[0]) {
     exportService,
 
     async importFromGallery() {
+      const [{ importFromGallery }, ImagePicker] = await Promise.all([
+        import("@/services/capture/gallery-import"),
+        import("expo-image-picker"),
+      ]);
       return importFromGallery({
         requestPermission: ImagePicker.requestMediaLibraryPermissionsAsync,
         launchPicker: () =>
@@ -197,9 +289,12 @@ function createRuntime(sqlite: Parameters<typeof createDb>[0]) {
       inputUris: string[];
       liveBarcodes?: BarcodeHit[];
       signal?: AbortSignal;
-      onProgress?: Parameters<typeof processImage>[0]["onProgress"];
+      onProgress?: (stage: CaptureProgressStage) => void;
     }) {
-      const appSettings = await settings.getSettings();
+      const [{ processImage }, appSettings] = await Promise.all([
+        import("@/services/capture/capture-processing"),
+        settings.getSettings(),
+      ]);
       return processImage({
         ...options,
         now: () => Date.now(),
@@ -210,14 +305,16 @@ function createRuntime(sqlite: Parameters<typeof createDb>[0]) {
         barcodeDetector: {
           detect: ({ imageUris }) =>
             appSettings.barcode.enabled
-              ? Promise.all(
-                  imageUris.map((imageUri) =>
-                    barcodeDetector.detect({
-                      imageUri,
-                      allowedTypes: appSettings.barcode.allowedTypes,
-                    }),
-                  ),
-                ).then((results) => results.flat())
+              ? getBarcodeDetector().then((barcodeDetector) =>
+                  Promise.all(
+                    imageUris.map((imageUri) =>
+                      barcodeDetector.detect({
+                        imageUri,
+                        allowedTypes: appSettings.barcode.allowedTypes,
+                      }),
+                    ),
+                  ).then((results) => results.flat()),
+                )
               : Promise.resolve([]),
         },
         extractor,

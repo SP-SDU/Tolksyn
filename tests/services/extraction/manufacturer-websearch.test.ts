@@ -1,0 +1,322 @@
+import { createManufacturerWebSearchEnricher } from "@/services/extraction/manufacturer-websearch";
+import { emptyStructuredItem } from "@/types/item-schema";
+import { defaultSettings } from "@/types/settings";
+
+describe("manufacturer websearch enrichment", () => {
+  test("plans queries, passes them to agent-query-crawl, and reconciles crawled pages", async () => {
+    // extractor called twice: first for query planning, second for reconciliation
+    const settings = enabledSettings();
+    const extractor = {
+      extract: jest
+        .fn()
+        .mockResolvedValueOnce({
+          structuredJson: {
+            ...emptyStructuredItem(),
+            productNumber: "2865463",
+          },
+          barcodes: [],
+          responseText: JSON.stringify({
+            queries: ["Phoenix Contact 2865463 official datasheet"],
+          }),
+          metadata: remoteMetadata(),
+        })
+        .mockResolvedValueOnce({
+          structuredJson: {
+            ...emptyStructuredItem(),
+            manufacturer: "Phoenix Contact",
+            productNumber: "2865463",
+          },
+          barcodes: [],
+          auxiliaryText: JSON.stringify({
+            fieldChanges: [
+              {
+                field: "manufacturer",
+                before: null,
+                after: "Phoenix Contact",
+                evidenceUrls: ["https://example.com/product"],
+                reason: "Official product page identifies the manufacturer.",
+              },
+            ],
+            conflicts: [],
+          }),
+          metadata: remoteMetadata(),
+        }),
+    };
+    const queryCrawl = {
+      query: jest.fn().mockResolvedValue({
+        query: "Phoenix Contact 2865463 official datasheet",
+        resultsText: "Official product page https://example.com/product",
+        urls: ["https://example.com/product"],
+        sources: [
+          {
+            url: "https://example.com/product",
+            contentType: "text/html",
+            text: "Phoenix Contact official product page for 2865463",
+          },
+        ],
+      }),
+    };
+    const enricher = testEnricher(settings, extractor, queryCrawl);
+
+    const result = await enrich(enricher, {
+      ...emptyStructuredItem(),
+      productNumber: "2865463",
+    });
+
+    // Query sent to agent-query-crawl with crawl enabled
+    expect(queryCrawl.query).toHaveBeenCalledWith(
+      expect.objectContaining({
+        query: "Phoenix Contact 2865463 official datasheet",
+        crawl: expect.objectContaining({ enabled: true, maxPages: 6 }),
+      }),
+    );
+    // Reconciliation extractor receives crawled page content
+    expect(extractor.extract).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        prompt: expect.stringContaining(
+          "Phoenix Contact official product page for 2865463",
+        ),
+      }),
+    );
+    // Manufacturer field enriched with evidence from the web search
+    expect(result?.structuredJson.manufacturer).toBe("Phoenix Contact");
+    expect(result?.diagnostics).toEqual(
+      expect.objectContaining({
+        queries: ["Phoenix Contact 2865463 official datasheet"],
+        attempts: [
+          expect.objectContaining({
+            type: "query_planning",
+            status: "success",
+          }),
+          expect.objectContaining({
+            type: "exa_search",
+            status: "success",
+            query: "Phoenix Contact 2865463 official datasheet",
+          }),
+          expect.objectContaining({
+            type: "webfetch",
+            status: "success",
+            url: "https://example.com/product",
+          }),
+          expect.objectContaining({
+            type: "reconciliation",
+            status: "success",
+          }),
+        ],
+        sources: [
+          expect.objectContaining({ url: "https://example.com/product" }),
+        ],
+        fieldChanges: [
+          {
+            field: "manufacturer",
+            before: null,
+            after: "Phoenix Contact",
+            evidenceUrls: ["https://example.com/product"],
+            reason: "Official product page identifies the manufacturer.",
+          },
+        ],
+      }),
+    );
+  });
+
+  test("accepts query json from extraction envelope auxiliary text", async () => {
+    // Query planning reads queries from the extraction envelope auxiliary text
+    const settings = enabledSettings();
+    const extractor = {
+      extract: jest
+        .fn()
+        .mockResolvedValueOnce(
+          queryPlanningResponse(
+            JSON.stringify({
+              structured_json: emptyStructuredItem(),
+              auxiliary_text_optional: JSON.stringify({
+                queries: ["Siemens 3RW4027-2BB04 official datasheet"],
+              }),
+            }),
+          ),
+        )
+        .mockResolvedValueOnce(reconciliationResponse()),
+    };
+    const queryCrawl = {
+      query: jest.fn().mockResolvedValue({
+        query: "Siemens 3RW4027-2BB04 official datasheet",
+        resultsText: "https://example.com/siemens",
+        urls: ["https://example.com/siemens"],
+        sources: [
+          {
+            url: "https://example.com/siemens",
+            contentType: "text/html",
+            text: "Siemens datasheet",
+          },
+        ],
+      }),
+    };
+    const enricher = testEnricher(settings, extractor, queryCrawl);
+
+    const result = await enrich(enricher, emptyStructuredItem());
+
+    // Query extracted from auxiliary text used for the search
+    expect(queryCrawl.query).toHaveBeenCalledWith(
+      expect.objectContaining({
+        query: "Siemens 3RW4027-2BB04 official datasheet",
+      }),
+    );
+    expect(result?.diagnostics.queries).toEqual([
+      "Siemens 3RW4027-2BB04 official datasheet",
+    ]);
+  });
+
+  test("skips websearch explicitly when query planning returns no direct query json", async () => {
+    // Response has no queries. Websearch should be skipped
+    const settings = enabledSettings();
+    const extractor = {
+      extract: jest.fn().mockResolvedValue({
+        structuredJson: { ...emptyStructuredItem(), manufacturer: "Siemens" },
+        barcodes: [],
+        responseText: '{"structured_json":{},"auxiliary_text_optional":null}',
+        metadata: remoteMetadata(),
+      }),
+    };
+    const queryCrawl = { query: jest.fn() };
+    const enricher = testEnricher(settings, extractor, queryCrawl);
+
+    const result = await enrich(enricher, {
+      ...emptyStructuredItem(),
+      manufacturer: "Siemens",
+    });
+
+    // No query sent. Enrichment skipped with explanation
+    expect(queryCrawl.query).not.toHaveBeenCalled();
+    expect(result?.structuredJson.manufacturer).toBe("Siemens");
+    expect(result?.diagnostics).toEqual(
+      expect.objectContaining({
+        skipped: true,
+        skipReason: "Query planner returned no queries.",
+        attempts: [
+          expect.objectContaining({ type: "query_planning", status: "failed" }),
+        ],
+      }),
+    );
+  });
+
+  test("uses one shared total crawl-page limit across planned queries", async () => {
+    // 4 queries planned but only 3 executed due to the shared crawl page budget
+    const settings = enabledSettings();
+    const extractor = {
+      extract: jest
+        .fn()
+        .mockResolvedValueOnce(
+          queryPlanningResponse(
+            JSON.stringify({ queries: ["q1", "q2", "q3", "q4"] }),
+          ),
+        )
+        .mockResolvedValueOnce(reconciliationResponse()),
+    };
+    const queryCrawl = {
+      query: jest.fn(
+        (input: { query: string; crawl?: { maxPages?: number } }) =>
+          Promise.resolve({
+            query: input.query,
+            resultsText: `${input.query} https://example.com/${input.query}`,
+            urls: [`https://example.com/${input.query}`],
+            sources: Array.from(
+              { length: input.crawl?.maxPages ?? 0 },
+              (_, index) => ({
+                url: `https://example.com/${input.query}-${index}`,
+                contentType: "text/html",
+                text: `${input.query}-${index}`,
+              }),
+            ),
+          }),
+      ),
+    };
+    const enricher = testEnricher(settings, extractor, queryCrawl);
+
+    await enrich(enricher, emptyStructuredItem());
+
+    // First query gets maxPages=6. Remaining queries get crawl disabled
+    expect(queryCrawl.query).toHaveBeenCalledTimes(3);
+    expect(queryCrawl.query).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        crawl: expect.objectContaining({ maxPages: 6 }),
+      }),
+    );
+    expect(queryCrawl.query).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        crawl: expect.objectContaining({ enabled: false, maxPages: 0 }),
+      }),
+    );
+    expect(queryCrawl.query).toHaveBeenNthCalledWith(
+      3,
+      expect.objectContaining({
+        crawl: expect.objectContaining({ enabled: false, maxPages: 0 }),
+      }),
+    );
+  });
+});
+
+function enabledSettings() {
+  const settings = defaultSettings();
+  settings.webSearch.enabled = true;
+  return settings;
+}
+
+function remoteMetadata() {
+  return {
+    provider: "remote_ai_sdk",
+    durationMs: 1,
+    imageWidth: 1,
+    imageHeight: 1,
+  };
+}
+
+function queryPlanningResponse(responseText: string) {
+  return {
+    structuredJson: emptyStructuredItem(),
+    barcodes: [],
+    responseText,
+    metadata: remoteMetadata(),
+  };
+}
+
+function reconciliationResponse() {
+  return {
+    structuredJson: emptyStructuredItem(),
+    barcodes: [],
+    auxiliaryText: JSON.stringify({ fieldChanges: [], conflicts: [] }),
+    metadata: remoteMetadata(),
+  };
+}
+
+function testEnricher(
+  settings: ReturnType<typeof defaultSettings>,
+  extractor: { extract: jest.Mock },
+  queryCrawl: { query: jest.Mock },
+) {
+  return createManufacturerWebSearchEnricher({
+    settings: { getSettings: async () => settings },
+    extractor,
+    queryCrawl,
+  });
+}
+
+function enrich(
+  enricher: ReturnType<typeof createManufacturerWebSearchEnricher>,
+  structuredJson: ReturnType<typeof emptyStructuredItem>,
+) {
+  return enricher.enrich({
+    images: [
+      {
+        imageUri: "file://image.jpg",
+        imageBase64: "abc",
+        mimeType: "image/jpeg",
+        width: 100,
+        height: 100,
+      },
+    ],
+    structuredJson,
+    barcodes: [],
+  });
+}

@@ -33,13 +33,6 @@ export function enqueueToast(state: ToastState, entry: ToastEntry): ToastState {
 }
 
 export function nextToast(state: ToastState): ToastState {
-  if (!state.queue.length) {
-    return {
-      active: undefined,
-      queue: [],
-    };
-  }
-
   return {
     active: state.queue[0],
     queue: state.queue.slice(1),

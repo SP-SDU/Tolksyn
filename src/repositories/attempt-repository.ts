@@ -5,13 +5,13 @@ import type { SQLiteDatabase } from "expo-sqlite";
 import type * as schema from "@/db/schema";
 import { attemptsTable } from "@/db/schema";
 import type { AttemptImage } from "@/types/attempt-image";
+import type { MergeExtractionResult } from "@/types/extraction";
 import type { StructuredItem } from "@/types/item-schema";
-import type { MergeExtractionResult } from "@/utils/merge-extraction-result";
 
 const MAX_ATTEMPTS = 20;
 
 /** Each status gates which UI actions and queue transitions are valid for one attempt. */
-export type AttemptStatus =
+type AttemptStatus =
   | "captured"
   | "ready_for_review"
   | "queued"
@@ -20,7 +20,7 @@ export type AttemptStatus =
   | "send_failed"
   | "discarded";
 
-export type AttemptRecord = {
+type AttemptRecord = {
   id: string;
   source: "camera" | "gallery";
   images: AttemptImage[];
@@ -35,6 +35,25 @@ export type AttemptRecord = {
 };
 
 type DbLike = ExpoSQLiteDatabase<typeof schema>;
+
+type AttemptRow = {
+  id: string;
+  source: string;
+  imageUri: string | null;
+  thumbnailUri: string | null;
+  createdAt: number;
+  updatedAt: number;
+  status: string;
+  acceptedRevision: number;
+  draftStructuredJson: string | null;
+  extractionResult: string | null;
+  errorCode: string | null;
+};
+
+type AttemptSummaryRow = Omit<
+  AttemptRow,
+  "draftStructuredJson" | "extractionResult"
+>;
 
 export function createAttemptRepository(
   db: DbLike,
@@ -168,25 +187,7 @@ export function createAttemptRepository(
             return null;
           }
 
-          return {
-            id: row.id,
-            source: row.source as AttemptRecord["source"],
-            images: parseAttemptImages(row.imageUri, row.thumbnailUri),
-            createdAt: row.createdAt,
-            updatedAt: row.updatedAt,
-            status: row.status as AttemptStatus,
-            acceptedRevision: row.acceptedRevision,
-            draftStructuredJson: parseJsonOrUndefined<StructuredItem>(
-              row.draftStructuredJson,
-            ),
-            extractionResult: parseJsonOrUndefined<MergeExtractionResult>(
-              row.extractionResult,
-            ),
-            extractionDiagnostics: parseExtractionDiagnostics(
-              row.extractionResult,
-            ),
-            errorCode: row.errorCode ?? undefined,
-          };
+          return deserializeAttemptRow(row);
         } catch {}
       }
 
@@ -220,16 +221,7 @@ export function createAttemptRepository(
             return null;
           }
 
-          return {
-            id: base.id,
-            source: base.source as AttemptRecord["source"],
-            images: parseAttemptImages(base.imageUri, base.thumbnailUri),
-            createdAt: base.createdAt,
-            updatedAt: base.updatedAt,
-            status: base.status as AttemptStatus,
-            acceptedRevision: base.acceptedRevision,
-            errorCode: base.errorCode ?? undefined,
-          };
+          return deserializeAttemptSummaryRow(base);
         } catch {
           return null;
         }
@@ -254,16 +246,7 @@ export function createAttemptRepository(
             limit,
           );
 
-          return rows.map((row) => ({
-            id: row.id,
-            source: row.source as AttemptRecord["source"],
-            images: parseAttemptImages(row.imageUri, row.thumbnailUri),
-            createdAt: row.createdAt,
-            updatedAt: row.updatedAt,
-            status: row.status as AttemptStatus,
-            acceptedRevision: row.acceptedRevision,
-            errorCode: row.errorCode ?? undefined,
-          }));
+          return rows.map(deserializeAttemptSummaryRow);
         } catch {}
       }
 
@@ -284,16 +267,7 @@ export function createAttemptRepository(
           .orderBy(desc(attemptsTable.createdAt))
           .limit(limit);
 
-        return rows.map((row) => ({
-          id: row.id,
-          source: row.source as AttemptRecord["source"],
-          images: parseAttemptImages(row.imageUri, row.thumbnailUri),
-          createdAt: row.createdAt,
-          updatedAt: row.updatedAt,
-          status: row.status as AttemptStatus,
-          acceptedRevision: row.acceptedRevision,
-          errorCode: row.errorCode ?? undefined,
-        }));
+        return rows.map(deserializeAttemptSummaryRow);
       } catch {
         return [];
       }
@@ -366,6 +340,10 @@ function serializeAttempt(record: AttemptRecord) {
 function deserializeAttempt(
   row: typeof attemptsTable.$inferSelect,
 ): AttemptRecord {
+  return deserializeAttemptRow(row);
+}
+
+function deserializeAttemptRow(row: AttemptRow): AttemptRecord {
   return {
     id: row.id,
     source: row.source as AttemptRecord["source"],
@@ -381,6 +359,19 @@ function deserializeAttempt(
       row.extractionResult,
     ),
     extractionDiagnostics: parseExtractionDiagnostics(row.extractionResult),
+    errorCode: row.errorCode ?? undefined,
+  };
+}
+
+function deserializeAttemptSummaryRow(row: AttemptSummaryRow): AttemptRecord {
+  return {
+    id: row.id,
+    source: row.source as AttemptRecord["source"],
+    images: parseAttemptImages(row.imageUri, row.thumbnailUri),
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+    status: row.status as AttemptStatus,
+    acceptedRevision: row.acceptedRevision,
     errorCode: row.errorCode ?? undefined,
   };
 }

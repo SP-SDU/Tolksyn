@@ -1,4 +1,4 @@
-import type { ProviderAuthMode } from "@/services/provider-catalog";
+import type { ProviderAuthMode } from "@/types/provider";
 
 /** OAuth tokens and API keys must never be written into the settings SQLite row. */
 export type ProviderAuth =
@@ -38,6 +38,11 @@ export type AppSettings = {
   webSearch: {
     enabled: boolean;
   };
+  reminders: {
+    providerConfiguration: {
+      enabled: boolean;
+    };
+  };
 };
 
 export function defaultSettings(): AppSettings {
@@ -73,6 +78,11 @@ export function defaultSettings(): AppSettings {
     },
     webSearch: {
       enabled: false,
+    },
+    reminders: {
+      providerConfiguration: {
+        enabled: true,
+      },
     },
   };
 }
