@@ -29,7 +29,9 @@ describe("ProviderConfigurationReminder", () => {
   test("shows when provider is not configured and reminder is enabled", async () => {
     mockRuntime.settings.getSettings.mockResolvedValue(defaultSettings());
 
-    const screen = render(<ProviderConfigurationReminder />);
+    const screen = render(<ProviderConfigurationReminder />, {
+      concurrentRoot: false,
+    });
 
     expect(await screen.findByText("Provider not configured")).toBeTruthy();
     expect(screen.getByText("Open Settings")).toBeTruthy();
@@ -40,7 +42,9 @@ describe("ProviderConfigurationReminder", () => {
     settings.reminders.providerConfiguration.enabled = false;
     mockRuntime.settings.getSettings.mockResolvedValue(settings);
 
-    const screen = render(<ProviderConfigurationReminder />);
+    const screen = render(<ProviderConfigurationReminder />, {
+      concurrentRoot: false,
+    });
 
     await waitFor(() =>
       expect(mockRuntime.settings.getSettings).toHaveBeenCalled(),
@@ -54,7 +58,9 @@ describe("ProviderConfigurationReminder", () => {
     mockRuntime.settings.getSettings.mockResolvedValue(settings);
     mockRuntime.settings.saveSettings.mockResolvedValue(undefined);
 
-    const screen = render(<ProviderConfigurationReminder />);
+    const screen = render(<ProviderConfigurationReminder />, {
+      concurrentRoot: false,
+    });
     await screen.findByText("Provider not configured");
 
     fireEvent.press(screen.getByRole("checkbox", { name: "Don't remind me" }));

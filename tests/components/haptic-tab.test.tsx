@@ -35,7 +35,11 @@ describe("HapticTab", () => {
     process.env.EXPO_OS = "ios";
 
     try {
-      render(<HapticTab testID="tab" onPressIn={onPressIn} /> as any);
+      render(
+        <HapticTab testID="tab" onPressIn={onPressIn}>
+          {null}
+        </HapticTab>,
+      );
 
       fireEvent(screen.getByTestId("tab"), "pressIn", { nativeEvent: { x: 1 } });
       fireEvent(screen.getByTestId("tab"), "pressIn", { nativeEvent: { x: 2 } });

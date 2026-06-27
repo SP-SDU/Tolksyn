@@ -4,6 +4,32 @@ import { ActivityIndicator } from "react-native";
 
 import { AppDesign } from "@/constants/theme";
 
+type TabRootProps = {
+  children?: React.ReactNode;
+  screenOptions: {
+    tabBarActiveTintColor: string;
+    tabBarInactiveTintColor: string;
+    headerShown: boolean;
+    lazy: boolean;
+    tabBarLabelStyle: Record<string, unknown>;
+    tabBarStyle: Record<string, unknown>;
+  };
+};
+
+type TabScreenProps = {
+  name: string;
+  options: {
+    title: string;
+    tabBarIcon: (props: { color: string }) => ReactElement<{ name: string }>;
+  };
+};
+
+type SQLiteProviderProps = {
+  databaseName: string;
+  options: { enableChangeListener: boolean };
+  useSuspense: boolean;
+};
+
 jest.mock("../../global.css", () => ({}));
 
 const mockTabsScreen = () => null;
@@ -119,8 +145,10 @@ describe("app layouts", () => {
   });
 
   test("tab layout wires tab chrome and screen options", () => {
-    const root = TabLayout() as ReactElement;
-    const screens = Children.toArray(root.props.children).filter(isValidElement);
+    const root = TabLayout() as ReactElement<TabRootProps>;
+    const screens = Children.toArray(root.props.children).filter(
+      isValidElement,
+    ) as ReactElement<TabScreenProps>[];
 
     expect(root.props.screenOptions).toEqual(
       expect.objectContaining({
@@ -164,8 +192,10 @@ describe("app layouts", () => {
   test("root layout anchors deep links and configures sqlite provider", () => {
     useMigrations.mockReturnValue({ success: false });
 
-    const root = RootLayout() as ReactElement;
-    const sqliteProvider = root.props.children as ReactElement;
+    const root = RootLayout() as ReactElement<{
+      children: ReactElement<SQLiteProviderProps>;
+    }>;
+    const sqliteProvider = root.props.children;
 
     expect(unstable_settings).toEqual({ anchor: "(tabs)" });
     expect(sqliteProvider.props.databaseName).toBe(DATABASE_NAME);
